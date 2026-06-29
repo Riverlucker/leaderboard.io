@@ -1,0 +1,30 @@
+# Golf Competition & Leaderboard Tasks
+
+- [x] **Phase 1: Project Initialization**
+  - [x] Initialize Next.js project with App Router, TypeScript, and Tailwind CSS.
+  - [x] Set up environment variables `.env` for the Vercel Postgres connection.
+  - [x] Install Prisma ORM.
+  - [x] Define the Prisma schema (User, Course, Tee, Hole, Competition, Participant, Score, etc.).
+  - [x] Generate Prisma client and push the schema to the database.
+- [x] **Phase 2: Authentication & Foundation**
+  - [x] Setup NextAuth.js (Auth.js) with credential-based login.
+  - [x] Seed initial courses (Gut Altentann, etc.) into the database.
+- [x] **Phase 4: Admin Interfaces**
+  - [x] Create layout and navigation (Admin dashboard).
+  - [x] Competitions Admin (Create competitions, assign courses, create teams, add participants).
+  - [x] Courses Admin (View seeded courses, tees, and holes).
+  - [x] Users Admin (Create dummy players or invite real users).
+- [ ] **Phase 3: Core Scoring Engine**
+  - [ ] Implement Playing Handicap calculation logic (including 85% and 60/40 Chapman rules).
+  - [ ] Implement Netto and Gross Stableford points calculation.
+  - [ ] Implement Matchplay points and status calculation (All Square, Up/Down).
+- [x] **Phase 4: Admin Interfaces**
+  - [x] Competition creation flow (selecting type, dates, settings).
+  - [x] Player management and competition pairing/teams setup.
+- [ ] **Phase 5: Score Entry & Leaderboards**
+  - [ ] Build mobile-friendly live scoring view (+/- entry).
+  - [ ] Build bulk scorecard entry view.
+  - [ ] Build dynamic, tabbed leaderboards (Gross, Netto, Matchplay Ryder-Cup style, Playoff Trees).
+- [ ] **Phase 6: Polish & PWA**
+  - [ ] Add Service Worker for offline score caching.
+  - [ ] Implement Vercel Blob for picture uploads.

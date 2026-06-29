@@ -1,0 +1,195 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("POSTGRES_PRISMA_URL")
+  directUrl = env("POSTGRES_URL_NON_POOLING")
+}
+
+enum Role {
+  USER
+  ADMIN
+  SUPER_ADMIN
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  password      String?
+  
+  handicap      Float?
+  homeCourse    String?
+  phoneNumber   String?
+  role          Role      @default(USER)
+
+  participants  Participant[]
+  accounts      Account[]
+  sessions      Session[]
+}
+
+model Course {
+  id         String   @id @default(cuid())
+  name       String
+  gpsLat     Float?
+  gpsLng     Float?
+  picture    String?
+
+  holes      Hole[]
+  tees       Tee[]
+  rounds     Round[]
+}
+
+model Tee {
+  id           String @id @default(cuid())
+  courseId     String
+  course       Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  
+  name         String // e.g. "White", "Yellow", "Red"
+  courseRating Float
+  slope        Int
+}
+
+model Hole {
+  id          String @id @default(cuid())
+  courseId    String
+  course      Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  
+  number      Int
+  par         Int
+  strokeIndex Int
+  
+  scores      Score[]
+}
+
+model Competition {
+  id             String    @id @default(cuid())
+  uniqueSlug     String    @unique // e.g. "xy123" for spectators
+  name           String
+  type           String    // e.g., "STROKEPLAY_GROSS", "NETTO_STABLEFORD", "MATCHPLAY"
+  isTeamComp     Boolean   @default(false)
+  
+  startDate      DateTime?
+  endDate        DateTime?
+  
+  cssConfig      String?   @db.Text // JSON string or CSS text
+  bgImage        String?
+  
+  rounds         Round[]
+  teams          Team[]
+  participants   Participant[]
+}
+
+model Team {
+  id            String @id @default(cuid())
+  competitionId String
+  competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  
+  name          String
+  participants  Participant[]
+}
+
+model Participant {
+  id            String @id @default(cuid())
+  userId        String? 
+  user          User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  
+  competitionId String
+  competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  
+  teamId        String?
+  team          Team?   @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  
+  compHandicap  Float?  
+  dummyName     String? 
+  
+  scores        Score[]
+  matchPlayers  MatchPlayer[]
+}
+
+model Round {
+  id            String @id @default(cuid())
+  competitionId String
+  competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  
+  courseId      String
+  course        Course @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  
+  name          String // e.g. "Round 1", "Morning Day 1"
+  startDate     DateTime?
+  endDate       DateTime?
+  
+  matches       Match[]
+}
+
+model Match {
+  id            String @id @default(cuid())
+  roundId       String
+  round         Round  @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  
+  type          String // e.g. "SINGLES", "4BALL", "CHAPMAN", "GROUP"
+  
+  matchPlayers  MatchPlayer[]
+}
+
+model MatchPlayer {
+  id            String @id @default(cuid())
+  matchId       String
+  match         Match  @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  
+  participantId String
+  participant   Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+}
+
+model Score {
+  id            String @id @default(cuid())
+  participantId String
+  participant   Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  
+  holeId        String
+  hole          Hole   @relation(fields: [holeId], references: [id], onDelete: Restrict)
+  
+  roundId       String 
+  
+  grossStrokes  Int?
+  netStrokes    Int?
+  points        Int?   
+  
+  status        String? // "WIPED" (for /), "NOT_PLAYED" (for -)
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  enteredBy     String? 
+}
+
+// NextAuth Tables
+model Account {
+  id                 String  @id @default(cuid())
+  userId             String
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String?  @db.Text
+  access_token       String?  @db.Text
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String?  @db.Text
+  session_state      String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}

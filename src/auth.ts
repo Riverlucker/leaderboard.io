@@ -57,7 +57,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (user) {
         // @ts-ignore - we'll add types later, but user.role is valid from our authorize return
         token.role = user.role;
-        token.id = user.id;
+        token.id = user.id as string;
       }
       return token;
     },

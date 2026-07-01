@@ -1174,35 +1174,35 @@ export function CompetitionClientView({ competition, session, courses = [], user
       }}
     >
       {/* Top Header */}
-      <header className="border-b border-slate-250 bg-white/70 backdrop-blur-md sticky top-0 z-40 p-4 shadow-sm flex justify-between items-center">
-        <div className="space-y-0.5">
-          <div className="text-[10px] uppercase font-bold tracking-widest text-slate-500">leaderboard.io</div>
-          <h1 className="text-xl font-black text-slate-900 flex items-center gap-2">
+      <header className="border-b border-slate-250 bg-white/70 backdrop-blur-md sticky top-0 z-40 px-4 py-2 md:py-4 shadow-sm flex justify-between items-center h-12 md:h-16 landscape:h-10">
+        <div className="space-y-0 md:space-y-0.5">
+          <div className="text-[9px] md:text-[10px] uppercase font-bold tracking-widest text-slate-500 landscape:hidden">leaderboard.io</div>
+          <h1 className="text-sm md:text-xl font-black text-slate-900 flex items-center gap-1.5">
             <span style={{ color: primaryColor }}>{competition.name}</span>
-            <span className="text-[10px] bg-slate-100 border border-slate-200 text-slate-600 px-2 py-0.5 rounded font-mono uppercase tracking-wider">
+            <span className="text-[9px] bg-slate-100 border border-slate-200 text-slate-600 px-1.5 py-0.2 rounded font-mono uppercase tracking-wider landscape:hidden">
               {competition.type}
             </span>
           </h1>
         </div>
 
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-2 md:space-x-3">
           {session ? (
-            <div className="flex items-center space-x-2">
-              <span className="text-xs text-slate-650 font-medium hidden md:inline">Logged in as {session.user.name || session.user.email}</span>
+            <div className="flex items-center space-x-1.5 md:space-x-2">
+              <span className="text-xs text-slate-655 font-medium hidden md:inline landscape:hidden">Logged in as {session.user.name || session.user.email}</span>
               <button 
                 onClick={() => signOut({ callbackUrl: `/?comp=${competition.uniqueSlug}` })}
-                className="p-1.5 bg-slate-50 hover:bg-red-50 text-slate-500 hover:text-red-655 rounded-lg border border-slate-200 transition-colors shadow-sm"
+                className="p-1 md:p-1.5 bg-slate-50 hover:bg-red-50 text-slate-500 hover:text-red-655 rounded-lg border border-slate-200 transition-colors shadow-sm"
                 title="Log Out"
               >
-                <LogOut size={16} />
+                <LogOut size={16} className="landscape:w-3.5 landscape:h-3.5" />
               </button>
             </div>
           ) : (
             <button 
               onClick={() => setActiveTab('scores')}
-              className="flex items-center space-x-1.5 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-250 text-xs font-semibold rounded-lg transition-all shadow-sm"
+              className="flex items-center space-x-1.5 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-255 text-xs font-semibold rounded-lg transition-all shadow-sm landscape:py-0.5 landscape:px-2"
             >
-              <Key size={14} />
+              <Key size={14} className="landscape:w-3 landscape:h-3" />
               <span>Login to Score</span>
             </button>
           )}
@@ -1210,59 +1210,59 @@ export function CompetitionClientView({ competition, session, courses = [], user
       </header>
 
       {/* Tabs */}
-      <div className="bg-white/60 backdrop-blur-md border-b border-slate-200 sticky top-[69px] z-30 flex justify-center shadow-sm">
-        <div className="flex w-full max-w-7xl px-4">
+      <div className="bg-white/60 backdrop-blur-md border-b border-slate-200 sticky top-12 md:top-16 landscape:top-10 z-30 flex justify-center shadow-sm h-10 md:h-14 landscape:h-8.5">
+        <div className="flex w-full max-w-7xl px-4 h-full">
           <button
             onClick={() => setActiveTab('leaderboard')}
-            className={`flex-1 py-4 text-center text-sm font-bold border-b-2 transition-all flex items-center justify-center space-x-2 ${
+            className={`flex-1 py-2 md:py-4 text-center text-xs md:text-sm font-bold border-b-2 transition-all flex items-center justify-center space-x-1.5 md:space-x-2 landscape:py-1 ${
               activeTab === 'leaderboard'
                 ? 'text-emerald-600 bg-white/40 font-extrabold'
                 : 'border-transparent text-slate-500 hover:text-slate-700'
             }`}
             style={{ borderBottomColor: activeTab === 'leaderboard' ? primaryColor : 'transparent' }}
           >
-            <Trophy size={16} />
+            <Trophy size={16} className="landscape:w-3.5 landscape:h-3.5" />
             <span>Leaderboard</span>
           </button>
 
           <button
             onClick={() => setActiveTab('scores')}
-            className={`flex-1 py-4 text-center text-sm font-bold border-b-2 transition-all flex items-center justify-center space-x-2 ${
+            className={`flex-1 py-2 md:py-4 text-center text-xs md:text-sm font-bold border-b-2 transition-all flex items-center justify-center space-x-1.5 md:space-x-2 landscape:py-1 ${
               activeTab === 'scores'
                 ? 'text-emerald-600 bg-white/40 font-extrabold'
                 : 'border-transparent text-slate-500 hover:text-slate-700'
             }`}
             style={{ borderBottomColor: activeTab === 'scores' ? primaryColor : 'transparent' }}
           >
-            <Edit size={16} />
+            <Edit size={16} className="landscape:w-3.5 landscape:h-3.5" />
             <span>Score Entry</span>
           </button>
 
           <button
             onClick={() => setActiveTab('details')}
-            className={`flex-1 py-4 text-center text-sm font-bold border-b-2 transition-all flex items-center justify-center space-x-2 ${
+            className={`flex-1 py-2 md:py-4 text-center text-xs md:text-sm font-bold border-b-2 transition-all flex items-center justify-center space-x-1.5 md:space-x-2 landscape:py-1 ${
               activeTab === 'details'
                 ? 'text-emerald-600 bg-white/40 font-extrabold'
                 : 'border-transparent text-slate-500 hover:text-slate-700'
             }`}
             style={{ borderBottomColor: activeTab === 'details' ? primaryColor : 'transparent' }}
           >
-            <BookOpen size={16} />
+            <BookOpen size={16} className="landscape:w-3.5 landscape:h-3.5" />
             <span>Details</span>
           </button>
 
           {isAdminUser && (
             <button
               onClick={() => setActiveTab('admin')}
-              className={`flex-1 py-4 text-center text-sm font-bold border-b-2 transition-all flex items-center justify-center space-x-2 ${
+              className={`flex-1 py-2 md:py-4 text-center text-xs md:text-sm font-bold border-b-2 transition-all flex items-center justify-center space-x-1.5 md:space-x-2 landscape:py-1 ${
                 activeTab === 'admin'
                   ? 'text-emerald-600 bg-white/40 font-extrabold'
                   : 'border-transparent text-slate-500 hover:text-slate-700'
               }`}
               style={{ borderBottomColor: activeTab === 'admin' ? primaryColor : 'transparent' }}
             >
-              <Settings size={16} />
-              <span>Admin Panel</span>
+              <Settings size={16} className="landscape:w-3.5 landscape:h-3.5" />
+              <span>Admin</span>
             </button>
           )}
         </div>
@@ -1337,21 +1337,25 @@ export function CompetitionClientView({ competition, session, courses = [], user
                 <table className="w-full text-sm text-left border-collapse">
                   <thead className="bg-slate-100/50 text-slate-550 uppercase tracking-wider text-xs border-b border-slate-200">
                     <tr>
-                      <th className="px-5 py-4 text-center w-14">Rank</th>
-                      <th className="px-5 py-4 min-w-[140px]">Player</th>
-                      <th className="px-4 py-4 text-center">Played</th>
+                      <th className="px-2 py-2.5 md:px-5 md:py-4 text-center w-10 md:w-14">Rank</th>
+                      <th className="px-3 py-2.5 md:px-5 md:py-4 min-w-[110px] md:min-w-[140px]">Player</th>
+                      <th className="px-2 py-2.5 md:px-4 md:py-4 text-center w-16 md:w-24">Played</th>
                       {competition.rounds.map((round: any, i: number) => {
-                        const teeName = round.tee ? ` (${round.tee.name.split(" ")[0]})` : ""
                         return (
-                          <th key={round.id} className="px-3 py-4 text-center text-xs font-semibold text-slate-550 min-w-[90px]">
-                            R{i + 1}{teeName}
+                          <th key={round.id} className="px-1 py-2.5 md:px-3 md:py-4 text-center text-xs font-semibold text-slate-550 min-w-[75px] md:min-w-[90px]">
+                            <div>R{i + 1}</div>
+                            {round.tee && (
+                              <div className="text-[8px] md:text-[9px] text-slate-400 font-mono font-medium uppercase tracking-wider block mt-0.5">
+                                {round.tee.name.split(" ")[0]}
+                              </div>
+                            )}
                           </th>
                         )
                       })}
-                      <th className="px-5 py-4 text-center w-24">
+                      <th className="px-2 py-2.5 md:px-5 md:py-4 text-center w-20 md:w-28">
                         {selectedLeaderboardType === 'STROKEPLAY' ? 'Gross Strokes' : selectedLeaderboardType === 'BIRDIE' ? 'Birdies' : selectedLeaderboardType === 'DOUBLE_BOGEY_PLUS' ? 'DB+' : selectedLeaderboardType === 'PAR_PLUS_SERIES' ? 'Streak' : 'Total Points'}
                       </th>
-                      <th className="px-5 py-4 text-right w-16">Cards</th>
+                      <th className="px-2 py-2.5 md:px-5 md:py-4 text-right w-12 md:w-16">Cards</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 bg-white/30 text-slate-700">
@@ -1362,16 +1366,16 @@ export function CompetitionClientView({ competition, session, courses = [], user
 
                       return (
                         <tr key={entry.participantId} className="hover:bg-slate-50/50 transition-colors">
-                          <td className="px-5 py-4 text-center font-extrabold font-mono text-slate-700">
+                          <td className="px-2 py-2.5 md:px-5 md:py-4 text-center font-extrabold font-mono text-slate-700">
                             {entry.rank}
                           </td>
-                          <td className="px-5 py-4">
-                            <div className="font-extrabold text-slate-900 text-base">{entry.name}</div>
-                            <div className="text-xs text-slate-500 font-mono mt-0.5">
+                          <td className="px-3 py-2.5 md:px-5 md:py-4">
+                            <div className="font-extrabold text-slate-900 text-sm md:text-base leading-tight">{entry.name}</div>
+                            <div className="text-[10px] md:text-xs text-slate-500 font-mono mt-0.5">
                               HCP Index: {entry.participant.compHandicap !== null ? entry.participant.compHandicap.toFixed(1) : "-"}
                             </div>
                           </td>
-                          <td className="px-4 py-4 text-center text-slate-600 font-semibold font-mono">
+                          <td className="px-2 py-2.5 md:px-4 md:py-4 text-center text-slate-600 font-semibold font-mono">
                             {entry.holesPlayed} / {totalHolesForFilter}
                           </td>
                           
@@ -1379,13 +1383,13 @@ export function CompetitionClientView({ competition, session, courses = [], user
                           {competition.rounds.map((round: any) => {
                             const pts = entry.roundPoints[round.id] ?? 0
                             return (
-                              <td key={round.id} className="px-3 py-4 text-center">
+                              <td key={round.id} className="px-1 py-1.5 md:px-3 md:py-4 text-center">
                                 <button
                                   onClick={() => {
                                     setSelectedParticipantForScorecard(entry.participant)
                                     setSelectedRoundIdForScorecard(round.id)
                                   }}
-                                  className="px-2.5 py-1 text-xs font-extrabold bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-250 text-slate-700 hover:text-emerald-600 rounded-md transition-all font-mono shadow-sm"
+                                  className="px-2 py-0.5 md:px-2.5 md:py-1 text-xs font-extrabold bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-250 text-slate-700 hover:text-emerald-600 rounded-md transition-all font-mono shadow-sm"
                                   title={`View Round ${round.name} Scorecard`}
                                 >
                                   {pts}
@@ -1394,19 +1398,19 @@ export function CompetitionClientView({ competition, session, courses = [], user
                             )
                           })}
 
-                          <td className="px-5 py-4 text-center text-emerald-600 font-black text-xl">
+                          <td className="px-2 py-2.5 md:px-5 md:py-4 text-center text-emerald-600 font-black text-base md:text-xl">
                             {entry.totalPoints}
                           </td>
-                          <td className="px-5 py-4 text-right">
+                          <td className="px-2 py-2.5 md:px-5 md:py-4 text-right">
                             <button
                               onClick={() => {
                                 setSelectedParticipantForScorecard(entry.participant)
                                 setSelectedRoundIdForScorecard(null)
                               }}
-                              className="p-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-500 hover:text-emerald-600 rounded-lg transition-colors shadow-sm"
+                              className="p-1 md:p-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-500 hover:text-emerald-600 rounded-lg transition-colors shadow-sm"
                               title="View Full Scorecard"
                             >
-                              <Eye size={16} />
+                              <Eye size={16} className="landscape:w-3.5 landscape:h-3.5" />
                             </button>
                           </td>
                         </tr>

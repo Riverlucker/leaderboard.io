@@ -3,6 +3,11 @@ import { redirect } from "next/navigation"
 import Link from "next/link"
 import { Home, Trophy, Map, Users } from "lucide-react"
 import { SignOutButton } from "./SignOutButton"
+import type { Metadata } from "next"
+
+export const metadata: Metadata = {
+  title: "leaderboard.io - admin"
+}
 
 export default async function AdminLayout({
   children,

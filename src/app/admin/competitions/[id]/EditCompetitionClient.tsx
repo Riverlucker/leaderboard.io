@@ -5,11 +5,12 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { 
   ArrowLeft, Save, Plus, Trash2, Calendar, 
-  Settings, Layers, Users, Users2, ShieldAlert 
+  Settings, Layers, Users, Users2, ShieldAlert,
+  Edit2, Check, X
 } from "lucide-react"
 import { 
   updateCompetitionGeneral, 
-  addRound, deleteRound, 
+  addRound, deleteRound, updateRoundHoles,
   addTeam, deleteTeam, 
   addParticipant, deleteParticipant, 
   addMatch, deleteMatch 
@@ -54,6 +55,15 @@ export function EditCompetitionClient({
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<'settings' | 'rounds' | 'teams' | 'participants' | 'pairings'>('settings')
 
+  // Get unique courses played in this competition's rounds
+  const uniqueCoursesMap = new Map<string, any>()
+  for (const round of (competition.rounds || [])) {
+    if (round.course && !uniqueCoursesMap.has(round.course.id)) {
+      uniqueCoursesMap.set(round.course.id, round.course)
+    }
+  }
+  const uniqueCourses = Array.from(uniqueCoursesMap.values())
+
   // General Settings Form state
   const [name, setName] = useState(competition.name)
   const [uniqueSlug, setUniqueSlug] = useState(competition.uniqueSlug)
@@ -74,6 +84,15 @@ export function EditCompetitionClient({
   const [roundEnd, setRoundEnd] = useState("")
   const [roundError, setRoundError] = useState("")
   const [isAddingRound, setIsAddingRound] = useState(false)
+  const [holesPreset, setHolesPreset] = useState<'ALL' | 'FRONT' | 'BACK' | 'CUSTOM'>('ALL')
+  const [customHoles, setCustomHoles] = useState<number[]>(Array.from({ length: 18 }, (_, i) => i + 1))
+
+  // Edit Round state
+  const [editingRoundId, setEditingRoundId] = useState<string | null>(null)
+  const [editingHolesPreset, setEditingHolesPreset] = useState<'ALL' | 'FRONT' | 'BACK' | 'CUSTOM'>('ALL')
+  const [editingCustomHoles, setEditingCustomHoles] = useState<number[]>([])
+  const [isUpdatingRoundHoles, setIsUpdatingRoundHoles] = useState(false)
+  const [editingRoundError, setEditingRoundError] = useState("")
 
   // Add Team Form state
   const [teamName, setTeamName] = useState("")
@@ -129,15 +148,33 @@ export function EditCompetitionClient({
     setRoundError("")
 
     try {
+      let holesPlayed: number[] = []
+      if (holesPreset === 'ALL') {
+        holesPlayed = Array.from({ length: 18 }, (_, i) => i + 1)
+      } else if (holesPreset === 'FRONT') {
+        holesPlayed = Array.from({ length: 9 }, (_, i) => i + 1)
+      } else if (holesPreset === 'BACK') {
+        holesPlayed = Array.from({ length: 9 }, (_, i) => i + 10)
+      } else if (holesPreset === 'CUSTOM') {
+        holesPlayed = [...customHoles].sort((a, b) => a - b)
+      }
+
+      if (holesPlayed.length === 0) {
+        throw new Error("Please select at least one hole to play.")
+      }
+
       await addRound(competition.id, {
         name: roundName,
         courseId: roundCourseId,
         startDate: roundStart || null,
-        endDate: roundEnd || null
+        endDate: roundEnd || null,
+        holesPlayed
       })
       setRoundName("")
       setRoundStart("")
       setRoundEnd("")
+      setHolesPreset('ALL')
+      setCustomHoles(Array.from({ length: 18 }, (_, i) => i + 1))
       router.refresh()
     } catch (err: any) {
       setRoundError(err.message || "Failed to add round.")
@@ -155,6 +192,54 @@ export function EditCompetitionClient({
         console.error(e)
         alert("Failed to delete round.")
       }
+    }
+  }
+
+  const handleStartEditRound = (round: any) => {
+    setEditingRoundId(round.id)
+    setEditingRoundError("")
+    
+    const holes = round.holesPlayed || []
+    setEditingCustomHoles(holes)
+    
+    // Set preset based on current holes
+    if (holes.length === 18) {
+      setEditingHolesPreset('ALL')
+    } else if (holes.length === 9 && holes[0] === 1 && holes[8] === 9) {
+      setEditingHolesPreset('FRONT')
+    } else if (holes.length === 9 && holes[0] === 10 && holes[8] === 18) {
+      setEditingHolesPreset('BACK')
+    } else {
+      setEditingHolesPreset('CUSTOM')
+    }
+  }
+
+  const handleUpdateRoundHolesSubmit = async (roundId: string) => {
+    setIsUpdatingRoundHoles(true)
+    setEditingRoundError("")
+    try {
+      let holes: number[] = []
+      if (editingHolesPreset === 'ALL') {
+        holes = Array.from({ length: 18 }, (_, i) => i + 1)
+      } else if (editingHolesPreset === 'FRONT') {
+        holes = Array.from({ length: 9 }, (_, i) => i + 1)
+      } else if (editingHolesPreset === 'BACK') {
+        holes = Array.from({ length: 9 }, (_, i) => i + 10)
+      } else if (editingHolesPreset === 'CUSTOM') {
+        holes = [...editingCustomHoles].sort((a, b) => a - b)
+      }
+
+      if (holes.length === 0) {
+        throw new Error("Please select at least one hole.")
+      }
+
+      await updateRoundHoles(roundId, competition.id, holes)
+      setEditingRoundId(null)
+      router.refresh()
+    } catch (err: any) {
+      setEditingRoundError(err.message || "Failed to update holes.")
+    } finally {
+      setIsUpdatingRoundHoles(false)
     }
   }
 
@@ -439,13 +524,39 @@ export function EditCompetitionClient({
                   </div>
 
                   <div className="md:col-span-2">
-                    <label className="block text-sm text-slate-400 mb-2">Background Image URL (Optional)</label>
+                    <label className="block text-sm text-slate-400 mb-2">Background Image File (Stored in DB)</label>
                     <input 
-                      value={bgImage} 
-                      onChange={e => setBgImage(e.target.value)} 
-                      placeholder="https://example.com/golf-course.jpg"
-                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-2 text-sm text-slate-300 focus:ring-2 focus:ring-emerald-500" 
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (file) {
+                          const reader = new FileReader()
+                          reader.onloadend = () => {
+                            setBgImage(reader.result as string)
+                          }
+                          reader.readAsDataURL(file)
+                        }
+                      }}
+                      className="w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-slate-800 file:text-slate-200 hover:file:bg-slate-700 cursor-pointer"
                     />
+                    {bgImage && (
+                      <div className="mt-3 relative w-full h-32 rounded-xl overflow-hidden border border-slate-700 bg-slate-900">
+                        <img 
+                          src={bgImage} 
+                          alt="Background Preview" 
+                          className="w-full h-full object-cover"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setBgImage("")}
+                          className="absolute top-2 right-2 p-1.5 bg-red-500 hover:bg-red-600 text-white rounded-full shadow-md transition-colors"
+                          title="Remove Background Image"
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   <div className="md:col-span-2">
@@ -524,26 +635,141 @@ export function EditCompetitionClient({
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {competition.rounds.map((round: any) => (
-                    <div key={round.id} className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm flex items-center justify-between">
-                      <div className="space-y-1">
-                        <h4 className="font-bold text-slate-200 text-lg">{round.name}</h4>
-                        <p className="text-sm text-emerald-400 font-medium">Course: {round.course.name}</p>
-                        {round.startDate && (
-                          <p className="text-xs text-slate-500 font-mono">
-                            Starts: {new Date(round.startDate).toLocaleString()}
-                          </p>
+                  {competition.rounds.map((round: any) => {
+                    const isEditing = editingRoundId === round.id
+
+                    return (
+                      <div key={round.id} className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm space-y-4">
+                        {isEditing ? (
+                          <div className="space-y-4">
+                            <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                              <div>
+                                <h4 className="font-bold text-slate-200 text-lg">Edit Holes for {round.name}</h4>
+                                <p className="text-xs text-emerald-400 font-medium">Course: {round.course.name}</p>
+                              </div>
+                              <button 
+                                type="button"
+                                onClick={() => setEditingRoundId(null)}
+                                className="p-1 hover:bg-slate-800 text-slate-400 hover:text-slate-200 rounded"
+                                title="Cancel"
+                              >
+                                <X size={18} />
+                              </button>
+                            </div>
+
+                            {editingRoundError && (
+                              <div className="bg-red-950/60 border border-red-800 text-red-300 px-3 py-2 rounded text-xs">
+                                {editingRoundError}
+                              </div>
+                            )}
+
+                            <div>
+                              <label className="block text-xs font-semibold text-slate-400 mb-1">Holes to Play</label>
+                              <select
+                                value={editingHolesPreset}
+                                onChange={e => setEditingHolesPreset(e.target.value as any)}
+                                className="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-sm text-slate-200 focus:ring-2 focus:ring-emerald-500"
+                              >
+                                <option value="ALL">All 18 Holes</option>
+                                <option value="FRONT">Front Nine (Holes 1-9)</option>
+                                <option value="BACK">Back Nine (Holes 10-18)</option>
+                                <option value="CUSTOM">Custom Hole Selection</option>
+                              </select>
+                            </div>
+
+                            {editingHolesPreset === 'CUSTOM' && (
+                              <div className="bg-slate-950 border border-slate-800 rounded p-3 space-y-2">
+                                <span className="block text-xs font-semibold text-slate-400">Select Holes:</span>
+                                <div className="grid grid-cols-6 gap-2">
+                                  {Array.from({ length: 18 }, (_, i) => i + 1).map(holeNum => {
+                                    const isChecked = editingCustomHoles.includes(holeNum)
+                                    return (
+                                      <label key={holeNum} className={`flex items-center justify-center p-1.5 border rounded cursor-pointer select-none transition-all ${
+                                        isChecked 
+                                          ? 'border-emerald-500 bg-emerald-950/20 text-emerald-400' 
+                                          : 'border-slate-850 bg-slate-900/30 text-slate-500 hover:border-slate-700'
+                                      }`}>
+                                        <input
+                                          type="checkbox"
+                                          checked={isChecked}
+                                          onChange={() => {
+                                            if (isChecked) {
+                                              setEditingCustomHoles(editingCustomHoles.filter(h => h !== holeNum))
+                                            } else {
+                                              setEditingCustomHoles([...editingCustomHoles, holeNum])
+                                            }
+                                          }}
+                                          className="sr-only"
+                                        />
+                                        <span className="text-xs font-bold">{holeNum}</span>
+                                      </label>
+                                    )
+                                  })}
+                                </div>
+                              </div>
+                            )}
+
+                            <div className="flex space-x-2 pt-2 justify-end border-t border-slate-800">
+                              <button
+                                type="button"
+                                onClick={() => setEditingRoundId(null)}
+                                className="px-4 py-1.5 border border-slate-800 bg-slate-950 text-slate-400 hover:text-slate-200 text-xs font-semibold rounded-lg transition-colors"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateRoundHolesSubmit(round.id)}
+                                disabled={isUpdatingRoundHoles}
+                                className="flex items-center space-x-1 px-4 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold rounded-lg transition-colors disabled:opacity-50"
+                              >
+                                <Check size={14} />
+                                <span>{isUpdatingRoundHoles ? "Saving..." : "Save Holes"}</span>
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-1">
+                              <h4 className="font-bold text-slate-200 text-lg">{round.name}</h4>
+                              <p className="text-sm text-emerald-400 font-medium">Course: {round.course.name}</p>
+                              <p className="text-xs text-slate-400 font-medium">
+                                Holes: {round.holesPlayed && round.holesPlayed.length > 0 ? (
+                                  round.holesPlayed.length === 18 ? "All 18" :
+                                  round.holesPlayed.length === 9 && round.holesPlayed[0] === 1 && round.holesPlayed[8] === 9 ? "Front 9 (1-9)" :
+                                  round.holesPlayed.length === 9 && round.holesPlayed[0] === 10 && round.holesPlayed[8] === 18 ? "Back 9 (10-18)" :
+                                  round.holesPlayed.join(", ")
+                                ) : "All 18"}
+                              </p>
+                              {round.startDate && (
+                                <p className="text-xs text-slate-500 font-mono pt-1">
+                                  Starts: {new Date(round.startDate).toLocaleString()}
+                                </p>
+                              )}
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <button
+                                type="button"
+                                onClick={() => handleStartEditRound(round)}
+                                className="p-2 bg-slate-950 border border-slate-800 hover:bg-emerald-950/40 text-slate-400 hover:text-emerald-400 rounded-lg transition-colors"
+                                title="Edit Holes"
+                              >
+                                <Edit2 size={16} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteRound(round.id)}
+                                className="p-2 bg-slate-950 border border-slate-800 hover:bg-red-950/40 text-slate-400 hover:text-red-400 rounded-lg transition-colors"
+                                title="Delete Round"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          </div>
                         )}
                       </div>
-                      <button
-                        onClick={() => handleDeleteRound(round.id)}
-                        className="p-2 bg-slate-950 border border-slate-800 hover:bg-red-950/40 text-slate-400 hover:text-red-400 rounded-lg transition-colors"
-                        title="Delete Round"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               )}
             </div>
@@ -603,6 +829,52 @@ export function EditCompetitionClient({
                     className="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-sm text-slate-200"
                   />
                 </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1">Holes to Play</label>
+                  <select
+                    value={holesPreset}
+                    onChange={e => setHolesPreset(e.target.value as any)}
+                    className="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-sm text-slate-200"
+                  >
+                    <option value="ALL">All 18 Holes</option>
+                    <option value="FRONT">Front Nine (Holes 1-9)</option>
+                    <option value="BACK">Back Nine (Holes 10-18)</option>
+                    <option value="CUSTOM">Custom Hole Selection</option>
+                  </select>
+                </div>
+
+                {holesPreset === 'CUSTOM' && (
+                  <div className="bg-slate-950 border border-slate-800 rounded p-3 space-y-2">
+                    <span className="block text-xs font-semibold text-slate-400">Select Holes:</span>
+                    <div className="grid grid-cols-6 gap-2">
+                      {Array.from({ length: 18 }, (_, i) => i + 1).map(holeNum => {
+                        const isChecked = customHoles.includes(holeNum)
+                        return (
+                          <label key={holeNum} className={`flex items-center justify-center p-1.5 border rounded cursor-pointer select-none transition-all ${
+                            isChecked 
+                              ? 'border-emerald-500 bg-emerald-950/20 text-emerald-400' 
+                              : 'border-slate-850 bg-slate-900/30 text-slate-500 hover:border-slate-700'
+                          }`}>
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => {
+                                if (isChecked) {
+                                  setCustomHoles(customHoles.filter(h => h !== holeNum))
+                                } else {
+                                  setCustomHoles([...customHoles, holeNum])
+                                }
+                              }}
+                              className="sr-only"
+                            />
+                            <span className="text-xs font-bold">{holeNum}</span>
+                          </label>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
 
                 <button
                   type="submit"
@@ -704,8 +976,12 @@ export function EditCompetitionClient({
                       <tr>
                         <th className="px-4 py-3">Player</th>
                         <th className="px-4 py-3 text-center">Comp Handicap</th>
-                        {isTeamComp && <th className="px-4 py-3">Team</th>
-                        }
+                        {uniqueCourses.map(course => (
+                          <th key={course.id} className="px-4 py-3 text-center text-xs font-semibold text-slate-450 uppercase tracking-wider">
+                            {course.name.replace("Diamond - ", "")} HCP
+                          </th>
+                        ))}
+                        {isTeamComp && <th className="px-4 py-3">Team</th>}
                         <th className="px-4 py-3 text-right">Actions</th>
                       </tr>
                     </thead>
@@ -725,6 +1001,25 @@ export function EditCompetitionClient({
                           <td className="px-4 py-3.5 text-center font-bold text-cyan-400">
                             {p.compHandicap !== null && p.compHandicap !== undefined ? p.compHandicap.toFixed(1) : "-"}
                           </td>
+                          {uniqueCourses.map(course => {
+                            const tee = course.tees?.find((t: any) => t.name.toLowerCase() === 'yellow') ||
+                                        course.tees?.find((t: any) => t.name.toLowerCase() === 'white') ||
+                                        course.tees?.[0]
+                            
+                            let playingHandicapStr = "-"
+                            if (tee && p.compHandicap !== null && p.compHandicap !== undefined) {
+                              const coursePar = course.holes?.length > 0 ? course.holes.reduce((sum: number, h: any) => sum + h.par, 0) : 72
+                              const courseHandicap = (p.compHandicap * tee.slope / 113) + (tee.courseRating - coursePar)
+                              const playingHandicap = Math.round(courseHandicap)
+                              playingHandicapStr = String(playingHandicap)
+                            }
+                            
+                            return (
+                              <td key={course.id} className="px-4 py-3.5 text-center font-bold text-emerald-450">
+                                {playingHandicapStr}
+                              </td>
+                            )
+                          })}
                           {isTeamComp && (
                             <td className="px-4 py-3.5">
                               {p.team ? (

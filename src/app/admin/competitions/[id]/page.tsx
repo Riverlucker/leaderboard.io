@@ -14,7 +14,12 @@ export default async function EditCompetitionPage({ params }: EditCompetitionPag
     include: {
       rounds: {
         include: {
-          course: true,
+          course: {
+            include: {
+              tees: true,
+              holes: true
+            }
+          },
           matches: {
             include: {
               matchPlayers: {

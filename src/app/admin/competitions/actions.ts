@@ -58,6 +58,7 @@ export async function updateCompetitionGeneral(id: string, data: {
   endDate?: string | null
   cssConfig?: string | null
   bgImage?: string | null
+  extraLeaderboards?: string[]
 }) {
   const nameVal = data.name?.trim()
   const slugVal = data.uniqueSlug?.trim()
@@ -87,7 +88,8 @@ export async function updateCompetitionGeneral(id: string, data: {
       startDate: start,
       endDate: end,
       cssConfig: data.cssConfig || null,
-      bgImage: data.bgImage || null
+      bgImage: data.bgImage || null,
+      extraLeaderboards: data.extraLeaderboards || []
     }
   })
 
@@ -111,6 +113,8 @@ export async function addRound(compId: string, data: {
   courseId: string
   startDate?: string | null
   endDate?: string | null
+  holesPlayed?: number[]
+  teeId?: string | null
 }) {
   const nameVal = data.name?.trim()
   if (!nameVal) throw new Error("Round name is required.")
@@ -118,6 +122,11 @@ export async function addRound(compId: string, data: {
 
   const start = data.startDate ? new Date(data.startDate) : null
   const end = data.endDate ? new Date(data.endDate) : null
+  
+  // Default to holes 1 to 18 if none are provided
+  const holes = data.holesPlayed && data.holesPlayed.length > 0
+    ? data.holesPlayed
+    : Array.from({ length: 18 }, (_, i) => i + 1)
 
   await prisma.round.create({
     data: {
@@ -125,7 +134,9 @@ export async function addRound(compId: string, data: {
       courseId: data.courseId,
       name: nameVal,
       startDate: start,
-      endDate: end
+      endDate: end,
+      holesPlayed: holes,
+      teeId: data.teeId
     }
   })
 
@@ -136,6 +147,23 @@ export async function addRound(compId: string, data: {
 export async function deleteRound(roundId: string, compId: string) {
   await prisma.round.delete({
     where: { id: roundId }
+  })
+
+  revalidatePath(`/admin/competitions/${compId}`)
+  return { success: true }
+}
+
+export async function updateRoundHoles(roundId: string, compId: string, holesPlayed: number[], teeId?: string | null) {
+  if (!holesPlayed || holesPlayed.length === 0) {
+    throw new Error("Please select at least one hole.")
+  }
+
+  await prisma.round.update({
+    where: { id: roundId },
+    data: {
+      holesPlayed: holesPlayed.sort((a, b) => a - b),
+      teeId: teeId || null
+    }
   })
 
   revalidatePath(`/admin/competitions/${compId}`)

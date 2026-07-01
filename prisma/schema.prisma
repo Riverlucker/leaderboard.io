@@ -42,6 +42,7 @@ model Course {
   holes      Hole[]
   tees       Tee[]
   rounds     Round[]
+  manualHandicaps ManualCourseHandicap[]
 }
 
 model Tee {
@@ -52,6 +53,7 @@ model Tee {
   name         String // e.g. "White", "Yellow", "Red"
   courseRating Float
   slope        Int
+  rounds       Round[]
 }
 
 model Hole {
@@ -82,6 +84,8 @@ model Competition {
   rounds         Round[]
   teams          Team[]
   participants   Participant[]
+  auditLogs      AuditLog[]
+  extraLeaderboards String[]
 }
 
 model Team {
@@ -109,6 +113,7 @@ model Participant {
   
   scores        Score[]
   matchPlayers  MatchPlayer[]
+  manualHandicaps ManualCourseHandicap[]
 }
 
 model Round {
@@ -119,9 +124,14 @@ model Round {
   courseId      String
   course        Course @relation(fields: [courseId], references: [id], onDelete: Restrict)
   
+  teeId         String?
+  tee           Tee?   @relation(fields: [teeId], references: [id], onDelete: SetNull)
+  
   name          String // e.g. "Round 1", "Morning Day 1"
   startDate     DateTime?
   endDate       DateTime?
+  
+  holesPlayed   Int[] // Hole numbers to be played, e.g. [1..18] or [1..9]
   
   matches       Match[]
 }
@@ -193,3 +203,25 @@ model Session {
   expires      DateTime
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
+
+model AuditLog {
+  id             String   @id @default(cuid())
+  competitionId  String
+  competition    Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  action         String   // e.g. "SCORE_UPDATE", "SCORE_CLEAR"
+  details        String   @db.Text // Description or JSON of changes
+  userId         String?  // User ID who made the change
+  userName       String?  // Name/email for quick display
+  createdAt      DateTime @default(now())
+}
+
+model ManualCourseHandicap {
+  id            String   @id @default(cuid())
+  participantId String
+  participant   Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  courseId      String
+  course        Course      @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  handicapValue Int
+  @@unique([participantId, courseId])
+}
+

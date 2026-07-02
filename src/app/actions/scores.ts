@@ -58,15 +58,28 @@ export async function saveHoleScore(input: SaveScoreInput) {
     netStrokes = null
     points = null
   } else if (grossStrokes !== null) {
-    if (tee && participant.compHandicap !== null) {
+    if (tee) {
       // Get the course par
       const courseHoles = await prisma.hole.findMany({
         where: { courseId: round.courseId }
       })
       const coursePar = courseHoles.reduce((sum, h) => sum + h.par, 0)
 
-      // Course Handicap
-      const courseHandicap = calculateCourseHandicap(participant.compHandicap, tee, coursePar)
+      // Check manual override/stored course handicap first
+      const manualHcpRecord = await prisma.manualCourseHandicap.findUnique({
+        where: {
+          participantId_courseId: {
+            participantId,
+            courseId: round.courseId
+          }
+        }
+      })
+
+      const courseHandicap = manualHcpRecord !== null
+        ? manualHcpRecord.handicapValue
+        : (participant.compHandicap !== null
+            ? calculateCourseHandicap(participant.compHandicap, tee, coursePar)
+            : 0)
       
       // Handicap strokes for this specific hole
       const hcpStrokes = getHandicapStrokesOnHole(courseHandicap, hole.strokeIndex)
@@ -222,28 +235,101 @@ export async function saveManualCourseHandicap(
 }
 
 export async function recalculateCourseHandicaps(compId: string, courseId: string) {
+  const course = await prisma.course.findUnique({
+    where: { id: courseId },
+    include: { tees: true, holes: true }
+  })
+  if (!course) return { success: false, error: "Course not found" }
+
+  const tee = course.tees.find((t: any) => t.name.toLowerCase().includes('yellow')) ||
+              course.tees.find((t: any) => t.name.toLowerCase().includes('white')) ||
+              course.tees[0]
+
+  if (!tee) return { success: false, error: "Tee not found" }
+
+  const coursePar = course.holes.reduce((sum: number, h: any) => sum + h.par, 0)
+
   const participants = await prisma.participant.findMany({
     where: { competitionId: compId }
   })
-  const partIds = participants.map(p => p.id)
 
-  await prisma.manualCourseHandicap.deleteMany({
-    where: {
-      courseId,
-      participantId: { in: partIds }
-    }
-  })
+  for (const p of participants) {
+    if (p.compHandicap === null || p.compHandicap === undefined) continue
+
+    const handicapValue = calculateCourseHandicap(p.compHandicap, tee, coursePar)
+
+    await prisma.manualCourseHandicap.upsert({
+      where: {
+        participantId_courseId: {
+          participantId: p.id,
+          courseId: course.id
+        }
+      },
+      update: { handicapValue },
+      create: {
+        participantId: p.id,
+        courseId: course.id,
+        handicapValue
+      }
+    })
+  }
 
   revalidatePath(`/admin/competitions/${compId}`)
+  revalidatePath('/')
   return { success: true }
 }
 
 export async function recalculatePlayerHandicaps(compId: string, participantId: string) {
-  await prisma.manualCourseHandicap.deleteMany({
-    where: { participantId }
+  const participant = await prisma.participant.findUnique({
+    where: { id: participantId }
+  })
+  if (!participant || participant.compHandicap === null || participant.compHandicap === undefined) {
+    return { success: true }
+  }
+
+  const rounds = await prisma.round.findMany({
+    where: { competitionId: compId },
+    include: {
+      course: {
+        include: { tees: true, holes: true }
+      }
+    }
   })
 
+  const uniqueCoursesMap = new Map<string, any>()
+  for (const round of rounds) {
+    if (round.course && !uniqueCoursesMap.has(round.course.id)) {
+      uniqueCoursesMap.set(round.course.id, round.course)
+    }
+  }
+
+  for (const course of uniqueCoursesMap.values()) {
+    const tee = course.tees.find((t: any) => t.name.toLowerCase().includes('yellow')) ||
+                course.tees.find((t: any) => t.name.toLowerCase().includes('white')) ||
+                course.tees[0]
+    if (!tee) continue
+
+    const coursePar = course.holes.reduce((sum: number, h: any) => sum + h.par, 0)
+    const handicapValue = calculateCourseHandicap(participant.compHandicap, tee, coursePar)
+
+    await prisma.manualCourseHandicap.upsert({
+      where: {
+        participantId_courseId: {
+          participantId: participantId,
+          courseId: course.id
+        }
+      },
+      update: { handicapValue },
+      create: {
+        participantId: participantId,
+        courseId: course.id,
+        handicapValue
+      }
+    })
+  }
+
   revalidatePath(`/admin/competitions/${compId}`)
+  revalidatePath('/')
   return { success: true }
 }
 

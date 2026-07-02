@@ -2,6 +2,7 @@
 
 import prisma from "@/lib/prisma"
 import { revalidatePath } from "next/cache"
+import { calculateCourseHandicap } from "@/lib/scoring"
 
 // Generates a short random slug (e.g. comp-3a5f9)
 function generateSlug() {
@@ -140,7 +141,46 @@ export async function addRound(compId: string, data: {
     }
   })
 
+  // Populate handicaps for this course if not already populated for participants
+  const participants = await prisma.participant.findMany({
+    where: { competitionId: compId }
+  })
+
+  const course = await prisma.course.findUnique({
+    where: { id: data.courseId },
+    include: { tees: true, holes: true }
+  })
+
+  if (course && course.tees.length > 0) {
+    const tee = course.tees.find((t: any) => t.name.toLowerCase().includes('yellow')) ||
+                course.tees.find((t: any) => t.name.toLowerCase().includes('white')) ||
+                course.tees[0]
+
+    if (tee) {
+      const coursePar = course.holes.reduce((sum: number, h: any) => sum + h.par, 0)
+      for (const p of participants) {
+        if (p.compHandicap === null || p.compHandicap === undefined) continue
+
+        // Check if there is already a manual course handicap
+        const existingHcp = await prisma.manualCourseHandicap.findFirst({
+          where: { participantId: p.id, courseId: course.id }
+        })
+        if (!existingHcp) {
+          const handicapValue = calculateCourseHandicap(p.compHandicap, tee, coursePar)
+          await prisma.manualCourseHandicap.create({
+            data: {
+              participantId: p.id,
+              courseId: course.id,
+              handicapValue
+            }
+          })
+        }
+      }
+    }
+  }
+
   revalidatePath(`/admin/competitions/${compId}`)
+  revalidatePath('/')
   return { success: true }
 }
 
@@ -220,7 +260,7 @@ export async function addParticipant(compId: string, data: {
     }
   }
 
-  await prisma.participant.create({
+  const createdPart = await prisma.participant.create({
     data: {
       competitionId: compId,
       userId: data.userId || null,
@@ -230,7 +270,45 @@ export async function addParticipant(compId: string, data: {
     }
   })
 
+  // Initialize course handicaps right away
+  if (data.compHandicap !== null && data.compHandicap !== undefined) {
+    const rounds = await prisma.round.findMany({
+      where: { competitionId: compId },
+      include: {
+        course: {
+          include: { tees: true, holes: true }
+        }
+      }
+    })
+
+    const uniqueCoursesMap = new Map<string, any>()
+    for (const round of rounds) {
+      if (round.course && !uniqueCoursesMap.has(round.course.id)) {
+        uniqueCoursesMap.set(round.course.id, round.course)
+      }
+    }
+
+    for (const course of uniqueCoursesMap.values()) {
+      const tee = course.tees.find((t: any) => t.name.toLowerCase().includes('yellow')) ||
+                  course.tees.find((t: any) => t.name.toLowerCase().includes('white')) ||
+                  course.tees[0]
+      if (!tee) continue
+
+      const coursePar = course.holes.reduce((sum: number, h: any) => sum + h.par, 0)
+      const handicapValue = calculateCourseHandicap(data.compHandicap, tee, coursePar)
+
+      await prisma.manualCourseHandicap.create({
+        data: {
+          participantId: createdPart.id,
+          courseId: course.id,
+          handicapValue
+        }
+      })
+    }
+  }
+
   revalidatePath(`/admin/competitions/${compId}`)
+  revalidatePath('/')
   return { success: true }
 }
 

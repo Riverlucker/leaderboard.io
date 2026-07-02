@@ -490,7 +490,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
             if (!hole) continue
 
             const score = p.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
-            if (score && score.status !== 'NOT_PLAYED') {
+            if (score && (score.grossStrokes !== null || (score.status !== null && score.status !== 'NOT_PLAYED'))) {
               roundHolesPlayed = true
               
               const isActive = activeRounds.some((ar: any) => ar.id === round.id)
@@ -498,6 +498,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
 
               if (score.status === 'WIPED') {
                 roundPts += 0
+                if (isActive) totalStrokes += hole.par + 3 // wiped hole is triple bogey
               } else if (score.grossStrokes !== null) {
                 if (isActive) totalStrokes += score.grossStrokes
                 const hcpStrokes = getHandicapStrokesOnHole(courseHandicap, hole.strokeIndex)
@@ -549,13 +550,13 @@ export function CompetitionClientView({ competition, session, courses = [], user
             if (!hole) continue
 
             const score = p.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
-            if (score && score.status !== 'NOT_PLAYED') {
+            if (score && (score.grossStrokes !== null || (score.status !== null && score.status !== 'NOT_PLAYED'))) {
               roundHolesPlayed = true
               const isActive = activeRounds.some((ar: any) => ar.id === round.id)
               if (isActive) holesPlayed++
 
               if (score.status === 'WIPED') {
-                roundStrokes += 10 // penalty strokes for strokeplay wipe fallback
+                roundStrokes += hole.par + 3 // wiped hole is triple bogey in strokeplay gross
               } else if (score.grossStrokes !== null) {
                 roundStrokes += score.grossStrokes
               }
@@ -624,13 +625,14 @@ export function CompetitionClientView({ competition, session, courses = [], user
             if (!hole) continue
 
             const score = p.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
-            if (score && score.status !== 'NOT_PLAYED') {
+            if (score && (score.grossStrokes !== null || (score.status !== null && score.status !== 'NOT_PLAYED'))) {
               roundHolesPlayed = true
               const isActive = activeRounds.some((ar: any) => ar.id === round.id)
               if (isActive) holesPlayed++
 
               if (score.status === 'WIPED') {
                 roundPts += 0
+                if (isActive) totalStrokes += hole.par + 3 // wiped hole is triple bogey
               } else if (score.grossStrokes !== null) {
                 if (isActive) totalStrokes += score.grossStrokes
                 const hcpStrokes = getHandicapStrokesOnHole(courseHandicap, hole.strokeIndex)
@@ -752,7 +754,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
             if (!hole) continue
 
             const score = p.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
-            if (score && score.status !== 'NOT_PLAYED') {
+            if (score && (score.grossStrokes !== null || (score.status !== null && score.status !== 'NOT_PLAYED'))) {
               roundHolesPlayed = true
               const isActive = activeRounds.some((ar: any) => ar.id === round.id)
               if (isActive) {
@@ -829,7 +831,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
             if (!hole) continue
 
             const score = p.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
-            if (score && score.status !== 'NOT_PLAYED') {
+            if (score && (score.grossStrokes !== null || (score.status !== null && score.status !== 'NOT_PLAYED'))) {
               roundHolesPlayed = true
               
               const isActive = activeRounds.some((ar: any) => ar.id === round.id)
@@ -858,7 +860,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
             const hole = ar.course.holes.find((h: any) => h.number === holeNum)
             if (hole) {
               const score = p.scores.find((s: any) => s.roundId === ar.id && s.holeId === hole.id)
-              if (score && score.status !== 'NOT_PLAYED') holesPlayed++
+              if (score && (score.grossStrokes !== null || (score.status !== null && score.status !== 'NOT_PLAYED'))) holesPlayed++
             }
           }
         }
@@ -922,9 +924,9 @@ export function CompetitionClientView({ competition, session, courses = [], user
             if (!hole) continue
 
             const score = p.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
-            if (score && score.status !== 'NOT_PLAYED') {
+            if (score && (score.grossStrokes !== null || (score.status !== null && score.status !== 'NOT_PLAYED'))) {
               if (score.status === 'WIPED') {
-                strokes += isStroke ? 10 : 0
+                strokes += isStroke ? (hole.par + 3) : 0 // wiped hole is triple bogey in strokeplay gross
               } else if (score.grossStrokes !== null) {
                 strokes += score.grossStrokes
                 const hcpStrokes = getHandicapStrokesOnHole(courseHandicap, hole.strokeIndex)
@@ -1382,7 +1384,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
                       <th className="px-2 py-2.5 md:px-4 md:py-4 text-center w-16 md:w-24">Played</th>
                       {competition.rounds.map((round: any, i: number) => {
                         return (
-                          <th key={round.id} className="px-1 py-2.5 md:px-3 md:py-4 text-center text-xs font-semibold text-slate-550 min-w-[75px] md:min-w-[90px]">
+                          <th key={round.id} className="px-1 py-2.5 md:px-3 md:py-4 text-center text-xs font-semibold text-slate-555 min-w-[75px] md:min-w-[90px]">
                             <div>R{i + 1}</div>
                             {round.tee && (
                               <div className="text-[8px] md:text-[9px] text-slate-400 font-mono font-medium uppercase tracking-wider block mt-0.5">
@@ -1393,7 +1395,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
                         )
                       })}
                       <th className="px-2 py-2.5 md:px-5 md:py-4 text-center w-20 md:w-28">
-                        {selectedLeaderboardType === 'STROKEPLAY' ? 'Gross Strokes' : selectedLeaderboardType === 'BIRDIE' ? 'Birdies' : selectedLeaderboardType === 'DOUBLE_BOGEY_PLUS' ? 'DB+' : selectedLeaderboardType === 'PAR_PLUS_SERIES' ? 'Streak' : 'Total Points'}
+                        {selectedLeaderboardType === 'STROKEPLAY' ? 'Gross Strokes' : selectedLeaderboardType === 'BIRDIE' ? 'Birdies (Pars)' : selectedLeaderboardType === 'DOUBLE_BOGEY_PLUS' ? 'DB+' : selectedLeaderboardType === 'PAR_PLUS_SERIES' ? 'Streak' : 'Total Points'}
                       </th>
                       <th className="px-2 py-2.5 md:px-5 md:py-4 text-right w-12 md:w-16">Cards</th>
                     </tr>
@@ -1416,7 +1418,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
                             </div>
                           </td>
                           <td className="px-2 py-2.5 md:px-4 md:py-4 text-center text-slate-600 font-semibold font-mono">
-                            {entry.holesPlayed} / {totalHolesForFilter}
+                            {entry.holesPlayed}/{totalHolesForFilter}
                           </td>
                           
                           {/* Round points columns */}
@@ -1439,7 +1441,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
                           })}
 
                           <td className="px-2 py-2.5 md:px-5 md:py-4 text-center text-emerald-600 font-black text-base md:text-xl">
-                            {entry.totalPoints}
+                            {selectedLeaderboardType === 'BIRDIE' ? `${entry.totalPoints} (${entry.pars})` : entry.totalPoints}
                           </td>
                           <td className="px-2 py-2.5 md:px-5 md:py-4 text-right">
                             <button
@@ -2998,10 +3000,11 @@ export function CompetitionClientView({ competition, session, courses = [], user
                                 let diff = 0
                                 let isWiped = false
                                 
-                                if (score && score.status !== 'NOT_PLAYED') {
+                                if (score && (score.grossStrokes !== null || (score.status !== null && score.status !== 'NOT_PLAYED'))) {
                                   if (score.status === 'WIPED') {
                                     displayVal = "/"
                                     isWiped = true
+                                    sumStrokes += hole.par + 3 // wiped hole is triple bogey
                                   } else if (score.grossStrokes !== null) {
                                     displayVal = String(score.grossStrokes)
                                     sumStrokes += score.grossStrokes
@@ -3080,7 +3083,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
                                 )
 
                                 let pts = null
-                                if (score && score.status !== 'NOT_PLAYED') {
+                                if (score && (score.grossStrokes !== null || (score.status !== null && score.status !== 'NOT_PLAYED'))) {
                                   if (score.status === 'WIPED') {
                                     pts = 0
                                   } else if (score.grossStrokes !== null) {

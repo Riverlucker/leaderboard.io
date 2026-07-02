@@ -250,6 +250,11 @@ export function CompetitionClientView({ competition, session, courses = [], user
     }
   }, [activeTab, competition.name])
 
+  // Sync input values when competition participants prop updates from server
+  useEffect(() => {
+    setCompHandicapInputValues({})
+  }, [competition.participants])
+
   // Initialize selected tee when round course changes
   const selectedCourseForNewRound = courses.find(c => c.id === newRoundCourseId)
   useEffect(() => {
@@ -444,11 +449,6 @@ export function CompetitionClientView({ competition, session, courses = [], user
       await updateParticipant(pId, competition.id, {
         compHandicap: hcVal,
         teamId: competition.participants.find((p: any) => p.id === pId)?.teamId || null
-      })
-      setCompHandicapInputValues(prev => {
-        const copy = { ...prev }
-        delete copy[pId]
-        return copy
       })
       router.refresh()
     } catch (err: any) {

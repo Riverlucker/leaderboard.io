@@ -247,6 +247,7 @@ export async function updateParticipant(partId: string, compId: string, data: {
   })
 
   revalidatePath(`/admin/competitions/${compId}`)
+  revalidatePath('/')
   return { success: true }
 }
 

@@ -34,7 +34,8 @@ import {
   addTeam, 
   deleteTeam, 
   addParticipant, 
-  deleteParticipant 
+  deleteParticipant,
+  updateParticipant
 } from "@/app/admin/competitions/actions"
 
 import { BulkScorecardEntry } from "./BulkScorecardEntry"
@@ -110,6 +111,10 @@ export function CompetitionClientView({ competition, session, courses = [], user
   // Manual course handicaps editing state (overrides map)
   const [manualHandicapInputValues, setManualHandicapInputValues] = useState<Record<string, string>>({}) // key: "partId-courseId" -> string
   const [savingManualHandicap, setSavingManualHandicap] = useState<Record<string, boolean>>({})
+
+  // Editable compHandicap state
+  const [compHandicapInputValues, setCompHandicapInputValues] = useState<Record<string, string>>({})
+  const [savingCompHandicap, setSavingCompHandicap] = useState<Record<string, boolean>>({})
 
   // Admin settings states
   const [compName, setCompName] = useState(competition.name)
@@ -415,6 +420,41 @@ export function CompetitionClientView({ competition, session, courses = [], user
       await recalculatePlayerHandicaps(competition.id, partId)
       setManualHandicapInputValues({})
       router.refresh()
+    }
+  }
+
+  const handleCompHandicapChange = (pId: string, val: string) => {
+    setCompHandicapInputValues(prev => ({
+      ...prev,
+      [pId]: val
+    }))
+  }
+
+  const saveCompHandicap = async (pId: string) => {
+    const val = compHandicapInputValues[pId]
+    if (val === undefined) return
+
+    setSavingCompHandicap(prev => ({ ...prev, [pId]: true }))
+    try {
+      const hcVal = val === "" ? null : parseFloat(val)
+      if (hcVal !== null && isNaN(hcVal)) {
+        alert("Please enter a valid handicap number.")
+        return
+      }
+      await updateParticipant(pId, competition.id, {
+        compHandicap: hcVal,
+        teamId: competition.participants.find((p: any) => p.id === pId)?.teamId || null
+      })
+      setCompHandicapInputValues(prev => {
+        const copy = { ...prev }
+        delete copy[pId]
+        return copy
+      })
+      router.refresh()
+    } catch (err: any) {
+      alert(err.message || "Failed to save handicap.")
+    } finally {
+      setSavingCompHandicap(prev => ({ ...prev, [pId]: false }))
     }
   }
 
@@ -2546,8 +2586,33 @@ export function CompetitionClientView({ competition, session, courses = [], user
                                   <td className="px-4 py-3 text-slate-500 font-medium">
                                     {p.team?.name || "-"}
                                   </td>
-                                  <td className="px-4 py-3 text-center font-mono font-bold text-slate-650">
-                                    {p.compHandicap !== null ? p.compHandicap.toFixed(1) : "-"}
+                                  <td className="px-4 py-3 text-center border-l border-slate-200">
+                                    <div className="flex items-center justify-center gap-1.5">
+                                      <input
+                                        type="text"
+                                        value={compHandicapInputValues[p.id] !== undefined
+                                          ? compHandicapInputValues[p.id]
+                                          : (p.compHandicap !== null ? String(p.compHandicap) : "")}
+                                        onChange={e => handleCompHandicapChange(p.id, e.target.value)}
+                                        onKeyDown={e => {
+                                          if (e.key === 'Enter') saveCompHandicap(p.id)
+                                        }}
+                                        className={`w-12 py-0.5 text-center text-xs font-black rounded border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                                          compHandicapInputValues[p.id] !== undefined && compHandicapInputValues[p.id] !== String(p.compHandicap)
+                                            ? 'border-emerald-500 bg-emerald-50 text-emerald-700 font-black'
+                                            : 'border-slate-350 bg-slate-50 text-slate-700 font-mono font-bold'
+                                        }`}
+                                      />
+                                      {compHandicapInputValues[p.id] !== undefined && compHandicapInputValues[p.id] !== String(p.compHandicap) && (
+                                        <button
+                                          onClick={() => saveCompHandicap(p.id)}
+                                          disabled={savingCompHandicap[p.id]}
+                                          className="p-1 bg-white hover:bg-emerald-50 border border-slate-350 text-slate-500 hover:text-emerald-600 rounded shadow-sm"
+                                        >
+                                          {savingCompHandicap[p.id] ? <Loader2 size={10} className="animate-spin" /> : <Save size={10} />}
+                                        </button>
+                                      )}
+                                    </div>
                                   </td>
 
                                   {/* Course Handicaps inputs */}

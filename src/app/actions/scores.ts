@@ -5,7 +5,8 @@ import { revalidatePath } from "next/cache"
 import {
   calculateCourseHandicap,
   getHandicapStrokesOnHole,
-  calculateStablefordPoints
+  calculateStablefordPoints,
+  getRoundHoleInfo
 } from "@/lib/scoring"
 
 interface SaveScoreInput {
@@ -30,7 +31,7 @@ export async function saveHoleScore(input: SaveScoreInput) {
 
   const round = await prisma.round.findUnique({
     where: { id: roundId },
-    include: { course: { include: { tees: true } } }
+    include: { course: { include: { tees: true } }, tee: true }
   })
   if (!round) throw new Error("Round not found")
 
@@ -40,9 +41,10 @@ export async function saveHoleScore(input: SaveScoreInput) {
   if (!hole) throw new Error("Hole not found")
 
   // 2. Determine playing handicap and strokes received
-  // Find the Yellow/White/Default tee of the course
-  const tee = round.course.tees.find(t => t.name.toLowerCase() === 'yellow') ||
-              round.course.tees.find(t => t.name.toLowerCase() === 'white') ||
+  // Find the tee assigned to the round, fallback to Yellow/White/Default
+  const tee = round.tee ||
+              round.course.tees.find(t => t.name.toLowerCase().includes('yellow')) ||
+              round.course.tees.find(t => t.name.toLowerCase().includes('white')) ||
               round.course.tees[0]
 
   let netStrokes = null
@@ -58,6 +60,17 @@ export async function saveHoleScore(input: SaveScoreInput) {
     netStrokes = null
     points = null
   } else if (grossStrokes !== null) {
+    // Adjust hole parameters if ninePreset is set
+    let holePar = hole.par
+    let holeStrokeIndex = hole.strokeIndex
+    if (round.ninePreset) {
+      const adjusted = getRoundHoleInfo(round, hole.number)
+      if (adjusted) {
+        holePar = adjusted.par
+        holeStrokeIndex = adjusted.strokeIndex
+      }
+    }
+
     if (tee) {
       // Get the course par
       const courseHoles = await prisma.hole.findMany({
@@ -65,12 +78,12 @@ export async function saveHoleScore(input: SaveScoreInput) {
       })
       const coursePar = courseHoles.reduce((sum, h) => sum + h.par, 0)
 
-      // Check manual override/stored course handicap first
-      const manualHcpRecord = await prisma.manualCourseHandicap.findUnique({
+      // Check manual override/stored round handicap first
+      const manualHcpRecord = await prisma.manualRoundHandicap.findUnique({
         where: {
-          participantId_courseId: {
+          participantId_roundId: {
             participantId,
-            courseId: round.courseId
+            roundId
           }
         }
       })
@@ -82,15 +95,15 @@ export async function saveHoleScore(input: SaveScoreInput) {
             : 0)
       
       // Handicap strokes for this specific hole
-      const hcpStrokes = getHandicapStrokesOnHole(courseHandicap, hole.strokeIndex)
+      const hcpStrokes = getHandicapStrokesOnHole(courseHandicap, holeStrokeIndex)
 
       netStrokes = Math.max(0, grossStrokes - hcpStrokes)
       
       // Calculate Stableford points (default Netto Stableford points for this app's main type)
-      points = calculateStablefordPoints(grossStrokes, hole.par, hcpStrokes, true)
+      points = calculateStablefordPoints(grossStrokes, holePar, hcpStrokes, true)
     } else {
       netStrokes = grossStrokes
-      points = calculateStablefordPoints(grossStrokes, hole.par, 0, false)
+      points = calculateStablefordPoints(grossStrokes, holePar, 0, false)
     }
   }
 
@@ -203,16 +216,16 @@ export async function clearPlayerRoundScores(roundId: string, participantId: str
   return { success: true }
 }
 
-export async function saveManualCourseHandicap(
+export async function saveManualRoundHandicap(
   participantId: string,
-  courseId: string,
+  roundId: string,
   value: number
 ) {
-  await prisma.manualCourseHandicap.upsert({
+  await prisma.manualRoundHandicap.upsert({
     where: {
-      participantId_courseId: {
+      participantId_roundId: {
         participantId,
-        courseId
+        roundId
       }
     },
     update: {
@@ -220,7 +233,7 @@ export async function saveManualCourseHandicap(
     },
     create: {
       participantId,
-      courseId,
+      roundId,
       handicapValue: value
     }
   })
@@ -234,20 +247,21 @@ export async function saveManualCourseHandicap(
   return { success: true }
 }
 
-export async function recalculateCourseHandicaps(compId: string, courseId: string) {
-  const course = await prisma.course.findUnique({
-    where: { id: courseId },
-    include: { tees: true, holes: true }
+export async function recalculateRoundHandicaps(compId: string, roundId: string) {
+  const round = await prisma.round.findUnique({
+    where: { id: roundId },
+    include: { course: { include: { tees: true, holes: true } }, tee: true }
   })
-  if (!course) return { success: false, error: "Course not found" }
+  if (!round) return { success: false, error: "Round not found" }
 
-  const tee = course.tees.find((t: any) => t.name.toLowerCase().includes('yellow')) ||
-              course.tees.find((t: any) => t.name.toLowerCase().includes('white')) ||
-              course.tees[0]
+  const tee = round.tee ||
+              round.course.tees.find((t: any) => t.name.toLowerCase().includes('yellow')) ||
+              round.course.tees.find((t: any) => t.name.toLowerCase().includes('white')) ||
+              round.course.tees[0]
 
   if (!tee) return { success: false, error: "Tee not found" }
 
-  const coursePar = course.holes.reduce((sum: number, h: any) => sum + h.par, 0)
+  const coursePar = round.course.holes.reduce((sum: number, h: any) => sum + h.par, 0)
 
   const participants = await prisma.participant.findMany({
     where: { competitionId: compId }
@@ -258,17 +272,17 @@ export async function recalculateCourseHandicaps(compId: string, courseId: strin
 
     const handicapValue = calculateCourseHandicap(p.compHandicap, tee, coursePar)
 
-    await prisma.manualCourseHandicap.upsert({
+    await prisma.manualRoundHandicap.upsert({
       where: {
-        participantId_courseId: {
+        participantId_roundId: {
           participantId: p.id,
-          courseId: course.id
+          roundId: round.id
         }
       },
       update: { handicapValue },
       create: {
         participantId: p.id,
-        courseId: course.id,
+        roundId: round.id,
         handicapValue
       }
     })
@@ -290,39 +304,34 @@ export async function recalculatePlayerHandicaps(compId: string, participantId: 
   const rounds = await prisma.round.findMany({
     where: { competitionId: compId },
     include: {
+      tee: true,
       course: {
         include: { tees: true, holes: true }
       }
     }
   })
 
-  const uniqueCoursesMap = new Map<string, any>()
   for (const round of rounds) {
-    if (round.course && !uniqueCoursesMap.has(round.course.id)) {
-      uniqueCoursesMap.set(round.course.id, round.course)
-    }
-  }
-
-  for (const course of uniqueCoursesMap.values()) {
-    const tee = course.tees.find((t: any) => t.name.toLowerCase().includes('yellow')) ||
-                course.tees.find((t: any) => t.name.toLowerCase().includes('white')) ||
-                course.tees[0]
+    const tee = round.tee ||
+                round.course.tees.find((t: any) => t.name.toLowerCase().includes('yellow')) ||
+                round.course.tees.find((t: any) => t.name.toLowerCase().includes('white')) ||
+                round.course.tees[0]
     if (!tee) continue
 
-    const coursePar = course.holes.reduce((sum: number, h: any) => sum + h.par, 0)
+    const coursePar = round.course.holes.reduce((sum: number, h: any) => sum + h.par, 0)
     const handicapValue = calculateCourseHandicap(participant.compHandicap, tee, coursePar)
 
-    await prisma.manualCourseHandicap.upsert({
+    await prisma.manualRoundHandicap.upsert({
       where: {
-        participantId_courseId: {
+        participantId_roundId: {
           participantId: participantId,
-          courseId: course.id
+          roundId: round.id
         }
       },
       update: { handicapValue },
       create: {
         participantId: participantId,
-        courseId: course.id,
+        roundId: round.id,
         handicapValue
       }
     })

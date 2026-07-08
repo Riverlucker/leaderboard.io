@@ -13,12 +13,13 @@ import {
   calculateCourseHandicap, 
   getHandicapStrokesOnHole, 
   calculateStablefordPoints, 
-  assignLeaderboardRanks 
+  assignLeaderboardRanks,
+  getRoundHoleInfo
 } from "@/lib/scoring"
 
 import { 
-  saveManualCourseHandicap, 
-  recalculateCourseHandicaps, 
+  saveManualRoundHandicap, 
+  recalculateRoundHandicaps, 
   recalculatePlayerHandicaps, 
   resetAllScores, 
   resetRoundScores, 
@@ -265,28 +266,42 @@ export function CompetitionClientView({ competition, session, courses = [], user
     }
   }, [newRoundCourseId, selectedCourseForNewRound])
 
-  // Local storage persistence for setups
+  // Local storage persistence for setups and setting mount cookie
   useEffect(() => {
     if (typeof window !== "undefined") {
+      // Set cookie to remember this competition
+      document.cookie = `last-comp-slug=${competition.uniqueSlug}; path=/; max-age=31536000; SameSite=Lax`
+
       const savedRoundId = localStorage.getItem(`setup-round-${competition.id}`)
       const savedPlayers = localStorage.getItem(`setup-players-${competition.id}`)
       const savedMode = localStorage.getItem(`setup-mode-${competition.id}`)
       const savedConfirmed = localStorage.getItem(`setup-confirmed-${competition.id}`)
       const savedHoleIdx = localStorage.getItem(`setup-hole-${competition.id}`)
 
-      const activeRoundId = savedRoundId || (competition.rounds[0]?.id || "")
-      let activePlayerIds: string[] = []
+      // Determine initial round ID (must exist in this competition)
+      const isValidSavedRound = competition.rounds.some((r: any) => r.id === savedRoundId)
+      const initialRoundId = isValidSavedRound 
+        ? (savedRoundId as string)
+        : (competition.rounds[0]?.id || "")
 
-      if (savedRoundId) setSelectedRoundId(savedRoundId)
+      setSelectedRoundId(initialRoundId)
+
+      let activePlayerIds: string[] = []
       if (savedPlayers) {
         try {
-          activePlayerIds = JSON.parse(savedPlayers)
-          setSelectedPlayerIds(activePlayerIds)
+          const parsedPlayers = JSON.parse(savedPlayers)
+          if (Array.isArray(parsedPlayers)) {
+            activePlayerIds = parsedPlayers.filter((pId: string) => 
+              competition.participants.some((p: any) => p.id === pId)
+            )
+            setSelectedPlayerIds(activePlayerIds)
+          }
         } catch (_) {}
       }
+
       if (savedMode === 'LIVE' || savedMode === 'BULK') setEntryMode(savedMode)
-      if (savedConfirmed === 'true') {
-        const r = competition.rounds.find((round: any) => round.id === activeRoundId) || competition.rounds[0]
+      if (savedConfirmed === 'true' && initialRoundId) {
+        const r = competition.rounds.find((round: any) => round.id === initialRoundId) || competition.rounds[0]
         const pl = competition.participants.filter((p: any) => activePlayerIds.includes(p.id))
         
         let holeIndex = 0
@@ -297,9 +312,11 @@ export function CompetitionClientView({ competition, session, courses = [], user
         }
         setLiveHoleIndex(holeIndex)
         setSetupConfirmed(true)
+      } else {
+        setSetupConfirmed(false)
       }
     }
-  }, [competition.id])
+  }, [competition.id, competition.rounds, competition.participants])
 
   const saveSetupToStorage = (roundId: string, players: string[], mode: string, confirmed: boolean) => {
     if (typeof window !== "undefined") {
@@ -336,18 +353,23 @@ export function CompetitionClientView({ competition, session, courses = [], user
   }
   const uniqueCourses = Array.from(uniqueCoursesMap.values())
 
-  // Helper: Retrieve active playing handicap for a player on a course (checks manual override first)
-  const getPlayingHandicap = (p: any, course: any) => {
+  // Helper: Retrieve active playing handicap for a player in a round (checks manual override first)
+  const getPlayingHandicap = (p: any, round: any) => {
+    if (!round) return 0
     // Check manual override
-    const manualHcp = p.manualHandicaps?.find((mh: any) => mh.courseId === course.id)
+    const manualHcp = p.manualRoundHandicaps?.find((mr: any) => mr.roundId === round.id)
     if (manualHcp !== undefined && manualHcp !== null) {
       return manualHcp.handicapValue
     }
 
-    // Fall back to WHS formula
-    const tee = course.tees.find((t: any) => t.name.toLowerCase().includes('yellow')) ||
-                course.tees.find((t: any) => t.name.toLowerCase().includes('white')) ||
-                course.tees[0]
+    // Fall back to WHS formula using round tee and course
+    const course = round.course
+    if (!course) return 0
+
+    const tee = round.tee ||
+                course.tees?.find((t: any) => t.name.toLowerCase().includes('yellow')) ||
+                course.tees?.find((t: any) => t.name.toLowerCase().includes('white')) ||
+                course.tees?.[0]
 
     if (!tee || p.compHandicap === null || p.compHandicap === undefined) return 0
 
@@ -379,15 +401,15 @@ export function CompetitionClientView({ competition, session, courses = [], user
   }
 
   // Handle saving manual playing handicap
-  const handleManualHandicapChange = (partId: string, courseId: string, val: string) => {
+  const handleManualHandicapChange = (partId: string, roundId: string, val: string) => {
     setManualHandicapInputValues(prev => ({
       ...prev,
-      [`${partId}-${courseId}`]: val
+      [`${partId}-${roundId}`]: val
     }))
   }
 
-  const saveManualHandicap = async (partId: string, courseId: string) => {
-    const key = `${partId}-${courseId}`
+  const saveManualHandicap = async (partId: string, roundId: string) => {
+    const key = `${partId}-${roundId}`
     const val = manualHandicapInputValues[key]
     if (val === undefined) return
 
@@ -398,7 +420,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
         alert("Please enter a valid integer score.")
         return
       }
-      await saveManualCourseHandicap(partId, courseId, parsedVal)
+      await saveManualRoundHandicap(partId, roundId, parsedVal)
       setManualHandicapInputValues(prev => {
         const copy = { ...prev }
         delete copy[key]
@@ -412,9 +434,9 @@ export function CompetitionClientView({ competition, session, courses = [], user
     }
   }
 
-  const triggerRecalcCourse = async (courseId: string, courseName: string) => {
-    if (confirm(`Recalculate playing handicaps for ALL players on ${courseName}? This deletes manual overwrites.`)) {
-      await recalculateCourseHandicaps(competition.id, courseId)
+  const triggerRecalcRound = async (roundId: string, roundName: string) => {
+    if (confirm(`Recalculate playing handicaps for ALL players in ${roundName}? This deletes manual overwrites.`)) {
+      await recalculateRoundHandicaps(competition.id, roundId)
       setManualHandicapInputValues({})
       router.refresh()
     }
@@ -476,8 +498,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
         const roundPoints: Record<string, number> = {}
 
         for (const round of rounds) {
-          const coursePar = round.course.holes.reduce((sum: number, h: any) => sum + h.par, 0)
-          const courseHandicap = getPlayingHandicap(p, round.course)
+          const courseHandicap = getPlayingHandicap(p, round)
           const roundHoles = round.holesPlayed && round.holesPlayed.length > 0 
             ? round.holesPlayed 
             : Array.from({ length: 18 }, (_, i) => i + 1)
@@ -489,6 +510,10 @@ export function CompetitionClientView({ competition, session, courses = [], user
             const hole = round.course.holes.find((h: any) => h.number === holeNum)
             if (!hole) continue
 
+            const adjusted = getRoundHoleInfo(round, holeNum)
+            const holePar = adjusted ? adjusted.par : hole.par
+            const holeStrokeIndex = adjusted ? adjusted.strokeIndex : hole.strokeIndex
+
             const score = p.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
             if (score && (score.grossStrokes !== null || (score.status !== null && score.status !== 'NOT_PLAYED'))) {
               roundHolesPlayed = true
@@ -498,11 +523,11 @@ export function CompetitionClientView({ competition, session, courses = [], user
 
               if (score.status === 'WIPED') {
                 roundPts += 0
-                if (isActive) totalStrokes += hole.par + 3 // wiped hole is triple bogey
+                if (isActive) totalStrokes += holePar + 3 // wiped hole is triple bogey
               } else if (score.grossStrokes !== null) {
                 if (isActive) totalStrokes += score.grossStrokes
-                const hcpStrokes = getHandicapStrokesOnHole(courseHandicap, hole.strokeIndex)
-                const points = calculateStablefordPoints(score.grossStrokes, hole.par, hcpStrokes, true)
+                const hcpStrokes = getHandicapStrokesOnHole(courseHandicap, holeStrokeIndex)
+                const points = calculateStablefordPoints(score.grossStrokes, holePar, hcpStrokes, true)
                 if (points !== null) roundPts += points
               }
             }
@@ -518,6 +543,8 @@ export function CompetitionClientView({ competition, session, courses = [], user
           }
         }
 
+        const relToPar = (holesPlayed * 2) - totalPoints
+
         return {
           participantId: p.id,
           participant: p,
@@ -525,10 +552,11 @@ export function CompetitionClientView({ competition, session, courses = [], user
           totalPoints,
           totalStrokes,
           holesPlayed,
-          roundPoints
+          roundPoints,
+          relToPar
         }
       })
-      return assignLeaderboardRanks(entries)
+      return assignLeaderboardRanks(entries, competition.showRelToPar)
     }
 
     if (selectedLeaderboardType === 'STROKEPLAY') {
@@ -549,6 +577,9 @@ export function CompetitionClientView({ competition, session, courses = [], user
             const hole = round.course.holes.find((h: any) => h.number === holeNum)
             if (!hole) continue
 
+            const adjusted = getRoundHoleInfo(round, holeNum)
+            const holePar = adjusted ? adjusted.par : hole.par
+
             const score = p.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
             if (score && (score.grossStrokes !== null || (score.status !== null && score.status !== 'NOT_PLAYED'))) {
               roundHolesPlayed = true
@@ -556,7 +587,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
               if (isActive) holesPlayed++
 
               if (score.status === 'WIPED') {
-                roundStrokes += hole.par + 3 // wiped hole is triple bogey in strokeplay gross
+                roundStrokes += holePar + 3 // wiped hole is triple bogey in strokeplay gross
               } else if (score.grossStrokes !== null) {
                 roundStrokes += score.grossStrokes
               }
@@ -611,8 +642,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
         const roundPoints: Record<string, number> = {}
 
         for (const round of rounds) {
-          const coursePar = round.course.holes.reduce((sum: number, h: any) => sum + h.par, 0)
-          const courseHandicap = getPlayingHandicap(p, round.course)
+          const courseHandicap = getPlayingHandicap(p, round)
           const roundHoles = round.holesPlayed && round.holesPlayed.length > 0 
             ? round.holesPlayed 
             : Array.from({ length: 18 }, (_, i) => i + 1)
@@ -624,6 +654,10 @@ export function CompetitionClientView({ competition, session, courses = [], user
             const hole = round.course.holes.find((h: any) => h.number === holeNum)
             if (!hole) continue
 
+            const adjusted = getRoundHoleInfo(round, holeNum)
+            const holePar = adjusted ? adjusted.par : hole.par
+            const holeStrokeIndex = adjusted ? adjusted.strokeIndex : hole.strokeIndex
+
             const score = p.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
             if (score && (score.grossStrokes !== null || (score.status !== null && score.status !== 'NOT_PLAYED'))) {
               roundHolesPlayed = true
@@ -632,11 +666,11 @@ export function CompetitionClientView({ competition, session, courses = [], user
 
               if (score.status === 'WIPED') {
                 roundPts += 0
-                if (isActive) totalStrokes += hole.par + 3 // wiped hole is triple bogey
+                if (isActive) totalStrokes += holePar + 3 // wiped hole is triple bogey
               } else if (score.grossStrokes !== null) {
                 if (isActive) totalStrokes += score.grossStrokes
-                const hcpStrokes = getHandicapStrokesOnHole(courseHandicap, hole.strokeIndex)
-                const points = calculateStablefordPoints(score.grossStrokes, hole.par, hcpStrokes, isNet)
+                const hcpStrokes = getHandicapStrokesOnHole(courseHandicap, holeStrokeIndex)
+                const points = calculateStablefordPoints(score.grossStrokes, holePar, hcpStrokes, isNet)
                 if (points !== null) roundPts += points
               }
             }
@@ -652,6 +686,8 @@ export function CompetitionClientView({ competition, session, courses = [], user
           }
         }
 
+        const relToPar = (holesPlayed * 2) - totalPoints
+
         return {
           participantId: p.id,
           participant: p,
@@ -659,10 +695,11 @@ export function CompetitionClientView({ competition, session, courses = [], user
           totalPoints,
           totalStrokes,
           holesPlayed,
-          roundPoints
+          roundPoints,
+          relToPar
         }
       })
-      return assignLeaderboardRanks(entries)
+      return assignLeaderboardRanks(entries, competition.showRelToPar)
     }
 
     if (selectedLeaderboardType === 'BIRDIE') {
@@ -913,8 +950,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
         let strokes = 0
         
         for (const round of activeRounds) {
-          const coursePar = round.course.holes.reduce((sum: number, h: any) => sum + h.par, 0)
-          const courseHandicap = getPlayingHandicap(p, round.course)
+          const courseHandicap = getPlayingHandicap(p, round)
           const roundHoles = round.holesPlayed && round.holesPlayed.length > 0 
             ? round.holesPlayed 
             : Array.from({ length: 18 }, (_, i) => i + 1)
@@ -923,14 +959,18 @@ export function CompetitionClientView({ competition, session, courses = [], user
             const hole = round.course.holes.find((h: any) => h.number === holeNum)
             if (!hole) continue
 
+            const adjusted = getRoundHoleInfo(round, holeNum)
+            const holePar = adjusted ? adjusted.par : hole.par
+            const holeStrokeIndex = adjusted ? adjusted.strokeIndex : hole.strokeIndex
+
             const score = p.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
             if (score && (score.grossStrokes !== null || (score.status !== null && score.status !== 'NOT_PLAYED'))) {
               if (score.status === 'WIPED') {
-                strokes += isStroke ? (hole.par + 3) : 0 // wiped hole is triple bogey in strokeplay gross
+                strokes += isStroke ? (holePar + 3) : 0 // wiped hole is triple bogey in strokeplay gross
               } else if (score.grossStrokes !== null) {
                 strokes += score.grossStrokes
-                const hcpStrokes = getHandicapStrokesOnHole(courseHandicap, hole.strokeIndex)
-                const pts = calculateStablefordPoints(score.grossStrokes, hole.par, hcpStrokes, isNet)
+                const hcpStrokes = getHandicapStrokesOnHole(courseHandicap, holeStrokeIndex)
+                const pts = calculateStablefordPoints(score.grossStrokes, holePar, hcpStrokes, isNet)
                 if (pts !== null) points += pts
               }
             }
@@ -1381,6 +1421,12 @@ export function CompetitionClientView({ competition, session, courses = [], user
                     <tr>
                       <th className="px-2 py-2.5 md:px-5 md:py-4 text-center w-10 md:w-14">Rank</th>
                       <th className="px-3 py-2.5 md:px-5 md:py-4 min-w-[110px] md:min-w-[140px]">Player</th>
+                      <th className="px-2 py-2.5 md:px-5 md:py-4 text-center w-20 md:w-28">
+                        {competition.showRelToPar && (selectedLeaderboardType === 'MAIN' || selectedLeaderboardType === 'STABLEFORD_NETTO' || selectedLeaderboardType === 'STABLEFORD_BRUTTO')
+                          ? 'Score (+/-)'
+                          : (selectedLeaderboardType === 'STROKEPLAY' ? 'Gross Strokes' : selectedLeaderboardType === 'BIRDIE' ? 'Birdies (Pars)' : selectedLeaderboardType === 'DOUBLE_BOGEY_PLUS' ? 'DB+' : selectedLeaderboardType === 'PAR_PLUS_SERIES' ? 'Streak' : 'Total Points')
+                        }
+                      </th>
                       <th className="px-2 py-2.5 md:px-4 md:py-4 text-center w-16 md:w-24">Played</th>
                       {competition.rounds.map((round: any, i: number) => {
                         return (
@@ -1394,9 +1440,6 @@ export function CompetitionClientView({ competition, session, courses = [], user
                           </th>
                         )
                       })}
-                      <th className="px-2 py-2.5 md:px-5 md:py-4 text-center w-20 md:w-28">
-                        {selectedLeaderboardType === 'STROKEPLAY' ? 'Gross Strokes' : selectedLeaderboardType === 'BIRDIE' ? 'Birdies (Pars)' : selectedLeaderboardType === 'DOUBLE_BOGEY_PLUS' ? 'DB+' : selectedLeaderboardType === 'PAR_PLUS_SERIES' ? 'Streak' : 'Total Points'}
-                      </th>
                       <th className="px-2 py-2.5 md:px-5 md:py-4 text-right w-12 md:w-16">Cards</th>
                     </tr>
                   </thead>
@@ -1416,6 +1459,12 @@ export function CompetitionClientView({ competition, session, courses = [], user
                             <div className="text-[10px] md:text-xs text-slate-500 font-mono mt-0.5">
                               HCP Index: {entry.participant.compHandicap !== null ? entry.participant.compHandicap.toFixed(1) : "-"}
                             </div>
+                          </td>
+                          <td className="px-2 py-2.5 md:px-5 md:py-4 text-center text-emerald-600 font-black text-base md:text-xl">
+                            {competition.showRelToPar && (selectedLeaderboardType === 'MAIN' || selectedLeaderboardType === 'STABLEFORD_NETTO' || selectedLeaderboardType === 'STABLEFORD_BRUTTO')
+                              ? (entry.relToPar === 0 ? "Even" : (entry.relToPar < 0 ? String(entry.relToPar) : `+${entry.relToPar}`))
+                              : (selectedLeaderboardType === 'BIRDIE' ? `${entry.totalPoints} (${entry.pars})` : entry.totalPoints)
+                            }
                           </td>
                           <td className="px-2 py-2.5 md:px-4 md:py-4 text-center text-slate-600 font-semibold font-mono">
                             {entry.holesPlayed}/{totalHolesForFilter}
@@ -1440,9 +1489,6 @@ export function CompetitionClientView({ competition, session, courses = [], user
                             )
                           })}
 
-                          <td className="px-2 py-2.5 md:px-5 md:py-4 text-center text-emerald-600 font-black text-base md:text-xl">
-                            {selectedLeaderboardType === 'BIRDIE' ? `${entry.totalPoints} (${entry.pars})` : entry.totalPoints}
-                          </td>
                           <td className="px-2 py-2.5 md:px-5 md:py-4 text-right">
                             <button
                               onClick={() => {
@@ -2556,16 +2602,17 @@ export function CompetitionClientView({ competition, session, courses = [], user
                               <th className="px-4 py-3">Team</th>
                               <th className="px-4 py-3 text-center">HCP Index</th>
                               
-                              {/* Unique courses columns with recalc button */}
-                              {uniqueCourses.map(course => (
-                                <th key={course.id} className="px-4 py-3 text-center border-l border-slate-200 min-w-[120px]">
-                                  <div className="flex items-center justify-center gap-1.5">
-                                    <span>{course.name}</span>
+                              {/* Rounds columns with recalc button */}
+                              {competition.rounds.map((round: any) => (
+                                <th key={round.id} className="px-4 py-3 text-center border-l border-slate-200 min-w-[120px]">
+                                  <div className="flex flex-col items-center justify-center gap-0.5">
+                                    <span className="font-extrabold">{round.name}</span>
+                                    <span className="text-[9px] text-slate-450 normal-case font-medium">{round.course.name}</span>
                                     <button
                                       type="button"
-                                      onClick={() => triggerRecalcCourse(course.id, course.name)}
-                                      className="p-0.5 bg-white border border-slate-300 rounded hover:bg-slate-100 text-slate-500 hover:text-emerald-600"
-                                      title="Recalculate Playing Handicaps for all players on this course"
+                                      onClick={() => triggerRecalcRound(round.id, round.name)}
+                                      className="mt-1 p-0.5 bg-white border border-slate-300 rounded hover:bg-slate-100 text-slate-500 hover:text-emerald-600"
+                                      title="Recalculate Playing Handicaps for all players in this round"
                                     >
                                       <RefreshCw size={10} />
                                     </button>
@@ -2617,11 +2664,11 @@ export function CompetitionClientView({ competition, session, courses = [], user
                                     </div>
                                   </td>
 
-                                  {/* Course Handicaps inputs */}
-                                  {uniqueCourses.map(course => {
-                                    const key = `${p.id}-${course.id}`
-                                    const manualRecord = p.manualHandicaps?.find((mh: any) => mh.courseId === course.id)
-                                    const calculatedVal = getPlayingHandicap(p, course)
+                                  {/* Round Handicaps inputs */}
+                                  {competition.rounds.map((round: any) => {
+                                    const key = `${p.id}-${round.id}`
+                                    const manualRecord = p.manualRoundHandicaps?.find((mr: any) => mr.roundId === round.id)
+                                    const calculatedVal = getPlayingHandicap(p, round)
                                     
                                     // Use input state or fall back to current database value
                                     const currentValStr = manualHandicapInputValues[key] !== undefined
@@ -2632,25 +2679,25 @@ export function CompetitionClientView({ competition, session, courses = [], user
                                     const isSaving = savingManualHandicap[key]
 
                                     return (
-                                      <td key={course.id} className="px-3 py-2 text-center border-l border-slate-200">
+                                      <td key={round.id} className="px-3 py-2 text-center border-l border-slate-200">
                                         <div className="flex items-center justify-center gap-1">
                                           <input
                                             type="text"
                                             value={currentValStr}
-                                            onChange={e => handleManualHandicapChange(p.id, course.id, e.target.value)}
+                                            onChange={e => handleManualHandicapChange(p.id, round.id, e.target.value)}
                                             onKeyDown={e => {
-                                              if (e.key === 'Enter') saveManualHandicap(p.id, course.id)
+                                              if (e.key === 'Enter') saveManualHandicap(p.id, round.id)
                                             }}
                                             className={`w-12 py-0.5 text-center text-xs font-black rounded border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
                                               isModified
                                                 ? 'border-emerald-500 bg-emerald-50 text-emerald-700 font-black'
                                                 : 'border-slate-300 bg-slate-50 text-slate-700'
                                             }`}
-                                            title={isModified ? "Manually overwritten course handicap" : "Automatically computed standard playing handicap"}
+                                            title={isModified ? "Manually overwritten round handicap" : "Automatically computed standard playing handicap"}
                                           />
                                           {currentValStr !== String(calculatedVal) && (
                                             <button
-                                              onClick={() => saveManualHandicap(p.id, course.id)}
+                                              onClick={() => saveManualHandicap(p.id, round.id)}
                                               disabled={isSaving}
                                               className="p-1 bg-white hover:bg-emerald-50 border border-slate-350 text-slate-500 hover:text-emerald-600 rounded"
                                             >
@@ -2916,10 +2963,17 @@ export function CompetitionClientView({ competition, session, courses = [], user
                   const coursePar = round.course.holes.reduce((sum: number, h: any) => sum + h.par, 0)
                   
                   // Course Handicap
-                  const courseHandicap = getPlayingHandicap(selectedParticipantForScorecard, round.course)
+                  const courseHandicap = getPlayingHandicap(selectedParticipantForScorecard, round)
 
                   const frontHoleNums = Array.from({ length: 9 }, (_, i) => i + 1)
                   const backHoleNums = Array.from({ length: 9 }, (_, i) => i + 10)
+
+                  const activeRoundHoles = round.holesPlayed && round.holesPlayed.length > 0
+                    ? round.holesPlayed
+                    : Array.from({ length: 18 }, (_, i) => i + 1)
+
+                  const frontHolesPlayed = frontHoleNums.filter(num => activeRoundHoles.includes(num))
+                  const backHolesPlayed = backHoleNums.filter(num => activeRoundHoles.includes(num))
 
                   const renderHoleColumns = (holeNums: number[]) => {
                     let sumPar = 0
@@ -2928,58 +2982,65 @@ export function CompetitionClientView({ competition, session, courses = [], user
 
                     return (
                       <div className="overflow-x-auto border border-slate-200 rounded-xl w-full">
-                        <table className="w-full text-xs text-center border-collapse">
+                        <table className="w-full text-[10px] text-center border-collapse">
                           <thead className="bg-slate-50 text-slate-650">
                             <tr className="border-b border-slate-200">
-                              <th className="px-3 py-2 text-left font-bold border-r border-slate-200 w-24">Hole</th>
+                              <th className="px-2 py-1 text-left font-extrabold border-r border-slate-200 w-16 text-[10px]">Hole</th>
                               {holeNums.map(num => {
+                                const adjusted = getRoundHoleInfo(round, num)
                                 const hole = round.course.holes.find((h: any) => h.number === num)
-                                if (hole) sumPar += hole.par
+                                const holePar = adjusted ? adjusted.par : (hole?.par || 4)
+                                sumPar += holePar
                                 return (
-                                  <th key={num} className="px-2 py-2 border-r border-slate-200/80 font-extrabold w-12 text-slate-700">
+                                  <th key={num} className="px-1 py-1 border-r border-slate-200/80 font-black w-8 md:w-10 text-[10px] text-slate-700">
                                     {num}
                                   </th>
                                 )
                               })}
-                              <th className="px-3 py-2 font-bold w-16 text-slate-700">Subtotal</th>
+                              <th className="px-1.5 py-1 font-bold w-12 text-slate-700 text-[10px]">Total</th>
                             </tr>
-                            <tr className="border-b border-slate-200 text-[10px] text-slate-500">
-                              <td className="px-3 py-1.5 text-left border-r border-slate-200">Par</td>
+                            <tr className="border-b border-slate-200 text-[9px] text-slate-550">
+                              <td className="px-2 py-1 text-left border-r border-slate-200">Par</td>
                               {holeNums.map(num => {
+                                const adjusted = getRoundHoleInfo(round, num)
                                 const hole = round.course.holes.find((h: any) => h.number === num)
+                                const holePar = adjusted ? adjusted.par : (hole?.par || 4)
                                 return (
-                                  <td key={num} className="px-2 py-1.5 border-r border-slate-200/80 font-mono">
-                                    {hole?.par || "-"}
+                                  <td key={num} className="px-1 py-0.5 border-r border-slate-200/80 font-mono">
+                                    {holePar}
                                   </td>
                                 )
                               })}
-                              <td className="px-3 py-1.5 font-bold font-mono">{sumPar}</td>
+                              <td className="px-1.5 py-1.5 font-bold font-mono text-[9px]">{sumPar}</td>
                             </tr>
-                            <tr className="border-b border-slate-200 text-[10px] text-slate-500">
-                              <td className="px-3 py-1.5 text-left border-r border-slate-200">Index</td>
+                            <tr className="border-b border-slate-200 text-[9px] text-slate-550">
+                              <td className="px-2 py-1 text-left border-r border-slate-200">Index</td>
                               {holeNums.map(num => {
+                                const adjusted = getRoundHoleInfo(round, num)
                                 const hole = round.course.holes.find((h: any) => h.number === num)
+                                const holeStrokeIndex = adjusted ? adjusted.strokeIndex : (hole?.strokeIndex || 1)
                                 return (
-                                  <td key={num} className="px-2 py-1.5 border-r border-slate-200/80 font-mono">
-                                    {hole?.strokeIndex || "-"}
+                                  <td key={num} className="px-1 py-0.5 border-r border-slate-200/80 font-mono">
+                                    {holeStrokeIndex}
                                   </td>
                                 )
                               })}
-                              <td className="px-3 py-1.5 font-mono">-</td>
+                              <td className="px-1.5 py-1.5 font-mono text-[9px]">-</td>
                             </tr>
-                            <tr className="border-b border-slate-200 text-[10px] text-slate-500">
-                              <td className="px-3 py-1.5 text-left border-r border-slate-200">Shots</td>
+                            <tr className="border-b border-slate-200 text-[9px] text-slate-550">
+                              <td className="px-2 py-1 text-left border-r border-slate-200">Shots</td>
                               {holeNums.map(num => {
+                                const adjusted = getRoundHoleInfo(round, num)
                                 const hole = round.course.holes.find((h: any) => h.number === num)
-                                if (!hole) return <td key={num} className="border-r border-slate-200/80">-</td>
-                                const hcpStrokes = getHandicapStrokesOnHole(courseHandicap, hole.strokeIndex)
+                                const holeStrokeIndex = adjusted ? adjusted.strokeIndex : (hole?.strokeIndex || 1)
+                                const hcpStrokes = getHandicapStrokesOnHole(courseHandicap, holeStrokeIndex)
                                 return (
-                                  <td key={num} className="px-2 py-1.5 border-r border-slate-200/80 font-bold text-cyan-600 font-mono">
+                                  <td key={num} className="px-1 py-0.5 border-r border-slate-200/80 font-bold text-cyan-600 font-mono">
                                     {hcpStrokes === 1 ? "|" : hcpStrokes >= 2 ? "||" : ""}
                                   </td>
                                 )
                               })}
-                              <td className="px-3 py-1.5 font-mono font-bold text-cyan-600">
+                              <td className="px-1.5 py-1.5 font-mono font-bold text-cyan-600 text-[9px]">
                                 {courseHandicap}
                               </td>
                             </tr>
@@ -2987,10 +3048,13 @@ export function CompetitionClientView({ competition, session, courses = [], user
                           <tbody className="bg-white text-slate-800">
                             {/* Gross Strokes Row */}
                             <tr className="border-b border-slate-200">
-                              <td className="px-3 py-3 text-left font-bold text-slate-700 border-r border-slate-200">Strokes</td>
+                              <td className="px-2 py-1.5 text-left font-bold text-slate-700 border-r border-slate-200 text-[10px]">Strokes</td>
                               {holeNums.map(num => {
+                                const adjusted = getRoundHoleInfo(round, num)
                                 const hole = round.course.holes.find((h: any) => h.number === num)
                                 if (!hole) return <td key={num} className="border-r border-slate-200/80">-</td>
+
+                                const holePar = adjusted ? adjusted.par : hole.par
 
                                 const score = selectedParticipantForScorecard.scores.find(
                                   (s: any) => s.roundId === round.id && s.holeId === hole.id
@@ -3004,79 +3068,83 @@ export function CompetitionClientView({ competition, session, courses = [], user
                                   if (score.status === 'WIPED') {
                                     displayVal = "/"
                                     isWiped = true
-                                    sumStrokes += hole.par + 3 // wiped hole is triple bogey
+                                    sumStrokes += holePar + 3 // wiped hole is triple bogey
                                   } else if (score.grossStrokes !== null) {
                                     displayVal = String(score.grossStrokes)
                                     sumStrokes += score.grossStrokes
-                                    diff = score.grossStrokes - hole.par
+                                    diff = score.grossStrokes - holePar
                                   }
                                 }
 
-                                // Style circle/square markers
+                                // Style circle/square markers (more compact)
                                 let markerMarkup = null
                                 if (displayVal !== '-' && displayVal !== '/' && score?.grossStrokes) {
                                   if (diff === -1) {
                                     // Birdie: single circle
                                     markerMarkup = (
-                                      <div className="absolute w-7.5 h-7.5 flex items-center justify-center pointer-events-none">
-                                        <div className="w-6.5 h-6.5 border border-emerald-500 rounded-full opacity-80" />
+                                      <div className="absolute w-5.5 h-5.5 flex items-center justify-center pointer-events-none">
+                                        <div className="w-4.5 h-4.5 border border-emerald-500 rounded-full opacity-80" />
                                       </div>
                                     )
                                   } else if (diff <= -2) {
                                     // Eagle: double circle
                                     markerMarkup = (
-                                      <div className="absolute w-7.5 h-7.5 flex items-center justify-center pointer-events-none">
-                                        <div className="absolute w-6.5 h-6.5 border border-emerald-500 rounded-full opacity-80" />
-                                        <div className="absolute w-5 h-5 border border-emerald-500 rounded-full opacity-80" />
+                                      <div className="absolute w-5.5 h-5.5 flex items-center justify-center pointer-events-none">
+                                        <div className="absolute w-4.5 h-4.5 border border-emerald-500 rounded-full opacity-80" />
+                                        <div className="absolute w-3.2 h-3.2 border border-emerald-500 rounded-full opacity-80" />
                                       </div>
                                     )
                                   } else if (diff === 1) {
                                     // Bogey: single rectangle
                                     markerMarkup = (
-                                      <div className="absolute w-7.5 h-7.5 flex items-center justify-center pointer-events-none">
-                                        <div className="w-6 h-6 border border-red-500 rounded-none opacity-70" />
+                                      <div className="absolute w-5.5 h-5.5 flex items-center justify-center pointer-events-none">
+                                        <div className="w-4.2 h-4.2 border border-red-500 rounded-none opacity-70" />
                                       </div>
                                     )
                                   } else if (diff === 2) {
                                     // Double Bogey: double rectangle
                                     markerMarkup = (
-                                      <div className="absolute w-7.5 h-7.5 flex items-center justify-center pointer-events-none">
-                                        <div className="absolute w-6.5 h-6.5 border border-red-500 rounded-none opacity-70" />
-                                        <div className="absolute w-5 h-5 border border-red-500 rounded-none opacity-70" />
+                                      <div className="absolute w-5.5 h-5.5 flex items-center justify-center pointer-events-none">
+                                        <div className="absolute w-4.5 h-4.5 border border-red-500 rounded-none opacity-70" />
+                                        <div className="absolute w-3.2 h-3.2 border border-red-500 rounded-none opacity-70" />
                                       </div>
                                     )
                                   } else if (diff >= 3) {
                                     // Triple bogey or worse: three rectangles
                                     markerMarkup = (
-                                      <div className="absolute w-7.5 h-7.5 flex items-center justify-center pointer-events-none">
-                                        <div className="absolute w-7 h-7 border border-red-500 rounded-none opacity-70" />
-                                        <div className="absolute w-5.5 h-5.5 border border-red-500 rounded-none opacity-70" />
-                                        <div className="absolute w-4 h-4 border border-red-500 rounded-none opacity-70" />
+                                      <div className="absolute w-5.5 h-5.5 flex items-center justify-center pointer-events-none">
+                                        <div className="absolute w-5 h-5 border border-red-500 rounded-none opacity-70" />
+                                        <div className="absolute w-4.5 h-4.5 border border-red-500 rounded-none opacity-70" />
+                                        <div className="absolute w-3 h-3 border border-red-500 rounded-none opacity-70" />
                                       </div>
                                     )
                                   }
                                 }
 
                                 return (
-                                  <td key={num} className="px-2 py-3 border-r border-slate-200/80 relative font-bold text-slate-800">
-                                    <div className="flex items-center justify-center h-7.5 relative w-full">
+                                  <td key={num} className="px-1 py-1.5 border-r border-slate-200/80 relative font-bold text-slate-800 text-[11px]">
+                                    <div className="flex items-center justify-center h-6 relative w-full">
                                       <span className={isWiped ? 'text-red-650 font-black' : ''}>{displayVal}</span>
                                       {markerMarkup}
                                     </div>
                                   </td>
                                 )
                               })}
-                              <td className="px-3 py-3 font-extrabold text-slate-850">{sumStrokes}</td>
+                              <td className="px-1.5 py-1.5 font-extrabold text-slate-850 text-[10px]">{sumStrokes}</td>
                             </tr>
 
                             {/* Stableford Points Row */}
                             <tr>
-                              <td className="px-3 py-3 text-left font-bold text-slate-500 border-r border-slate-200">
+                              <td className="px-2 py-1.5 text-left font-bold text-slate-500 border-r border-slate-200 text-[10px]">
                                 Points {selectedLeaderboardType === 'STABLEFORD_BRUTTO' ? '(gross)' : '(netto)'}
                               </td>
                               {holeNums.map(num => {
+                                const adjusted = getRoundHoleInfo(round, num)
                                 const hole = round.course.holes.find((h: any) => h.number === num)
                                 if (!hole) return <td key={num} className="border-r border-slate-200/80">-</td>
+
+                                const holePar = adjusted ? adjusted.par : hole.par
+                                const holeStrokeIndex = adjusted ? adjusted.strokeIndex : hole.strokeIndex
 
                                 const score = selectedParticipantForScorecard.scores.find(
                                   (s: any) => s.roundId === round.id && s.holeId === hole.id
@@ -3088,8 +3156,8 @@ export function CompetitionClientView({ competition, session, courses = [], user
                                     pts = 0
                                   } else if (score.grossStrokes !== null) {
                                     const isNet = selectedLeaderboardType !== 'STABLEFORD_BRUTTO'
-                                    const hcpStrokes = isNet ? getHandicapStrokesOnHole(courseHandicap, hole.strokeIndex) : 0
-                                    pts = calculateStablefordPoints(score.grossStrokes, hole.par, hcpStrokes, isNet)
+                                    const hcpStrokes = isNet ? getHandicapStrokesOnHole(courseHandicap, holeStrokeIndex) : 0
+                                    pts = calculateStablefordPoints(score.grossStrokes, holePar, hcpStrokes, isNet)
                                   }
                                 }
 
@@ -3098,12 +3166,12 @@ export function CompetitionClientView({ competition, session, courses = [], user
                                 }
 
                                 return (
-                                  <td key={num} className="px-2 py-3 border-r border-slate-200/80 font-extrabold text-emerald-600 font-mono">
+                                  <td key={num} className="px-1 py-1.5 border-r border-slate-200/80 font-extrabold text-emerald-600 font-mono text-[10px]">
                                     {pts !== null ? pts : "-"}
                                   </td>
                                 )
                               })}
-                              <td className="px-3 py-3 font-black text-emerald-600 font-mono">{sumPoints}</td>
+                              <td className="px-1.5 py-1.5 font-black text-emerald-600 font-mono text-[10px]">{sumPoints}</td>
                             </tr>
                           </tbody>
                         </table>
@@ -3121,15 +3189,19 @@ export function CompetitionClientView({ competition, session, courses = [], user
                       </div>
 
                       <div className="space-y-4">
-                        <div>
-                          <div className="text-[10px] uppercase font-bold text-slate-500 tracking-wider mb-1">Front Nine</div>
-                          {renderHoleColumns(frontHoleNums)}
-                        </div>
+                        {frontHolesPlayed.length > 0 && (
+                          <div>
+                            <div className="text-[10px] uppercase font-bold text-slate-500 tracking-wider mb-1">Front Nine</div>
+                            {renderHoleColumns(frontHolesPlayed)}
+                          </div>
+                        )}
 
-                        <div>
-                          <div className="text-[10px] uppercase font-bold text-slate-500 tracking-wider mb-1">Back Nine</div>
-                          {renderHoleColumns(backHoleNums)}
-                        </div>
+                        {backHolesPlayed.length > 0 && (
+                          <div>
+                            <div className="text-[10px] uppercase font-bold text-slate-500 tracking-wider mb-1">Back Nine</div>
+                            {renderHoleColumns(backHolesPlayed)}
+                          </div>
+                        )}
                       </div>
                     </div>
                   )

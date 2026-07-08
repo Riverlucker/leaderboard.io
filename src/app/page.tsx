@@ -3,6 +3,7 @@ import Link from "next/link"
 import prisma from "@/lib/prisma"
 import { CompetitionClientView } from "./CompetitionClientView"
 import { calculateCourseHandicap } from "@/lib/scoring"
+import { cookies } from "next/headers"
 
 interface HomeProps {
   searchParams: Promise<{ comp?: string }>
@@ -12,6 +13,21 @@ export default async function Home({ searchParams }: HomeProps) {
   const session = await auth()
   const resolvedSearchParams = await searchParams
   const compSlug = resolvedSearchParams.comp
+
+  // Load the last competition from cookie if available
+  const cookieStore = await cookies()
+  const lastCompSlug = cookieStore.get("last-comp-slug")?.value
+  let lastCompetition = null
+  if (lastCompSlug) {
+    lastCompetition = await prisma.competition.findUnique({
+      where: { uniqueSlug: lastCompSlug }
+    })
+  }
+
+  // Load all competitions to list on the landing page
+  const competitions = await prisma.competition.findMany({
+    orderBy: { startDate: 'desc' }
+  })
 
   if (compSlug) {
     const competition = await prisma.competition.findUnique({
@@ -37,7 +53,7 @@ export default async function Home({ searchParams }: HomeProps) {
               }
             }
           },
-          orderBy: { name: 'asc' } // sort alphabetically/chronologically
+          orderBy: { name: 'asc' }
         },
         teams: {
           orderBy: { name: 'asc' }
@@ -46,7 +62,7 @@ export default async function Home({ searchParams }: HomeProps) {
           include: {
             user: true,
             team: true,
-            manualHandicaps: true,
+            manualRoundHandicaps: true,
             scores: {
               include: {
                 hole: true
@@ -62,35 +78,27 @@ export default async function Home({ searchParams }: HomeProps) {
     })
 
     if (competition) {
-      // Fetch unique courses for this competition
-      const uniqueCoursesMap = new Map<string, any>()
-      for (const round of competition.rounds) {
-        if (round.course && !uniqueCoursesMap.has(round.course.id)) {
-          uniqueCoursesMap.set(round.course.id, round.course)
-        }
-      }
-      const uniqueCourses = Array.from(uniqueCoursesMap.values())
-
-      // Check if any participant is missing manual handicaps for any course
+      // Check if any participant is missing manual handicaps for any round
       let missingFound = false
       for (const p of competition.participants) {
         if (p.compHandicap === null || p.compHandicap === undefined) continue
 
-        for (const course of uniqueCourses) {
-          const hasRecord = p.manualHandicaps.some((mh: any) => mh.courseId === course.id)
+        for (const round of competition.rounds) {
+          const hasRecord = p.manualRoundHandicaps.some((mr: any) => mr.roundId === round.id)
           if (!hasRecord) {
             missingFound = true
-            const tee = course.tees.find((t: any) => t.name.toLowerCase().includes('yellow')) ||
-                        course.tees.find((t: any) => t.name.toLowerCase().includes('white')) ||
-                        course.tees[0]
+            const tee = round.tee ||
+                        round.course.tees.find((t: any) => t.name.toLowerCase().includes('yellow')) ||
+                        round.course.tees.find((t: any) => t.name.toLowerCase().includes('white')) ||
+                        round.course.tees[0]
             if (tee) {
-              const coursePar = course.holes.reduce((sum: number, h: any) => sum + h.par, 0)
+              const coursePar = round.course.holes.reduce((sum: number, h: any) => sum + h.par, 0)
               const handicapValue = calculateCourseHandicap(p.compHandicap, tee, coursePar)
 
-              await prisma.manualCourseHandicap.create({
+              await prisma.manualRoundHandicap.create({
                 data: {
                   participantId: p.id,
-                  courseId: course.id,
+                  roundId: round.id,
                   handicapValue
                 }
               })
@@ -134,7 +142,7 @@ export default async function Home({ searchParams }: HomeProps) {
               include: {
                 user: true,
                 team: true,
-                manualHandicaps: true,
+                manualRoundHandicaps: true,
                 scores: {
                   include: {
                     hole: true
@@ -181,38 +189,81 @@ export default async function Home({ searchParams }: HomeProps) {
 
   return (
     <main className="min-h-screen bg-slate-950 text-slate-50 flex flex-col items-center justify-center p-8">
-      <div className="max-w-md w-full space-y-8 text-center">
+      <div className="max-w-xl w-full space-y-8 text-center">
         <h1 className="text-6xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-br from-emerald-400 to-cyan-600 drop-shadow-sm pb-2">
           leaderboard.io
         </h1>
-        <p className="text-lg text-slate-400">
+        <p className="text-lg text-slate-400 max-w-md mx-auto">
           The ultimate platform for hosting and scoring dynamic golf competitions.
         </p>
-        
-        {session ? (
-          <div className="p-6 bg-slate-900 rounded-2xl border border-slate-800 shadow-xl text-left space-y-4">
-            <div>
-              <h2 className="text-2xl font-bold text-emerald-400 mb-1">Welcome back!</h2>
-              <p className="text-slate-300 font-medium">{session.user.name || session.user.email}</p>
-              <p className="text-sm text-slate-500 mt-2">Access Level: {session.user.role}</p>
-            </div>
-            {(session.user.role === 'ADMIN' || session.user.role === 'SUPER_ADMIN') && (
-              <Link href="/admin" className="block w-full py-2.5 px-4 bg-slate-850 hover:bg-slate-800 text-slate-200 border border-slate-700 font-bold rounded-xl transition-colors duration-200 text-center">
-                Admin Panel
-              </Link>
-            )}
-          </div>
-        ) : (
-          <div className="p-6 bg-slate-900 rounded-2xl border border-slate-800 shadow-xl space-y-4">
-            <h2 className="text-xl font-semibold text-slate-200">Spectator or Player?</h2>
-            <p className="text-slate-400 text-sm">
-              Log in to manage competitions, enter live scores on the course, or view private leaderboards.
-            </p>
-            <Link href="/login" className="block w-full py-3 px-4 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-xl transition-colors duration-200 text-center">
-              Sign In
+
+        {lastCompetition && (
+          <div className="p-6 bg-emerald-950/30 border border-emerald-800/50 rounded-2xl shadow-xl text-center space-y-3">
+            <span className="text-xs uppercase tracking-wider font-extrabold text-emerald-400">Active Session</span>
+            <h3 className="text-xl font-bold text-slate-100">{lastCompetition.name}</h3>
+            <Link
+              href={`/?comp=${lastCompetition.uniqueSlug}`}
+              className="inline-block py-2.5 px-6 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl transition-all shadow-md transform hover:scale-[1.02]"
+            >
+              Resume Competition
             </Link>
           </div>
         )}
+
+        <div className="p-6 bg-slate-900 rounded-2xl border border-slate-800 shadow-xl text-left space-y-6">
+          {session ? (
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div>
+                <p className="text-xs text-slate-500">Logged in as</p>
+                <p className="text-sm font-bold text-slate-200">{session.user.name || session.user.email}</p>
+              </div>
+              {(session.user.role === 'ADMIN' || session.user.role === 'SUPER_ADMIN') && (
+                <Link href="/admin" className="py-1.5 px-3 bg-slate-800 hover:bg-slate-700 text-xs font-bold rounded-lg border border-slate-700 transition-colors">
+                  Admin Panel
+                </Link>
+              )}
+            </div>
+          ) : (
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <span className="text-sm text-slate-400 font-medium">Scoring or Admin access?</span>
+              <Link href="/login" className="py-1.5 px-4 bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold rounded-lg transition-colors">
+                Sign In
+              </Link>
+            </div>
+          )}
+
+          <div className="space-y-3">
+            <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-400">Select Competition</h3>
+            {competitions.length === 0 ? (
+              <p className="text-xs text-slate-500">No competitions found.</p>
+            ) : (
+              <div className="space-y-2 max-h-64 overflow-y-auto pr-1 scrollbar-thin">
+                {competitions.map((c: any) => {
+                  const isLast = lastCompetition?.id === c.id
+                  return (
+                    <Link
+                      key={c.id}
+                      href={`/?comp=${c.uniqueSlug}`}
+                      className={`flex items-center justify-between p-3.5 rounded-xl border transition-all ${
+                        isLast
+                          ? 'bg-emerald-950/20 border-emerald-700 text-slate-100'
+                          : 'bg-slate-950/40 border-slate-800 hover:border-slate-700 hover:bg-slate-900/60 text-slate-300'
+                      }`}
+                    >
+                      <div className="truncate pr-4">
+                        <span className="font-extrabold text-sm block truncate">{c.name}</span>
+                        <span className="text-[10px] text-slate-500 font-mono mt-0.5">
+                          {c.startDate ? new Date(c.startDate).toLocaleDateString() : "No Date"}
+                        </span>
+                      </div>
+                      <span className="text-xs font-bold text-emerald-500 flex-shrink-0">View →</span>
+                    </Link>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </main>
   )

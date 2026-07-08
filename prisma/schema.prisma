@@ -74,6 +74,7 @@ model Competition {
   name           String
   type           String    // e.g., "STROKEPLAY_GROSS", "NETTO_STABLEFORD", "MATCHPLAY"
   isTeamComp     Boolean   @default(false)
+  showRelToPar   Boolean   @default(false)
   
   startDate      DateTime?
   endDate        DateTime?
@@ -114,6 +115,7 @@ model Participant {
   scores        Score[]
   matchPlayers  MatchPlayer[]
   manualHandicaps ManualCourseHandicap[]
+  manualRoundHandicaps ManualRoundHandicap[]
 }
 
 model Round {
@@ -132,8 +134,10 @@ model Round {
   endDate       DateTime?
   
   holesPlayed   Int[] // Hole numbers to be played, e.g. [1..18] or [1..9]
+  ninePreset    String? // 'FRONT_9_TWICE', 'BACK_9_TWICE', or null
   
   matches       Match[]
+  manualRoundHandicaps ManualRoundHandicap[]
 }
 
 model Match {
@@ -223,5 +227,15 @@ model ManualCourseHandicap {
   course        Course      @relation(fields: [courseId], references: [id], onDelete: Cascade)
   handicapValue Int
   @@unique([participantId, courseId])
+}
+
+model ManualRoundHandicap {
+  id            String   @id @default(cuid())
+  participantId String
+  participant   Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  roundId       String
+  round         Round       @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  handicapValue Int
+  @@unique([participantId, roundId])
 }
 

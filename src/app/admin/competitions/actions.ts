@@ -55,6 +55,7 @@ export async function updateCompetitionGeneral(id: string, data: {
   uniqueSlug: string
   type: string
   isTeamComp: boolean
+  showRelToPar?: boolean
   startDate?: string | null
   endDate?: string | null
   cssConfig?: string | null
@@ -86,6 +87,7 @@ export async function updateCompetitionGeneral(id: string, data: {
       uniqueSlug: slugVal,
       type: data.type,
       isTeamComp: data.isTeamComp,
+      showRelToPar: data.showRelToPar ?? false,
       startDate: start,
       endDate: end,
       cssConfig: data.cssConfig || null,
@@ -116,6 +118,7 @@ export async function addRound(compId: string, data: {
   endDate?: string | null
   holesPlayed?: number[]
   teeId?: string | null
+  ninePreset?: string | null
 }) {
   const nameVal = data.name?.trim()
   if (!nameVal) throw new Error("Round name is required.")
@@ -129,7 +132,7 @@ export async function addRound(compId: string, data: {
     ? data.holesPlayed
     : Array.from({ length: 18 }, (_, i) => i + 1)
 
-  await prisma.round.create({
+  const newRound = await prisma.round.create({
     data: {
       competitionId: compId,
       courseId: data.courseId,
@@ -137,11 +140,12 @@ export async function addRound(compId: string, data: {
       startDate: start,
       endDate: end,
       holesPlayed: holes,
-      teeId: data.teeId
+      teeId: data.teeId,
+      ninePreset: data.ninePreset || null
     }
   })
 
-  // Populate handicaps for this course if not already populated for participants
+  // Populate handicaps for this round if not already populated for participants
   const participants = await prisma.participant.findMany({
     where: { competitionId: compId }
   })
@@ -152,29 +156,26 @@ export async function addRound(compId: string, data: {
   })
 
   if (course && course.tees.length > 0) {
-    const tee = course.tees.find((t: any) => t.name.toLowerCase().includes('yellow')) ||
-                course.tees.find((t: any) => t.name.toLowerCase().includes('white')) ||
-                course.tees[0]
+    const tee = data.teeId
+      ? course.tees.find((t: any) => t.id === data.teeId)
+      : course.tees.find((t: any) => t.name.toLowerCase().includes('yellow')) ||
+        course.tees.find((t: any) => t.name.toLowerCase().includes('white')) ||
+        course.tees[0]
 
     if (tee) {
       const coursePar = course.holes.reduce((sum: number, h: any) => sum + h.par, 0)
+
       for (const p of participants) {
         if (p.compHandicap === null || p.compHandicap === undefined) continue
 
-        // Check if there is already a manual course handicap
-        const existingHcp = await prisma.manualCourseHandicap.findFirst({
-          where: { participantId: p.id, courseId: course.id }
+        const handicapValue = calculateCourseHandicap(p.compHandicap, tee, coursePar)
+        await prisma.manualRoundHandicap.create({
+          data: {
+            participantId: p.id,
+            roundId: newRound.id,
+            handicapValue
+          }
         })
-        if (!existingHcp) {
-          const handicapValue = calculateCourseHandicap(p.compHandicap, tee, coursePar)
-          await prisma.manualCourseHandicap.create({
-            data: {
-              participantId: p.id,
-              courseId: course.id,
-              handicapValue
-            }
-          })
-        }
       }
     }
   }
@@ -193,7 +194,13 @@ export async function deleteRound(roundId: string, compId: string) {
   return { success: true }
 }
 
-export async function updateRoundHoles(roundId: string, compId: string, holesPlayed: number[], teeId?: string | null) {
+export async function updateRoundHoles(
+  roundId: string, 
+  compId: string, 
+  holesPlayed: number[], 
+  teeId?: string | null,
+  ninePreset?: string | null
+) {
   if (!holesPlayed || holesPlayed.length === 0) {
     throw new Error("Please select at least one hole.")
   }
@@ -202,7 +209,8 @@ export async function updateRoundHoles(roundId: string, compId: string, holesPla
     where: { id: roundId },
     data: {
       holesPlayed: holesPlayed.sort((a, b) => a - b),
-      teeId: teeId || null
+      teeId: teeId || null,
+      ninePreset: ninePreset || null
     }
   })
 

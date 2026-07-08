@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { saveHoleScore } from "@/app/actions/scores"
 import { Loader2 } from "lucide-react"
-import { calculateCourseHandicap, getHandicapStrokesOnHole } from "@/lib/scoring"
+import { calculateCourseHandicap, getHandicapStrokesOnHole, getRoundHoleInfo } from "@/lib/scoring"
 
 interface BulkScorecardEntryProps {
   round: any
@@ -207,7 +207,7 @@ export function BulkScorecardEntry({
                           course.tees.find((t: any) => t.name.toLowerCase().includes('white')) ||
                           course.tees[0]
 
-              const manualHcp = p.manualHandicaps?.find((mh: any) => mh.courseId === course.id)
+              const manualHcp = p.manualRoundHandicaps?.find((mr: any) => mr.roundId === round.id)
               const coursePar = course.holes.reduce((sum: number, h: any) => sum + h.par, 0)
               
               let courseHandicap = 0
@@ -231,7 +231,9 @@ export function BulkScorecardEntry({
                   </td>
                   {activeHoles.map((holeNum: number) => {
                     const hole = course.holes.find((h: any) => h.number === holeNum)
-                    const hcpStrokes = getHandicapStrokesOnHole(courseHandicap, hole.strokeIndex)
+                    const adjusted = getRoundHoleInfo(round, holeNum)
+                    const holeStrokeIndex = adjusted ? adjusted.strokeIndex : (hole?.strokeIndex || 1)
+                    const hcpStrokes = getHandicapStrokesOnHole(courseHandicap, holeStrokeIndex)
                     const shotsMarkup = hcpStrokes === 1 ? "|" : hcpStrokes >= 2 ? "||" : ""
                     return (
                       <td key={`shots-${p.id}-${holeNum}`} className="p-1 text-center border-r border-slate-200/80 border-b border-slate-100/60 text-xs font-mono font-black text-cyan-650 bg-white/10">
@@ -252,6 +254,9 @@ export function BulkScorecardEntry({
                     const isSaving = savingCells[cellKey]
                     const val = localScores[cellKey] || ""
 
+                    const adjusted = getRoundHoleInfo(round, holeNum)
+                    const holePar = adjusted ? adjusted.par : (hole?.par || 4)
+
                     let diff = 0
                     let isWiped = false
                     let hasScore = false
@@ -263,7 +268,7 @@ export function BulkScorecardEntry({
                       } else {
                         const scoreInt = parseInt(val)
                         if (!isNaN(scoreInt)) {
-                          diff = scoreInt - hole.par
+                          diff = scoreInt - holePar
                           hasScore = true
                         }
                       }

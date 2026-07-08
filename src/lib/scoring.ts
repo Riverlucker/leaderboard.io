@@ -71,12 +71,19 @@ export function calculateStablefordPoints(
  * Assigns ranks to leaderboard entries, prefixing tied positions with 'T'.
  */
 export function assignLeaderboardRanks(
-  entries: any[]
+  entries: any[],
+  sortByRelToPar: boolean = false
 ): any[] {
-  // Sort descending by totalPoints, then by holesPlayed (if tied, more holes played is listed first/custom rules)
+  // Sort descending by totalPoints (or ascending by relToPar if active), then by holesPlayed
   const sorted = [...entries].sort((a, b) => {
-    if (b.totalPoints !== a.totalPoints) {
-      return b.totalPoints - a.totalPoints
+    if (sortByRelToPar) {
+      if (a.relToPar !== b.relToPar) {
+        return a.relToPar - b.relToPar
+      }
+    } else {
+      if (b.totalPoints !== a.totalPoints) {
+        return b.totalPoints - a.totalPoints
+      }
     }
     return b.holesPlayed - a.holesPlayed
   })
@@ -86,15 +93,14 @@ export function assignLeaderboardRanks(
   for (let i = 0; i < sorted.length; i++) {
     const current = sorted[i]
     
-    // Find all entries that have the exact same totalPoints (and optionally same holesPlayed or just score-wise)
-    // In golf, standard rank ties are based on score alone.
-    const ties = sorted.filter(x => x.totalPoints === current.totalPoints)
+    const compareField = sortByRelToPar ? 'relToPar' : 'totalPoints'
+    const ties = sorted.filter(x => x[compareField] === current[compareField])
     const isTied = ties.length > 1
 
     let rankString = ""
     if (isTied) {
       // Find the index of the first tied player (1-based)
-      const firstTiedIndex = sorted.findIndex(x => x.totalPoints === current.totalPoints) + 1
+      const firstTiedIndex = sorted.findIndex(x => x[compareField] === current[compareField]) + 1
       rankString = `T${firstTiedIndex}`
     } else {
       rankString = `${i + 1}`
@@ -108,3 +114,53 @@ export function assignLeaderboardRanks(
 
   return results
 }
+
+/**
+ * Resolves hole par and stroke index adjusting for 9-hole loop presets
+ */
+export function getRoundHoleInfo(round: any, holeNum: number) {
+  const course = round?.course
+  if (!course || !course.holes) return null
+
+  const preset = round.ninePreset // 'FRONT_9_TWICE' or 'BACK_9_TWICE' or null
+  
+  let targetHoleNum = holeNum
+  let isSecondLoop = false
+
+  if (preset === 'FRONT_9_TWICE') {
+    if (holeNum <= 9) {
+      targetHoleNum = holeNum
+    } else {
+      targetHoleNum = holeNum - 9
+      isSecondLoop = true
+    }
+  } else if (preset === 'BACK_9_TWICE') {
+    if (holeNum <= 9) {
+      targetHoleNum = holeNum + 9
+    } else {
+      targetHoleNum = holeNum
+      isSecondLoop = true
+    }
+  }
+
+  const courseHole = course.holes.find((h: any) => h.number === targetHoleNum)
+  if (!courseHole) return null
+
+  const I = courseHole.strokeIndex
+  let adjustedIndex = I
+  if (preset === 'FRONT_9_TWICE' || preset === 'BACK_9_TWICE') {
+    if (!isSecondLoop) {
+      adjustedIndex = (I % 2 === 0) ? I - 1 : I
+    } else {
+      adjustedIndex = (I % 2 === 0) ? I : I + 1
+    }
+  }
+
+  return {
+    ...courseHole,
+    par: courseHole.par,
+    strokeIndex: adjustedIndex,
+    originalHole: courseHole
+  }
+}
+

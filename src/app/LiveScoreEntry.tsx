@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { saveHoleScore } from "@/app/actions/scores"
 import { ArrowLeft, ArrowRight, Loader2, BookOpen } from "lucide-react"
-import { calculateCourseHandicap } from "@/lib/scoring"
+import { calculateCourseHandicap, getRoundHoleInfo } from "@/lib/scoring"
 
 interface LiveScoreEntryProps {
   round: any
@@ -144,10 +144,12 @@ export function LiveScoreEntry({
   }
 
   if (!currentHole) {
-    return <div className="text-slate-500 p-4 text-center">No active holes found for this round.</div>
+    return <div className="text-center text-slate-400 p-8">Hole not found</div>
   }
 
-  const par = currentHole.par
+  const adjustedHole = getRoundHoleInfo(round, currentHoleNum)
+  const par = adjustedHole ? adjustedHole.par : currentHole.par
+  const strokeIndex = adjustedHole ? adjustedHole.strokeIndex : currentHole.strokeIndex
 
   // Generate score options dynamically to be 100% symmetric around Par
   // No scores below Eagle (par - 2).
@@ -179,7 +181,7 @@ export function LiveScoreEntry({
           <h3 className="text-2xl font-extrabold text-slate-800 flex items-center justify-center gap-3 mt-1">
             <span>Par {par}</span>
             <span className="text-xs font-mono font-normal text-slate-655 bg-white/40 border border-slate-200/60 px-2 py-0.5 rounded uppercase shadow-sm">
-              Idx {currentHole.strokeIndex}
+              Idx {strokeIndex}
             </span>
           </h3>
         </div>
@@ -206,7 +208,7 @@ export function LiveScoreEntry({
                       course.tees.find((t: any) => t.name.toLowerCase().includes('white')) ||
                       course.tees[0]
 
-          const manualHcp = p.manualHandicaps?.find((mh: any) => mh.courseId === course.id)
+          const manualHcp = p.manualRoundHandicaps?.find((mr: any) => mr.roundId === round.id)
           const coursePar = course.holes.reduce((sum: number, h: any) => sum + h.par, 0)
           
           let courseHandicap = 0

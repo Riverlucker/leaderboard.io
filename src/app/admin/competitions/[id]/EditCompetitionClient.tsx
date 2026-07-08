@@ -69,6 +69,7 @@ export function EditCompetitionClient({
   const [uniqueSlug, setUniqueSlug] = useState(competition.uniqueSlug)
   const [type, setType] = useState(competition.type)
   const [isTeamComp, setIsTeamComp] = useState(competition.isTeamComp)
+  const [showRelToPar, setShowRelToPar] = useState(competition.showRelToPar || false)
   const [startDate, setStartDate] = useState(formatDateInput(competition.startDate))
   const [endDate, setEndDate] = useState(formatDateInput(competition.endDate))
   const [cssConfig, setCssConfig] = useState(competition.cssConfig || "")
@@ -84,12 +85,12 @@ export function EditCompetitionClient({
   const [roundEnd, setRoundEnd] = useState("")
   const [roundError, setRoundError] = useState("")
   const [isAddingRound, setIsAddingRound] = useState(false)
-  const [holesPreset, setHolesPreset] = useState<'ALL' | 'FRONT' | 'BACK' | 'CUSTOM'>('ALL')
+  const [holesPreset, setHolesPreset] = useState<'ALL' | 'FRONT' | 'BACK' | 'FRONT_TWICE' | 'BACK_TWICE' | 'CUSTOM'>('ALL')
   const [customHoles, setCustomHoles] = useState<number[]>(Array.from({ length: 18 }, (_, i) => i + 1))
 
   // Edit Round state
   const [editingRoundId, setEditingRoundId] = useState<string | null>(null)
-  const [editingHolesPreset, setEditingHolesPreset] = useState<'ALL' | 'FRONT' | 'BACK' | 'CUSTOM'>('ALL')
+  const [editingHolesPreset, setEditingHolesPreset] = useState<'ALL' | 'FRONT' | 'BACK' | 'FRONT_TWICE' | 'BACK_TWICE' | 'CUSTOM'>('ALL')
   const [editingCustomHoles, setEditingCustomHoles] = useState<number[]>([])
   const [isUpdatingRoundHoles, setIsUpdatingRoundHoles] = useState(false)
   const [editingRoundError, setEditingRoundError] = useState("")
@@ -128,6 +129,7 @@ export function EditCompetitionClient({
         uniqueSlug,
         type,
         isTeamComp,
+        showRelToPar,
         startDate: startDate || null,
         endDate: endDate || null,
         cssConfig: cssConfig || null,
@@ -149,12 +151,19 @@ export function EditCompetitionClient({
 
     try {
       let holesPlayed: number[] = []
+      let ninePreset: string | null = null
       if (holesPreset === 'ALL') {
         holesPlayed = Array.from({ length: 18 }, (_, i) => i + 1)
       } else if (holesPreset === 'FRONT') {
         holesPlayed = Array.from({ length: 9 }, (_, i) => i + 1)
       } else if (holesPreset === 'BACK') {
         holesPlayed = Array.from({ length: 9 }, (_, i) => i + 10)
+      } else if (holesPreset === 'FRONT_TWICE') {
+        holesPlayed = Array.from({ length: 18 }, (_, i) => i + 1)
+        ninePreset = 'FRONT_9_TWICE'
+      } else if (holesPreset === 'BACK_TWICE') {
+        holesPlayed = Array.from({ length: 18 }, (_, i) => i + 1)
+        ninePreset = 'BACK_9_TWICE'
       } else if (holesPreset === 'CUSTOM') {
         holesPlayed = [...customHoles].sort((a, b) => a - b)
       }
@@ -168,7 +177,8 @@ export function EditCompetitionClient({
         courseId: roundCourseId,
         startDate: roundStart || null,
         endDate: roundEnd || null,
-        holesPlayed
+        holesPlayed,
+        ninePreset
       })
       setRoundName("")
       setRoundStart("")
@@ -202,8 +212,12 @@ export function EditCompetitionClient({
     const holes = round.holesPlayed || []
     setEditingCustomHoles(holes)
     
-    // Set preset based on current holes
-    if (holes.length === 18) {
+    // Set preset based on current holes and round preset
+    if (round.ninePreset === 'FRONT_9_TWICE') {
+      setEditingHolesPreset('FRONT_TWICE')
+    } else if (round.ninePreset === 'BACK_9_TWICE') {
+      setEditingHolesPreset('BACK_TWICE')
+    } else if (holes.length === 18) {
       setEditingHolesPreset('ALL')
     } else if (holes.length === 9 && holes[0] === 1 && holes[8] === 9) {
       setEditingHolesPreset('FRONT')
@@ -219,12 +233,19 @@ export function EditCompetitionClient({
     setEditingRoundError("")
     try {
       let holes: number[] = []
+      let ninePreset: string | null = null
       if (editingHolesPreset === 'ALL') {
         holes = Array.from({ length: 18 }, (_, i) => i + 1)
       } else if (editingHolesPreset === 'FRONT') {
         holes = Array.from({ length: 9 }, (_, i) => i + 1)
       } else if (editingHolesPreset === 'BACK') {
         holes = Array.from({ length: 9 }, (_, i) => i + 10)
+      } else if (editingHolesPreset === 'FRONT_TWICE') {
+        holes = Array.from({ length: 18 }, (_, i) => i + 1)
+        ninePreset = 'FRONT_9_TWICE'
+      } else if (editingHolesPreset === 'BACK_TWICE') {
+        holes = Array.from({ length: 18 }, (_, i) => i + 1)
+        ninePreset = 'BACK_9_TWICE'
       } else if (editingHolesPreset === 'CUSTOM') {
         holes = [...editingCustomHoles].sort((a, b) => a - b)
       }
@@ -233,7 +254,7 @@ export function EditCompetitionClient({
         throw new Error("Please select at least one hole.")
       }
 
-      await updateRoundHoles(roundId, competition.id, holes)
+      await updateRoundHoles(roundId, competition.id, holes, null, ninePreset)
       setEditingRoundId(null)
       router.refresh()
     } catch (err: any) {
@@ -572,17 +593,31 @@ export function EditCompetitionClient({
                 </div>
 
                 <div className="border-t border-slate-800 pt-4 flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      id="isTeamCompGeneral"
-                      checked={isTeamComp}
-                      onChange={e => setIsTeamComp(e.target.checked)}
-                      className="w-4 h-4 text-emerald-500 border-slate-700 rounded bg-slate-950 focus:ring-emerald-500"
-                    />
-                    <label htmlFor="isTeamCompGeneral" className="text-sm text-slate-300 select-none cursor-pointer">
-                      Team Competition Mode
-                    </label>
+                  <div className="flex flex-col space-y-2">
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="isTeamCompGeneral"
+                        checked={isTeamComp}
+                        onChange={e => setIsTeamComp(e.target.checked)}
+                        className="w-4 h-4 text-emerald-500 border-slate-700 rounded bg-slate-950 focus:ring-emerald-500"
+                      />
+                      <label htmlFor="isTeamCompGeneral" className="text-sm text-slate-300 select-none cursor-pointer">
+                        Team Competition Mode
+                      </label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="showRelToParGeneral"
+                        checked={showRelToPar}
+                        onChange={e => setShowRelToPar(e.target.checked)}
+                        className="w-4 h-4 text-emerald-500 border-slate-700 rounded bg-slate-950 focus:ring-emerald-500"
+                      />
+                      <label htmlFor="showRelToParGeneral" className="text-sm text-slate-300 select-none cursor-pointer">
+                        Show leaderboard +/- relative to par
+                      </label>
+                    </div>
                   </div>
 
                   <button
@@ -673,6 +708,8 @@ export function EditCompetitionClient({
                                 <option value="ALL">All 18 Holes</option>
                                 <option value="FRONT">Front Nine (Holes 1-9)</option>
                                 <option value="BACK">Back Nine (Holes 10-18)</option>
+                                <option value="FRONT_TWICE">Front Nine Twice (18 holes)</option>
+                                <option value="BACK_TWICE">Back Nine Twice (18 holes)</option>
                                 <option value="CUSTOM">Custom Hole Selection</option>
                               </select>
                             </div>
@@ -840,6 +877,8 @@ export function EditCompetitionClient({
                     <option value="ALL">All 18 Holes</option>
                     <option value="FRONT">Front Nine (Holes 1-9)</option>
                     <option value="BACK">Back Nine (Holes 10-18)</option>
+                    <option value="FRONT_TWICE">Front Nine Twice (18 holes)</option>
+                    <option value="BACK_TWICE">Back Nine Twice (18 holes)</option>
                     <option value="CUSTOM">Custom Hole Selection</option>
                   </select>
                 </div>

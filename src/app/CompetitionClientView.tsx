@@ -127,6 +127,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
   const [cssConfig, setCssConfig] = useState(competition.cssConfig || "")
   const [bgImage, setBgImage] = useState(competition.bgImage || "")
   const [selectedExtraLeaderboards, setSelectedExtraLeaderboards] = useState<string[]>(competition.extraLeaderboards || [])
+  const [showRelToPar, setShowRelToPar] = useState(competition.showRelToPar || false)
   const [isSavingGeneral, setIsSavingGeneral] = useState(false)
   const [generalError, setGeneralError] = useState("")
   const [generalSuccess, setGeneralSuccess] = useState(false)
@@ -496,6 +497,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
         let totalStrokes = 0
         let holesPlayed = 0
         const roundPoints: Record<string, number> = {}
+        const roundRelToPar: Record<string, number> = {}
 
         for (const round of rounds) {
           const courseHandicap = getPlayingHandicap(p, round)
@@ -505,6 +507,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
 
           let roundPts = 0
           let roundHolesPlayed = false
+          let roundHolesCount = 0
 
           for (const holeNum of roundHoles) {
             const hole = round.course.holes.find((h: any) => h.number === holeNum)
@@ -517,6 +520,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
             const score = p.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
             if (score && (score.grossStrokes !== null || (score.status !== null && score.status !== 'NOT_PLAYED'))) {
               roundHolesPlayed = true
+              roundHolesCount++
               
               const isActive = activeRounds.some((ar: any) => ar.id === round.id)
               if (isActive) holesPlayed++
@@ -535,11 +539,10 @@ export function CompetitionClientView({ competition, session, courses = [], user
 
           if (roundHolesPlayed) {
             roundPoints[round.id] = roundPts
+            roundRelToPar[round.id] = (roundHolesCount * 2) - roundPts
             if (activeRounds.some((ar: any) => ar.id === round.id)) {
               totalPoints += roundPts
             }
-          } else {
-            roundPoints[round.id] = 0
           }
         }
 
@@ -553,6 +556,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
           totalStrokes,
           holesPlayed,
           roundPoints,
+          roundRelToPar,
           relToPar
         }
       })
@@ -640,6 +644,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
         let totalStrokes = 0
         let holesPlayed = 0
         const roundPoints: Record<string, number> = {}
+        const roundRelToPar: Record<string, number> = {}
 
         for (const round of rounds) {
           const courseHandicap = getPlayingHandicap(p, round)
@@ -649,6 +654,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
 
           let roundPts = 0
           let roundHolesPlayed = false
+          let roundHolesCount = 0
 
           for (const holeNum of roundHoles) {
             const hole = round.course.holes.find((h: any) => h.number === holeNum)
@@ -661,6 +667,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
             const score = p.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
             if (score && (score.grossStrokes !== null || (score.status !== null && score.status !== 'NOT_PLAYED'))) {
               roundHolesPlayed = true
+              roundHolesCount++
               const isActive = activeRounds.some((ar: any) => ar.id === round.id)
               if (isActive) holesPlayed++
 
@@ -678,11 +685,10 @@ export function CompetitionClientView({ competition, session, courses = [], user
 
           if (roundHolesPlayed) {
             roundPoints[round.id] = roundPts
+            roundRelToPar[round.id] = (roundHolesCount * 2) - roundPts
             if (activeRounds.some((ar: any) => ar.id === round.id)) {
               totalPoints += roundPts
             }
-          } else {
-            roundPoints[round.id] = 0
           }
         }
 
@@ -696,6 +702,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
           totalStrokes,
           holesPlayed,
           roundPoints,
+          roundRelToPar,
           relToPar
         }
       })
@@ -1037,6 +1044,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
         uniqueSlug: compSlug,
         type: compType,
         isTeamComp,
+        showRelToPar,
         startDate: startDate || null,
         endDate: endDate || null,
         cssConfig: cssConfig || null,
@@ -1472,7 +1480,19 @@ export function CompetitionClientView({ competition, session, courses = [], user
                           
                           {/* Round points columns */}
                           {competition.rounds.map((round: any) => {
-                            const pts = entry.roundPoints[round.id] ?? 0
+                            const pts = entry.roundPoints[round.id]
+                            const showRel = competition.showRelToPar && (selectedLeaderboardType === 'MAIN' || selectedLeaderboardType === 'STABLEFORD_NETTO' || selectedLeaderboardType === 'STABLEFORD_BRUTTO')
+                            
+                            let displayVal = "-"
+                            if (pts !== undefined) {
+                              if (showRel) {
+                                const rel = entry.roundRelToPar?.[round.id] ?? 0
+                                displayVal = rel === 0 ? "Even" : (rel < 0 ? String(rel) : `+${rel}`)
+                              } else {
+                                displayVal = String(pts)
+                              }
+                            }
+
                             return (
                               <td key={round.id} className="px-1 py-1.5 md:px-3 md:py-4 text-center">
                                 <button
@@ -1483,7 +1503,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
                                   className="px-2 py-0.5 md:px-2.5 md:py-1 text-xs font-extrabold bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-250 text-slate-700 hover:text-emerald-600 rounded-md transition-all font-mono shadow-sm"
                                   title={`View Round ${round.name} Scorecard`}
                                 >
-                                  {pts}
+                                  {displayVal}
                                 </button>
                               </td>
                             )
@@ -2037,7 +2057,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
                             className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm"
                           />
                         </div>
-                        <div className="col-span-2">
+                        <div className="col-span-2 flex flex-col space-y-2">
                           <label className="flex items-center space-x-2 text-xs font-bold text-slate-700 cursor-pointer">
                             <input
                               type="checkbox"
@@ -2046,6 +2066,15 @@ export function CompetitionClientView({ competition, session, courses = [], user
                               className="w-4 h-4 text-emerald-600 rounded bg-slate-50 border-slate-300"
                             />
                             <span>IS TEAM COMPETITION?</span>
+                          </label>
+                          <label className="flex items-center space-x-2 text-xs font-bold text-slate-700 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={showRelToPar}
+                              onChange={e => setShowRelToPar(e.target.checked)}
+                              className="w-4 h-4 text-emerald-600 rounded bg-slate-50 border-slate-300"
+                            />
+                            <span>SHOW LEADERBOARD +/- RELATIVE TO PAR?</span>
                           </label>
                         </div>
 

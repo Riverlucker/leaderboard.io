@@ -70,6 +70,7 @@ export function EditCompetitionClient({
   const [type, setType] = useState(competition.type)
   const [isTeamComp, setIsTeamComp] = useState(competition.isTeamComp)
   const [showRelToPar, setShowRelToPar] = useState(competition.showRelToPar || false)
+  const [selectedExtraLeaderboards, setSelectedExtraLeaderboards] = useState<string[]>(competition.extraLeaderboards || [])
   const [startDate, setStartDate] = useState(formatDateInput(competition.startDate))
   const [endDate, setEndDate] = useState(formatDateInput(competition.endDate))
   const [cssConfig, setCssConfig] = useState(competition.cssConfig || "")
@@ -133,7 +134,8 @@ export function EditCompetitionClient({
         startDate: startDate || null,
         endDate: endDate || null,
         cssConfig: cssConfig || null,
-        bgImage: bgImage || null
+        bgImage: bgImage || null,
+        extraLeaderboards: selectedExtraLeaderboards
       })
       setGeneralSuccess(true)
       router.refresh()
@@ -589,6 +591,45 @@ export function EditCompetitionClient({
                       rows={4}
                       className="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-2 font-mono text-xs text-slate-300 focus:ring-2 focus:ring-emerald-500" 
                     />
+                  </div>
+
+                  <div className="md:col-span-2 space-y-2.5 pt-2">
+                    <label className="block text-sm font-semibold text-slate-400 uppercase">Enable Extra Side Leaderboards</label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-slate-955 border border-slate-800 p-4 rounded-xl">
+                      {[
+                        { id: 'STROKEPLAY', label: 'Strokeplay Gross', needsTeam: false, hideForModus: 'STROKEPLAY_GROSS' },
+                        { id: 'STABLEFORD_NETTO', label: 'Stableford Netto', needsTeam: false, hideForModus: 'NETTO_STABLEFORD' },
+                        { id: 'STABLEFORD_BRUTTO', label: 'Stableford Brutto', needsTeam: false, hideForModus: '' },
+                        { id: 'BIRDIE', label: 'Birdie Leaderboard', needsTeam: false, hideForModus: '' },
+                        { id: 'DOUBLE_BOGEY_PLUS', label: 'Double Bogey+ Leaderboard', needsTeam: false, hideForModus: '' },
+                        { id: 'PAR_PLUS_SERIES', label: 'Par+ Streak Leaderboard', needsTeam: false, hideForModus: '' },
+                        { id: 'TEAM_STROKEPLAY', label: 'Team Strokeplay', needsTeam: true, hideForModus: '' },
+                        { id: 'TEAM_STABLEFORD_NETTO', label: 'Team Stableford Netto', needsTeam: true, hideForModus: '' },
+                        { id: 'TEAM_STABLEFORD_BRUTTO', label: 'Team Stableford Brutto', needsTeam: true, hideForModus: '' }
+                      ].map(opt => {
+                        const disabled = (opt.needsTeam && !isTeamComp) || (opt.hideForModus && type === opt.hideForModus)
+                        const checked = selectedExtraLeaderboards.includes(opt.id)
+
+                        return (
+                          <label key={opt.id} className={`flex items-center space-x-2 text-xs select-none ${disabled ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'}`}>
+                            <input
+                              type="checkbox"
+                              checked={checked && !disabled}
+                              disabled={!!disabled}
+                              onChange={() => {
+                                if (checked) {
+                                  setSelectedExtraLeaderboards(selectedExtraLeaderboards.filter(x => x !== opt.id))
+                                } else {
+                                  setSelectedExtraLeaderboards([...selectedExtraLeaderboards, opt.id])
+                                }
+                              }}
+                              className="w-4 h-4 text-emerald-500 rounded bg-slate-900 border-slate-700 focus:ring-emerald-500"
+                            />
+                            <span className="font-semibold text-slate-300">{opt.label}</span>
+                          </label>
+                        )
+                      })}
+                    </div>
                   </div>
                 </div>
 

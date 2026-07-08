@@ -80,20 +80,27 @@ export async function updateCompetitionGeneral(id: string, data: {
   const start = data.startDate ? new Date(data.startDate) : null
   const end = data.endDate ? new Date(data.endDate) : null
 
+  const updateData: any = {
+    name: nameVal,
+    uniqueSlug: slugVal,
+    type: data.type,
+    isTeamComp: data.isTeamComp,
+    startDate: start,
+    endDate: end,
+    cssConfig: data.cssConfig || null,
+    bgImage: data.bgImage || null,
+  }
+
+  if (data.showRelToPar !== undefined) {
+    updateData.showRelToPar = data.showRelToPar
+  }
+  if (data.extraLeaderboards !== undefined) {
+    updateData.extraLeaderboards = data.extraLeaderboards
+  }
+
   await prisma.competition.update({
     where: { id },
-    data: {
-      name: nameVal,
-      uniqueSlug: slugVal,
-      type: data.type,
-      isTeamComp: data.isTeamComp,
-      showRelToPar: data.showRelToPar ?? false,
-      startDate: start,
-      endDate: end,
-      cssConfig: data.cssConfig || null,
-      bgImage: data.bgImage || null,
-      extraLeaderboards: data.extraLeaderboards || []
-    }
+    data: updateData
   })
 
   revalidatePath("/admin/competitions")

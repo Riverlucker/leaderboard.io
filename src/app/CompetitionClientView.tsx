@@ -3111,40 +3111,40 @@ export function CompetitionClientView({ competition, session, courses = [], user
                                   if (diff === -1) {
                                     // Birdie: single circle
                                     markerMarkup = (
-                                      <div className="absolute w-5.5 h-5.5 flex items-center justify-center pointer-events-none">
-                                        <div className="w-4.5 h-4.5 border border-emerald-500 rounded-full opacity-80" />
+                                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                        <div className="w-[18px] h-[18px] border border-emerald-500 rounded-full opacity-80" />
                                       </div>
                                     )
                                   } else if (diff <= -2) {
                                     // Eagle: double circle
                                     markerMarkup = (
-                                      <div className="absolute w-5.5 h-5.5 flex items-center justify-center pointer-events-none">
-                                        <div className="absolute w-4.5 h-4.5 border border-emerald-500 rounded-full opacity-80" />
-                                        <div className="absolute w-3.2 h-3.2 border border-emerald-500 rounded-full opacity-80" />
+                                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                        <div className="absolute w-[18px] h-[18px] border border-emerald-500 rounded-full opacity-80" />
+                                        <div className="absolute w-[12px] h-[12px] border border-emerald-500 rounded-full opacity-80" />
                                       </div>
                                     )
                                   } else if (diff === 1) {
                                     // Bogey: single rectangle
                                     markerMarkup = (
-                                      <div className="absolute w-5.5 h-5.5 flex items-center justify-center pointer-events-none">
-                                        <div className="w-4.2 h-4.2 border border-red-500 rounded-none opacity-70" />
+                                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                        <div className="w-[14px] h-[14px] border border-red-500 rounded-none opacity-80" />
                                       </div>
                                     )
                                   } else if (diff === 2) {
                                     // Double Bogey: double rectangle
                                     markerMarkup = (
-                                      <div className="absolute w-5.5 h-5.5 flex items-center justify-center pointer-events-none">
-                                        <div className="absolute w-4.5 h-4.5 border border-red-500 rounded-none opacity-70" />
-                                        <div className="absolute w-3.2 h-3.2 border border-red-500 rounded-none opacity-70" />
+                                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                        <div className="absolute w-[20px] h-[20px] border border-red-500 rounded-none opacity-80" />
+                                        <div className="absolute w-[14px] h-[14px] border border-red-500 rounded-none opacity-80" />
                                       </div>
                                     )
                                   } else if (diff >= 3) {
                                     // Triple bogey or worse: three rectangles
                                     markerMarkup = (
-                                      <div className="absolute w-5.5 h-5.5 flex items-center justify-center pointer-events-none">
-                                        <div className="absolute w-5 h-5 border border-red-500 rounded-none opacity-70" />
-                                        <div className="absolute w-4.5 h-4.5 border border-red-500 rounded-none opacity-70" />
-                                        <div className="absolute w-3 h-3 border border-red-500 rounded-none opacity-70" />
+                                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                        <div className="absolute w-[26px] h-[26px] border border-red-500 rounded-none opacity-80" />
+                                        <div className="absolute w-[20px] h-[20px] border border-red-500 rounded-none opacity-80" />
+                                        <div className="absolute w-[14px] h-[14px] border border-red-500 rounded-none opacity-80" />
                                       </div>
                                     )
                                   }
@@ -3152,7 +3152,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
 
                                 return (
                                   <td key={num} className="px-1 py-1.5 border-r border-slate-200/80 relative font-bold text-slate-800 text-[11px]">
-                                    <div className="flex items-center justify-center h-6 relative w-full">
+                                    <div className="flex items-center justify-center h-7 relative w-full">
                                       <span className={isWiped ? 'text-red-650 font-black' : ''}>{displayVal}</span>
                                       {markerMarkup}
                                     </div>

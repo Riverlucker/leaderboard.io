@@ -58,37 +58,41 @@ const formatDateTimeInput = (dateVal: any) => {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
 
-const getTeamRowStyle = (teamName: string | undefined | null) => {
-  if (!teamName) return {}
+const getTeamHue = (teamName: string | undefined | null): number | null => {
+  if (!teamName) return null
   const lower = teamName.toLowerCase()
   
-  let hue = 210 // Default blue-ish
   if (lower.includes("blau") || lower.includes("blue")) {
-    hue = 220 // Blue
+    return 220 // Blue
   } else if (lower.includes("rot") || lower.includes("red")) {
-    hue = 0 // Red
+    return 0 // Red
   } else if (lower.includes("grün") || lower.includes("green")) {
-    hue = 142 // Green
+    return 142 // Green
   } else if (lower.includes("gelb") || lower.includes("yellow")) {
-    hue = 47 // Yellow
+    return 47 // Yellow
   } else if (lower.includes("orange")) {
-    hue = 24 // Orange
+    return 24 // Orange
   } else if (lower.includes("lila") || lower.includes("violett") || lower.includes("purple")) {
-    hue = 271 // Purple
+    return 271 // Purple
   } else {
     // Generate hue deterministically from name
     let hash = 0
     for (let i = 0; i < teamName.length; i++) {
       hash = teamName.charCodeAt(i) + ((hash << 5) - hash)
     }
-    hue = Math.abs(hash % 360)
+    return Math.abs(hash % 360)
   }
+}
 
+const getTeamRowStyle = (teamName: string | undefined | null) => {
+  const hue = getTeamHue(teamName)
+  if (hue === null) return {}
   return {
     backgroundColor: `hsla(${hue}, 85%, 97%, 0.65)`,
     borderLeft: `4px solid hsl(${hue}, 75%, 55%)`
   }
 }
+
 
 
 export function getPlayingHandicap(p: any, round: any) {
@@ -2248,7 +2252,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
                             ? totalCompHoles
                             : (competition.rounds.find((r: any) => r.id === selectedRoundFilter)?.holesPlayed?.length || 18)
 
-                          const isStableford = selectedLeaderboardType === 'STABLEFORD_NETTO' || selectedLeaderboardType === 'STABLEFORD_BRUTTO'
+                          const isStableford = selectedLeaderboardType === 'STABLEFORD_NETTO' || selectedLeaderboardType === 'STABLEFORD_BRUTTO' || (selectedLeaderboardType === 'MAIN' && competition.type === 'NETTO_STABLEFORD')
                           const rowStyle = (isTeamComp && isStableford && entry.team)
                             ? getTeamRowStyle(entry.team.name)
                             : {}
@@ -2259,9 +2263,27 @@ export function CompetitionClientView({ competition, session, courses = [], user
                                 {entry.rank}
                               </td>
                               <td className="px-3 py-2.5 md:px-5 md:py-4">
-                                <div className="font-extrabold text-slate-900 text-sm md:text-base leading-tight">{entry.name}</div>
+                                <div 
+                                  style={isTeamComp && isStableford && entry.team ? { color: `hsl(${getTeamHue(entry.team.name)}, 75%, 25%)` } : {}}
+                                  className="font-extrabold text-slate-900 text-sm md:text-base leading-tight"
+                                >
+                                  {entry.name}
+                                </div>
                                 {entry.team && (
-                                  <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">{entry.team.name}</div>
+                                  isTeamComp && isStableford ? (
+                                    <span 
+                                      style={{
+                                        backgroundColor: `hsla(${getTeamHue(entry.team.name)}, 80%, 92%, 0.85)`,
+                                        color: `hsl(${getTeamHue(entry.team.name)}, 85%, 25%)`,
+                                        border: `1px solid hsla(${getTeamHue(entry.team.name)}, 80%, 75%, 0.9)`
+                                      }}
+                                      className="inline-block text-[9px] font-extrabold px-1.5 py-0.5 rounded uppercase tracking-wider mt-1"
+                                    >
+                                      {entry.team.name}
+                                    </span>
+                                  ) : (
+                                    <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">{entry.team.name}</div>
+                                  )
                                 )}
                               </td>
                               <td className="px-2 py-2.5 md:px-5 md:py-4 text-center text-emerald-600 font-black text-base md:text-xl">

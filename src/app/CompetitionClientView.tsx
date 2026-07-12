@@ -2253,8 +2253,9 @@ export function CompetitionClientView({ competition, session, courses = [], user
                             : (competition.rounds.find((r: any) => r.id === selectedRoundFilter)?.holesPlayed?.length || 18)
 
                           const isStableford = selectedLeaderboardType === 'STABLEFORD_NETTO' || selectedLeaderboardType === 'STABLEFORD_BRUTTO' || (selectedLeaderboardType === 'MAIN' && competition.type === 'NETTO_STABLEFORD')
-                          const rowStyle = (isTeamComp && isStableford && entry.team)
-                            ? getTeamRowStyle(entry.team.name)
+                          const team = entry.participant?.team
+                          const rowStyle = (isTeamComp && isStableford && team)
+                            ? getTeamRowStyle(team.name)
                             : {}
 
                           return (
@@ -2264,25 +2265,25 @@ export function CompetitionClientView({ competition, session, courses = [], user
                               </td>
                               <td className="px-3 py-2.5 md:px-5 md:py-4">
                                 <div 
-                                  style={isTeamComp && isStableford && entry.team ? { color: `hsl(${getTeamHue(entry.team.name)}, 75%, 25%)` } : {}}
+                                  style={isTeamComp && isStableford && team ? { color: `hsl(${getTeamHue(team.name)}, 75%, 25%)` } : {}}
                                   className="font-extrabold text-slate-900 text-sm md:text-base leading-tight"
                                 >
                                   {entry.name}
                                 </div>
-                                {entry.team && (
+                                {team && (
                                   isTeamComp && isStableford ? (
                                     <span 
                                       style={{
-                                        backgroundColor: `hsla(${getTeamHue(entry.team.name)}, 80%, 92%, 0.85)`,
-                                        color: `hsl(${getTeamHue(entry.team.name)}, 85%, 25%)`,
-                                        border: `1px solid hsla(${getTeamHue(entry.team.name)}, 80%, 75%, 0.9)`
+                                        backgroundColor: `hsla(${getTeamHue(team.name)}, 80%, 92%, 0.85)`,
+                                        color: `hsl(${getTeamHue(team.name)}, 85%, 25%)`,
+                                        border: `1px solid hsla(${getTeamHue(team.name)}, 80%, 75%, 0.9)`
                                       }}
                                       className="inline-block text-[9px] font-extrabold px-1.5 py-0.5 rounded uppercase tracking-wider mt-1"
                                     >
-                                      {entry.team.name}
+                                      {team.name}
                                     </span>
                                   ) : (
-                                    <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">{entry.team.name}</div>
+                                    <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">{team.name}</div>
                                   )
                                 )}
                               </td>

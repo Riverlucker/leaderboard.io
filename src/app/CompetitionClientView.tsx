@@ -1,5 +1,8 @@
 "use client"
 
+import { TeamScorecardModal } from "./components/TeamScorecardModal"
+import { MatchplayScorecardModal } from "./components/MatchplayScorecardModal"
+import { PlayerScorecardModal } from "./components/PlayerScorecardModal"
 import { useState, useEffect } from "react"
 import { signIn, signOut } from "next-auth/react"
 import { useRouter } from "next/navigation"
@@ -53,6 +56,113 @@ const formatDateTimeInput = (dateVal: any) => {
   const date = new Date(dateVal)
   const pad = (n: number) => n.toString().padStart(2, '0')
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
+export function getPlayingHandicap(p: any, round: any) {
+  if (!round) return 0
+  // Check manual override
+  const manualHcp = p.manualRoundHandicaps?.find((mr: any) => mr.roundId === round.id)
+  if (manualHcp !== undefined && manualHcp !== null) {
+    return manualHcp.handicapValue
+  }
+
+  // Fall back to WHS formula using round tee and course
+  const course = round.course
+  if (!course) return 0
+
+  const tee = round.tee ||
+              course.tees?.find((t: any) => t.name.toLowerCase().includes('yellow')) ||
+              course.tees?.find((t: any) => t.name.toLowerCase().includes('white')) ||
+              course.tees?.[0]
+
+  if (!tee || p.compHandicap === null || p.compHandicap === undefined) return 0
+
+  const coursePar = course.holes.reduce((sum: number, h: any) => sum + h.par, 0)
+  return calculateCourseHandicap(p.compHandicap, tee, coursePar)
+}
+
+export function getMatchAllowance(match: any, hcpA: number, hcpB: number) {
+  if (match.handicapAllowance !== null && match.handicapAllowance !== undefined) {
+    return match.handicapAllowance
+  }
+  const diff = Math.abs(hcpA - hcpB)
+  const allowanceType = match.allowanceType || "75%"
+  let percentage = 0.75
+  if (allowanceType === "50%") percentage = 0.50
+  if (allowanceType === "100%") percentage = 1.00
+  if (allowanceType === "0%") percentage = 0.00
+  return Math.round(diff * percentage)
+}
+
+export function getMatchHandicapStrokesOnHole(allowance: number, strokeIndex: number) {
+  const base = Math.floor(allowance / 18)
+  const remainder = allowance % 18
+  return base + (strokeIndex <= remainder ? 1 : 0)
+}
+
+export function parseHoleRange(rangeStr: string | null | undefined, roundHoles: number[]): number[] {
+  if (!rangeStr) return roundHoles.length > 0 ? roundHoles : Array.from({ length: 18 }, (_, i) => i + 1)
+  const parts = rangeStr.split('-')
+  if (parts.length === 2) {
+    const start = parseInt(parts[0])
+    const end = parseInt(parts[1])
+    if (!isNaN(start) && !isNaN(end) && start <= end) {
+      return Array.from({ length: end - start + 1 }, (_, i) => start + i)
+    }
+  }
+  return roundHoles.length > 0 ? roundHoles : Array.from({ length: 18 }, (_, i) => i + 1)
+}
+
+export function getMatchHoleStrokesMap(matchHoles: number[], round: any, allowance: number) {
+  const holeInfos = matchHoles.map(num => {
+    const hole = round.course.holes.find((h: any) => h.number === num)
+    const adjusted = getRoundHoleInfo(round, num)
+    const strokeIndex = adjusted ? adjusted.strokeIndex : (hole?.strokeIndex || 18)
+    return { num, strokeIndex }
+  }).filter(h => h.num !== undefined)
+
+  // Sort by strokeIndex ascending (hardest first)
+  holeInfos.sort((a, b) => a.strokeIndex - b.strokeIndex)
+
+  const N = holeInfos.length
+  if (N === 0) return {}
+
+  const base = Math.floor(allowance / N)
+  const remainder = allowance % N
+
+  const strokesMap: Record<number, number> = {}
+  for (let i = 0; i < N; i++) {
+    const hInfo = holeInfos[i]
+    strokesMap[hInfo.num] = base + (i < remainder ? 1 : 0)
+  }
+  return strokesMap
+}
+
+export function getCompactName(fullName: string, allNames: string[]) {
+  if (!fullName) return "Unknown"
+  const parts = fullName.trim().split(/\s+/)
+  if (parts.length < 2) return fullName
+
+  const firstName = parts[0]
+  const lastName = parts.slice(1).join(" ")
+  const lastInitial = lastName.charAt(0)
+
+  const others = allNames.filter(n => {
+    if (!n || n === fullName) return false
+    const p = n.trim().split(/\s+/)
+    return p[0] === firstName
+  })
+
+  if (others.length === 0) return firstName
+
+  const sameInitial = others.some(n => {
+    const p = n.trim().split(/\s+/)
+    const otherLast = p.slice(1).join(" ")
+    return otherLast.charAt(0) === lastInitial
+  })
+
+  if (sameInitial) return fullName
+  return `${firstName} ${lastInitial}.`
 }
 
 interface CompetitionClientViewProps {
@@ -110,7 +220,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
 
   // Admin section sub-tab
   const [adminSubTab, setAdminSubTab] = useState<'configure' | 'audit' | 'danger'>('configure')
-  const [configureSubTab, setConfigureSubTab] = useState<'general' | 'rounds' | 'teams' | 'participants'>('general')
+  const [configureSubTab, setConfigureSubTab] = useState<'general' | 'rounds' | 'teams' | 'participants' | 'matches'>('general')
 
   // Manual course handicaps editing state (overrides map)
   const [manualHandicapInputValues, setManualHandicapInputValues] = useState<Record<string, string>>({}) // key: "partId-courseId" -> string
@@ -357,113 +467,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
   }
   const uniqueCourses = Array.from(uniqueCoursesMap.values())
 
-  // Helper: Retrieve active playing handicap for a player in a round (checks manual override first)
-  const getPlayingHandicap = (p: any, round: any) => {
-    if (!round) return 0
-    // Check manual override
-    const manualHcp = p.manualRoundHandicaps?.find((mr: any) => mr.roundId === round.id)
-    if (manualHcp !== undefined && manualHcp !== null) {
-      return manualHcp.handicapValue
-    }
-
-    // Fall back to WHS formula using round tee and course
-    const course = round.course
-    if (!course) return 0
-
-    const tee = round.tee ||
-                course.tees?.find((t: any) => t.name.toLowerCase().includes('yellow')) ||
-                course.tees?.find((t: any) => t.name.toLowerCase().includes('white')) ||
-                course.tees?.[0]
-
-    if (!tee || p.compHandicap === null || p.compHandicap === undefined) return 0
-
-    const coursePar = course.holes.reduce((sum: number, h: any) => sum + h.par, 0)
-    return calculateCourseHandicap(p.compHandicap, tee, coursePar)
-  }
-
-  const getMatchAllowance = (match: any, hcpA: number, hcpB: number) => {
-    if (match.handicapAllowance !== null && match.handicapAllowance !== undefined) {
-      return match.handicapAllowance
-    }
-    const diff = Math.abs(hcpA - hcpB)
-    const allowanceType = match.allowanceType || "75%"
-    let percentage = 0.75
-    if (allowanceType === "50%") percentage = 0.50
-    if (allowanceType === "100%") percentage = 1.00
-    if (allowanceType === "0%") percentage = 0.00
-    return Math.round(diff * percentage)
-  }
-
-  const getMatchHandicapStrokesOnHole = (allowance: number, strokeIndex: number) => {
-    const base = Math.floor(allowance / 18)
-    const remainder = allowance % 18
-    return base + (strokeIndex <= remainder ? 1 : 0)
-  }
-
-  const parseHoleRange = (rangeStr: string | null | undefined, roundHoles: number[]): number[] => {
-    if (!rangeStr) return roundHoles.length > 0 ? roundHoles : Array.from({ length: 18 }, (_, i) => i + 1)
-    const parts = rangeStr.split('-')
-    if (parts.length === 2) {
-      const start = parseInt(parts[0])
-      const end = parseInt(parts[1])
-      if (!isNaN(start) && !isNaN(end) && start <= end) {
-        return Array.from({ length: end - start + 1 }, (_, i) => start + i)
-      }
-    }
-    return roundHoles.length > 0 ? roundHoles : Array.from({ length: 18 }, (_, i) => i + 1)
-  }
-
-  const getMatchHoleStrokesMap = (matchHoles: number[], round: any, allowance: number) => {
-    const holeInfos = matchHoles.map(num => {
-      const hole = round.course.holes.find((h: any) => h.number === num)
-      const adjusted = getRoundHoleInfo(round, num)
-      const strokeIndex = adjusted ? adjusted.strokeIndex : (hole?.strokeIndex || 18)
-      return { num, strokeIndex }
-    }).filter(h => h.num !== undefined)
-
-    // Sort by strokeIndex ascending (hardest first)
-    holeInfos.sort((a, b) => a.strokeIndex - b.strokeIndex)
-
-    const N = holeInfos.length
-    if (N === 0) return {}
-
-    const base = Math.floor(allowance / N)
-    const remainder = allowance % N
-
-    const strokesMap: Record<number, number> = {}
-    for (let i = 0; i < N; i++) {
-      const hInfo = holeInfos[i]
-      strokesMap[hInfo.num] = base + (i < remainder ? 1 : 0)
-    }
-    return strokesMap
-  }
-
-  const getCompactName = (fullName: string, allNames: string[]) => {
-    if (!fullName) return "Unknown"
-    const parts = fullName.trim().split(/\s+/)
-    if (parts.length < 2) return fullName
-
-    const firstName = parts[0]
-    const lastName = parts.slice(1).join(" ")
-    const lastInitial = lastName.charAt(0)
-
-    const others = allNames.filter(n => {
-      if (!n || n === fullName) return false
-      const p = n.trim().split(/\s+/)
-      return p[0] === firstName
-    })
-
-    if (others.length === 0) return firstName
-
-    const sameInitial = others.some(n => {
-      const p = n.trim().split(/\s+/)
-      const otherLast = p.slice(1).join(" ")
-      return otherLast.charAt(0) === lastInitial
-    })
-
-    if (sameInitial) return fullName
-    return `${firstName} ${lastInitial}.`
-  }
+// --- RELOCATED END ---
 
   const computeMatchplayStatus = (match: any, round: any) => {
     const isTeamMatchplay = match.type === 'TEAM_MATCHPLAY'
@@ -1349,7 +1353,14 @@ export function CompetitionClientView({ competition, session, courses = [], user
         let holesPlayedCount = 0
         let totalHolesCount = 0
 
+        const roundPoints: Record<string, number> = {}
+        const roundRelToPar: Record<string, number> = {}
+
         for (const round of activeRounds) {
+          let rPoints = 0
+          let rStrokes = 0
+          let rPlayedHoles = 0
+
           const roundHoles = round.holesPlayed && round.holesPlayed.length > 0 
             ? round.holesPlayed 
             : Array.from({ length: 18 }, (_, i) => i + 1)
@@ -1390,18 +1401,27 @@ export function CompetitionClientView({ competition, session, courses = [], user
             })
             if (anyPlayed) {
               holesPlayedCount++
+              rPlayedHoles++
             }
 
             if (isBestball) {
-              teamPoints += Math.max(...memberHoleStats.map(m => m.pts), 0)
+              rPoints += Math.max(...memberHoleStats.map(m => m.pts), 0)
               const activeStrokes = memberHoleStats.map(m => m.str).filter(s => s > 0)
-              teamStrokes += activeStrokes.length > 0 ? Math.min(...activeStrokes) : (holePar + 3)
+              rStrokes += activeStrokes.length > 0 ? Math.min(...activeStrokes) : (holePar + 3)
             } else {
-              teamPoints += memberHoleStats.reduce((sum, m) => sum + m.pts, 0)
-              teamStrokes += memberHoleStats.reduce((sum, m) => sum + m.str, 0)
+              rPoints += memberHoleStats.reduce((sum, m) => sum + m.pts, 0)
+              rStrokes += memberHoleStats.reduce((sum, m) => sum + m.str, 0)
             }
           }
+
+          teamPoints += rPoints
+          teamStrokes += rStrokes
+
+          roundPoints[round.id] = rPoints
+          roundRelToPar[round.id] = (rPlayedHoles * 2) - rPoints
         }
+
+        const totalRelToPar = Object.values(roundRelToPar).reduce((sum, val) => sum + val, 0)
 
         const memberNames = teamParticipants
           .map((p: any) => p.userId ? (p.user?.name || p.user?.email) : p.dummyName)
@@ -1415,7 +1435,10 @@ export function CompetitionClientView({ competition, session, courses = [], user
           totalPoints: isStroke ? teamStrokes : teamPoints,
           totalStrokes: teamStrokes,
           holesPlayed: holesPlayedCount,
-          totalHoles: totalHolesCount
+          totalHoles: totalHolesCount,
+          roundPoints,
+          roundRelToPar,
+          relToPar: totalRelToPar
         }
       })
 
@@ -2281,37 +2304,97 @@ export function CompetitionClientView({ competition, session, courses = [], user
                   <table className="w-full text-sm text-left border-collapse">
                     <thead className="bg-slate-100/50 text-slate-550 uppercase tracking-wider text-xs border-b border-slate-200">
                       <tr>
-                        <th className="px-5 py-4 text-center w-14">Rank</th>
-                        <th className="px-5 py-4">Team</th>
-                        <th className="px-5 py-4">Members</th>
-                        <th className="px-5 py-4 text-center w-24">Played</th>
-                        <th className="px-5 py-4 text-center w-28">
-                          {selectedLeaderboardType === 'TEAM_STROKEPLAY' ? 'Gross Strokes' : 'Stableford Points'}
+                        <th className="px-2 py-2.5 md:px-5 md:py-4 text-center w-10 md:w-14">Rank</th>
+                        <th className="px-3 py-2.5 md:px-5 md:py-4 min-w-[110px] md:min-w-[140px]">Team Name</th>
+                        <th className="px-2 py-2.5 md:px-5 md:py-4 text-center w-20 md:w-28">
+                          {competition.showRelToPar && (selectedLeaderboardType === 'TEAM_STABLEFORD_NETTO' || selectedLeaderboardType === 'TEAM_STABLEFORD_BRUTTO')
+                            ? 'Score (+/-)'
+                            : (selectedLeaderboardType === 'TEAM_STROKEPLAY' ? 'Gross Strokes' : 'Total Points')
+                          }
                         </th>
+                        <th className="px-2 py-2.5 md:px-4 md:py-4 text-center w-16 md:w-24">Played</th>
+                        {competition.rounds.map((round: any, i: number) => {
+                          return (
+                            <th key={round.id} className="px-1 py-2.5 md:px-3 md:py-4 text-center text-xs font-semibold text-slate-555 min-w-[75px] md:min-w-[90px]">
+                              <div>R{i + 1}</div>
+                              {round.tee && (
+                                <div className="text-[8px] md:text-[9px] text-slate-400 font-mono font-medium uppercase tracking-wider block mt-0.5">
+                                  {round.tee.name.split(" ")[0]}
+                                </div>
+                              )}
+                            </th>
+                          )
+                        })}
+                        <th className="px-2 py-2.5 md:px-5 md:py-4 text-right w-12 md:w-16">Cards</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 bg-white/30 text-slate-750">
-                      {leaderboardList.map((entry) => (
-                        <tr key={entry.teamId} className="hover:bg-slate-50/50 transition-colors cursor-pointer" onClick={() => {
-                          setSelectedTeamForScorecard(entry.team)
-                        }}>
-                          <td className="px-5 py-4.5 text-center font-extrabold font-mono text-slate-700">
-                            {entry.rank}
-                          </td>
-                          <td className="px-5 py-4.5 font-bold text-slate-900 text-base">
-                            {entry.name}
-                          </td>
-                          <td className="px-5 py-4.5 text-sm text-slate-500 italic max-w-sm truncate">
-                            {entry.memberNames}
-                          </td>
-                          <td className="px-5 py-4.5 text-center font-mono text-slate-500 text-sm">
-                            {entry.holesPlayed}/{entry.totalHoles || 18}
-                          </td>
-                          <td className="px-5 py-4.5 text-center text-emerald-600 font-black text-xl">
-                            {entry.totalPoints}
-                          </td>
-                        </tr>
-                      ))}
+                    <tbody className="divide-y divide-slate-100 bg-white/30 text-slate-700">
+                      {leaderboardList.map((entry) => {
+                        const totalHolesForFilter = selectedRoundFilter === 'TOTAL'
+                          ? totalCompHoles
+                          : (competition.rounds.find((r: any) => r.id === selectedRoundFilter)?.holesPlayed?.length || 18)
+
+                        return (
+                          <tr key={entry.teamId} className="hover:bg-slate-50/50 transition-colors">
+                            <td className="px-2 py-2.5 md:px-5 md:py-4 text-center font-extrabold font-mono text-slate-700">
+                              {entry.rank}
+                            </td>
+                            <td className="px-3 py-2.5 md:px-5 md:py-4 font-bold text-slate-900 text-sm md:text-base leading-tight">
+                              {entry.name}
+                            </td>
+                            <td className="px-2 py-2.5 md:px-5 md:py-4 text-center text-emerald-600 font-black text-base md:text-xl">
+                              {competition.showRelToPar && (selectedLeaderboardType === 'TEAM_STABLEFORD_NETTO' || selectedLeaderboardType === 'TEAM_STABLEFORD_BRUTTO')
+                                ? (entry.relToPar === 0 ? "Even" : (entry.relToPar < 0 ? String(entry.relToPar) : `+${entry.relToPar}`))
+                                : entry.totalPoints
+                              }
+                            </td>
+                            <td className="px-2 py-2.5 md:px-4 md:py-4 text-center font-mono text-slate-500 text-xs md:text-sm">
+                              {entry.holesPlayed}/{totalHolesForFilter}
+                            </td>
+
+                            {competition.rounds.map((round: any) => {
+                              const pts = entry.roundPoints[round.id]
+                              const showRel = competition.showRelToPar && (selectedLeaderboardType === 'TEAM_STABLEFORD_NETTO' || selectedLeaderboardType === 'TEAM_STABLEFORD_BRUTTO')
+                              
+                              let displayVal = "-"
+                              if (pts !== undefined) {
+                                if (showRel) {
+                                  const rel = entry.roundRelToPar?.[round.id] ?? 0
+                                  displayVal = rel === 0 ? "Even" : (rel < 0 ? String(rel) : `+${rel}`)
+                                } else {
+                                  displayVal = String(pts)
+                                }
+                              }
+
+                              return (
+                                <td key={round.id} className="px-1 py-1.5 md:px-3 md:py-4 text-center">
+                                  <button
+                                    onClick={() => {
+                                      setSelectedTeamForScorecard(entry.team)
+                                    }}
+                                    className="px-2 py-0.5 md:px-2.5 md:py-1 text-xs font-extrabold bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-250 text-slate-700 hover:text-emerald-600 rounded-md transition-all font-mono shadow-sm"
+                                    title={`View Round ${round.name} Team Scorecard`}
+                                  >
+                                    {displayVal}
+                                  </button>
+                                </td>
+                              )
+                            })}
+
+                            <td className="px-2 py-2.5 md:px-5 md:py-4 text-right">
+                              <button
+                                onClick={() => {
+                                  setSelectedTeamForScorecard(entry.team)
+                                }}
+                                className="p-1 md:p-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-500 hover:text-emerald-600 rounded-lg transition-colors shadow-sm"
+                                title="View Full Team Scorecard"
+                              >
+                                <Eye size={16} className="landscape:w-3.5 landscape:h-3.5" />
+                              </button>
+                            </td>
+                          </tr>
+                        )
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -2742,6 +2825,14 @@ export function CompetitionClientView({ competition, session, courses = [], user
                     }`}
                   >
                     Participants
+                  </button>
+                  <button
+                    onClick={() => setConfigureSubTab('matches')}
+                    className={`px-3 py-2 text-left text-xs font-bold rounded-lg transition-all ${
+                      configureSubTab === 'matches' ? 'bg-slate-100 text-slate-900' : 'text-slate-500 hover:bg-slate-50'
+                    }`}
+                  >
+                    Pairings & Matches
                   </button>
                 </div>
 
@@ -3271,7 +3362,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
                             <div>
                               <span className="font-extrabold text-slate-800">{t.name}</span>
                               <span className="text-xs text-slate-400 font-mono ml-2">
-                                ({t.participants?.length || 0} members)
+                                ({competition.participants.filter((p: any) => p.teamId === t.id).length} members)
                               </span>
                             </div>
                             <button
@@ -3521,6 +3612,61 @@ export function CompetitionClientView({ competition, session, courses = [], user
                     </div>
                   )}
 
+                  {configureSubTab === 'matches' && (
+                    <div className="space-y-6">
+                      <div className="flex justify-between items-center pb-2 border-b border-slate-100">
+                        <h4 className="text-sm font-extrabold uppercase tracking-wider text-slate-650">
+                          Pairings & Matches
+                        </h4>
+                        <a
+                          href={`/admin/competitions/${competition.id}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="px-3.5 py-1.5 bg-emerald-600 text-white font-extrabold text-xs rounded-lg hover:bg-emerald-500 transition-colors shadow-sm"
+                        >
+                          Manage in Backend &rarr;
+                        </a>
+                      </div>
+                      
+                      <div className="bg-emerald-50 text-emerald-850 p-4 rounded-xl text-xs border border-emerald-150">
+                        <p className="font-bold mb-1">Matches and Pairings Setup</p>
+                        <p>To assign players, create new matchplay matches, override stroke allowance, or toggle play-until-end behavior, click the button above to open the full administrator dashboard.</p>
+                      </div>
+
+                      <div className="space-y-4">
+                        {competition.rounds.map((round: any, idx: number) => (
+                          <div key={round.id} className="bg-slate-50 p-4 border border-slate-200 rounded-xl space-y-2">
+                            <div className="flex justify-between items-center">
+                              <span className="font-extrabold text-sm text-slate-800">{round.name}</span>
+                              <span className="text-xs text-slate-555 font-mono font-bold">{(round.matches || []).length} match(es)</span>
+                            </div>
+                            {(round.matches || []).length === 0 ? (
+                              <p className="text-xs text-slate-450 italic">No matches set up for this round yet.</p>
+                            ) : (
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                                {round.matches.map((m: any, mIdx: number) => {
+                                  const players = m.matchPlayers.map((mp: any) => {
+                                    const part = competition.participants.find((p: any) => p.id === mp.participantId)
+                                    return part ? (part.userId ? (part.user?.name || part.user?.email) : part.dummyName) : "Unknown"
+                                  })
+                                  return (
+                                    <div key={m.id} className="bg-white p-2.5 rounded-lg border border-slate-150 shadow-sm flex flex-col justify-between">
+                                      <div className="font-bold text-slate-700">Match #{mIdx + 1} ({m.type})</div>
+                                      <div className="text-slate-500 mt-1">{players.join(" vs ")}</div>
+                                      {m.handicapAllowance !== null && (
+                                        <div className="text-[10px] text-cyan-600 font-bold mt-1">Allowance: {m.handicapAllowance} strokes</div>
+                                      )}
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                 </div>
               </div>
             )}
@@ -3712,1065 +3858,39 @@ export function CompetitionClientView({ competition, session, courses = [], user
 
       {/* Matchplay scorecard popup modal */}
       {selectedMatchForScorecard && selectedMatchRoundForScorecard && (
-        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 rounded-2xl max-w-5xl w-full p-6 shadow-2xl space-y-4 overflow-hidden max-h-[90vh] flex flex-col text-slate-800">
-            <div className="flex justify-between items-center border-b border-slate-200 pb-3">
-              <div>
-                <h3 className="text-xl font-bold text-slate-900">
-                  Matchplay Scorecard
-                </h3>
-                <p className="text-xs text-slate-550">
-                  Round: {selectedMatchRoundForScorecard.name} | Course: {selectedMatchRoundForScorecard.course.name}
-                </p>
-              </div>
-              <button
-                onClick={() => {
-                  setSelectedMatchForScorecard(null)
-                  setSelectedMatchRoundForScorecard(null)
-                }}
-                className="p-1.5 bg-slate-50 border border-slate-200 text-slate-500 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-colors shadow-sm focus:outline-none"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto space-y-8 scrollbar-thin">
-              {(() => {
-                const round = selectedMatchRoundForScorecard
-                const match = selectedMatchForScorecard
-
-                const isTeamMatchplay = match.type === 'TEAM_MATCHPLAY'
-
-                const pIds = match.matchPlayers.map((mp: any) => mp.participantId)
-                const players = pIds.map((id: string) => competition.participants.find((x: any) => x.id === id)).filter(Boolean)
-
-                if (players.length === 0) return <p className="text-center text-slate-500 italic">Unknown Players</p>
-
-                let p1 = players[0]
-                let p2 = players[1]
-                let p3 = players[2]
-                let p4 = players[3]
-
-                let team1Players: any[] = []
-                let team2Players: any[] = []
-                let p1Allowance = 0, p2Allowance = 0, p3Allowance = 0, p4Allowance = 0, allowance = 0
-                let strokesMap1: any = {}, strokesMap2: any = {}, strokesMap3: any = {}, strokesMap4: any = {}
-
-                const getInitials = (name: string) => {
-                  if (!name) return ""
-                  const parts = name.trim().split(/\s+/)
-                  if (parts.length >= 2) {
-                    return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase()
-                  }
-                  return name.substring(0, 2).toUpperCase()
-                }
-
-                const allNames = competition.participants.map((p: any) =>
-                  p.userId ? p.user?.name : p.dummyName
-                ).filter((n: any): n is string => typeof n === 'string' && n.length > 0)
-
-                const roundHoles = round.holesPlayed && round.holesPlayed.length > 0
-                  ? [...round.holesPlayed].sort((a: number, b: number) => a - b)
-                  : Array.from({ length: 18 }, (_, i) => i + 1)
-
-                const matchHoles = parseHoleRange(match.holeRange, roundHoles)
-
-                if (isTeamMatchplay && players.length === 4) {
-                  const teamIds = Array.from(new Set(players.map((x: any) => x.teamId))).filter(Boolean)
-                  let team1Id = teamIds[0]
-                  let team2Id = teamIds[1]
-
-                  const christoph = players.find((x: any) => (x.user?.name || x.dummyName || "").toLowerCase().includes("christoph"))
-                  if (christoph && christoph.teamId === team2Id) {
-                    const temp = team1Id
-                    team1Id = team2Id
-                    team2Id = temp
-                  }
-
-                  team1Players = players.filter((x: any) => x.teamId === team1Id)
-                  team2Players = players.filter((x: any) => x.teamId === team2Id)
-                  team1Players.sort((a: any, b: any) => getPlayingHandicap(a, round) - getPlayingHandicap(b, round))
-                  team2Players.sort((a: any, b: any) => getPlayingHandicap(a, round) - getPlayingHandicap(b, round))
-
-                  p1 = team1Players[0]
-                  p2 = team1Players[1]
-                  p3 = team2Players[0]
-                  p4 = team2Players[1]
-
-                  const hcp1 = getPlayingHandicap(p1, round)
-                  const hcp2 = getPlayingHandicap(p2, round)
-                  const hcp3 = getPlayingHandicap(p3, round)
-                  const hcp4 = getPlayingHandicap(p4, round)
-
-                  const minPH = Math.min(hcp1, hcp2, hcp3, hcp4)
-
-                  p1Allowance = hcp1 - minPH
-                  p2Allowance = hcp2 - minPH
-                  p3Allowance = hcp3 - minPH
-                  p4Allowance = hcp4 - minPH
-
-                  strokesMap1 = getMatchHoleStrokesMap(matchHoles, round, p1Allowance)
-                  strokesMap2 = getMatchHoleStrokesMap(matchHoles, round, p2Allowance)
-                  strokesMap3 = getMatchHoleStrokesMap(matchHoles, round, p3Allowance)
-                  strokesMap4 = getMatchHoleStrokesMap(matchHoles, round, p4Allowance)
-                } else {
-                  if (players.length >= 2) {
-                    p1 = players[0]
-                    p2 = players[1]
-                  }
-                  const hcp1 = getPlayingHandicap(p1, round)
-                  const hcp2 = getPlayingHandicap(p2, round)
-                  const allowance = getMatchAllowance(match, hcp1, hcp2)
-                  p1Allowance = hcp1 > hcp2 ? allowance : 0
-                  p2Allowance = hcp2 > hcp1 ? allowance : 0
-                  strokesMap1 = getMatchHoleStrokesMap(matchHoles, round, p1Allowance)
-                  strokesMap2 = getMatchHoleStrokesMap(matchHoles, round, p2Allowance)
-                }
-
-                const name1 = getCompactName(p1.userId ? p1.user?.name : p1.dummyName || "", allNames)
-                const name2 = p2 ? getCompactName(p2.userId ? p2.user?.name : p2.dummyName || "", allNames) : ""
-                const name3 = p3 ? getCompactName(p3.userId ? p3.user?.name : p3.dummyName || "", allNames) : ""
-                const name4 = p4 ? getCompactName(p4.userId ? p4.user?.name : p4.dummyName || "", allNames) : ""
-
-                const frontHoleNums = matchHoles
-                  .filter(num => num >= 1 && num <= 9)
-                  .filter(num => {
-                    const hole = round.course.holes.find((h: any) => h.number === num)
-                    if (!hole) return false
-                    const score1 = p1.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
-                    const score2 = p2 ? p2.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id) : null
-                    const score3 = p3 ? p3.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id) : null
-                    const score4 = p4 ? p4.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id) : null
-                    const scores = [score1, score2, score3, score4].filter(Boolean)
-                    return !(scores.length > 0 && scores.every((s: any) => s.status === 'NOT_PLAYED'))
-                  })
-
-                const backHoleNums = matchHoles
-                  .filter(num => num >= 10 && num <= 18)
-                  .filter(num => {
-                    const hole = round.course.holes.find((h: any) => h.number === num)
-                    if (!hole) return false
-                    const score1 = p1.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
-                    const score2 = p2 ? p2.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id) : null
-                    const score3 = p3 ? p3.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id) : null
-                    const score4 = p4 ? p4.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id) : null
-                    const scores = [score1, score2, score3, score4].filter(Boolean)
-                    return !(scores.length > 0 && scores.every((s: any) => s.status === 'NOT_PLAYED'))
-                  })
-
-                const renderMatchplayHoleTable = (holeNums: number[]) => {
-                  if (holeNums.length === 0) return null
-
-                  const sumPar = holeNums.reduce((sum, num) => {
-                    const hole = round.course.holes.find((h: any) => h.number === num)
-                    return sum + (hole?.par || 4)
-                  }, 0)
-
-                  let runningLead = 0
-                  const standingsAtHole: Record<number, string> = {}
-                  const holeWinner: Record<number, '1' | '2' | 'halved' | null> = {}
-                  const netValuesAtHole: Record<number, Record<number, number>> = {}
-
-                  const getMatchHoleStrokes = (score: any) => {
-                    if (!score) return null
-                    if (score.status === 'WIPED') return 99
-                    if (score.status === 'NOT_PLAYED') return null
-                    return score.grossStrokes
-                  }
-
-                  for (const num of matchHoles) {
-                    const hole = round.course.holes.find((h: any) => h.number === num)
-                    if (!hole) continue
-                    const score1 = p1.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
-                    const score2 = p2 ? p2.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id) : null
-                    const score3 = p3 ? p3.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id) : null
-                    const score4 = p4 ? p4.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id) : null
-
-                    const strokes1 = getMatchHoleStrokes(score1)
-                    const strokes2 = getMatchHoleStrokes(score2)
-                    const strokes3 = isTeamMatchplay ? getMatchHoleStrokes(score3) : null
-                    const strokes4 = isTeamMatchplay ? getMatchHoleStrokes(score4) : null
-
-                    // Exclude hole if all unplayed
-                    if (strokes1 === null && strokes2 === null && strokes3 === null && strokes4 === null) {
-                      continue
-                    }
-
-                    const getNet = (strokes: number | null, strokesGiven: number) => {
-                      if (strokes === null) return 999
-                      if (strokes === 99) return 99
-                      return strokes - strokesGiven
-                    }
-
-                    const net1 = getNet(strokes1, strokesMap1[num] || 0)
-                    const net2 = getNet(strokes2, strokesMap2[num] || 0)
-                    const net3 = getNet(strokes3, strokesMap3[num] || 0)
-                    const net4 = getNet(strokes4, strokesMap4[num] || 0)
-
-                    netValuesAtHole[num] = { 1: net1, 2: net2, 3: net3, 4: net4 }
-
-                    const teamNet1 = isTeamMatchplay ? Math.min(net1, net2) : net1
-                    const teamNet2 = isTeamMatchplay ? Math.min(net3, net4) : net2
-
-                    if (teamNet1 !== 999 && teamNet2 !== 999) {
-                      if (teamNet1 < teamNet2) {
-                        runningLead++
-                        holeWinner[num] = '1'
-                      } else if (teamNet1 > teamNet2) {
-                        runningLead--
-                        holeWinner[num] = '2'
-                      } else {
-                        holeWinner[num] = 'halved'
-                      }
-
-                      if (runningLead === 0) {
-                        standingsAtHole[num] = "AS"
-                      } else if (runningLead > 0) {
-                        standingsAtHole[num] = `+${runningLead}`
-                      } else {
-                        standingsAtHole[num] = `${runningLead}`
-                      }
-                    } else {
-                      standingsAtHole[num] = "-"
-                      holeWinner[num] = null
-                    }
-                  }
-
-                  const getMarkerMarkup = (displayVal: string, diff: number, isWiped: boolean) => {
-                    if (displayVal === '-' || displayVal === '/' || isWiped) return null
-                    if (diff === -1) {
-                      return (
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                          <div className="w-[18px] h-[18px] border border-emerald-500 rounded-full opacity-80" />
-                        </div>
-                      )
-                    } else if (diff <= -2) {
-                      return (
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                          <div className="absolute w-[18px] h-[18px] border border-emerald-500 rounded-full opacity-80" />
-                          <div className="absolute w-[12px] h-[12px] border border-emerald-500 rounded-full opacity-80" />
-                        </div>
-                      )
-                    } else if (diff === 1) {
-                      return (
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                          <div className="w-[14px] h-[14px] border border-red-500 rounded-none opacity-80" />
-                        </div>
-                      )
-                    } else if (diff === 2) {
-                      return (
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                          <div className="absolute w-[20px] h-[20px] border border-red-500 rounded-none opacity-80" />
-                          <div className="absolute w-[14px] h-[14px] border border-red-500 rounded-none opacity-80" />
-                        </div>
-                      )
-                    } else if (diff >= 3) {
-                      return (
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                          <div className="absolute w-[26px] h-[26px] border border-red-500 rounded-none opacity-80" />
-                          <div className="absolute w-[20px] h-[20px] border border-red-500 rounded-none opacity-80" />
-                          <div className="absolute w-[14px] h-[14px] border border-red-500 rounded-none opacity-80" />
-                        </div>
-                      )
-                    }
-                    return null
-                  }
-
-                  const renderPlayerRow = (p: any, displayName: string, allowance: number, strokesMap: any, pIdx: number) => {
-                    let totalStrokes = 0
-                    return (
-                      <tr className="border-b border-slate-200">
-                        <td className="px-3 py-2 text-left font-bold text-slate-700 border-r border-slate-200 text-[10px] bg-slate-50/50 truncate max-w-[110px]">
-                          {displayName}
-                          {allowance > 0 && ` (${allowance})`}
-                        </td>
-                        {holeNums.map(num => {
-                          const adjusted = getRoundHoleInfo(round, num)
-                          const hole = round.course.holes.find((h: any) => h.number === num)
-                          if (!hole) return <td key={num} className="border-r border-slate-200/80">-</td>
-
-                          const holePar = adjusted ? adjusted.par : hole.par
-                          const score = p.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
-
-                          let displayVal = "-"
-                          let diff = 0
-                          let isWiped = false
-
-                          if (score && (score.grossStrokes !== null || (score.status !== null && score.status !== 'NOT_PLAYED'))) {
-                            if (score.status === 'WIPED') {
-                              displayVal = "/"
-                              isWiped = true
-                              totalStrokes += holePar + 3
-                            } else if (score.grossStrokes !== null) {
-                              displayVal = String(score.grossStrokes)
-                              totalStrokes += score.grossStrokes
-                              diff = score.grossStrokes - holePar
-                            }
-                          }
-
-                          const wonTeam = holeWinner[num]
-                          const won = (pIdx === 1 && wonTeam === '1' && netValuesAtHole[num]?.[1] === Math.min(netValuesAtHole[num]?.[1], netValuesAtHole[num]?.[2])) ||
-                                      (pIdx === 2 && wonTeam === '1' && netValuesAtHole[num]?.[2] === Math.min(netValuesAtHole[num]?.[1], netValuesAtHole[num]?.[2])) ||
-                                      (pIdx === 3 && wonTeam === '2' && netValuesAtHole[num]?.[3] === Math.min(netValuesAtHole[num]?.[3], netValuesAtHole[num]?.[4])) ||
-                                      (pIdx === 4 && wonTeam === '2' && netValuesAtHole[num]?.[4] === Math.min(netValuesAtHole[num]?.[3], netValuesAtHole[num]?.[4])) ||
-                                      (!isTeamMatchplay && pIdx === 1 && wonTeam === '1') ||
-                                      (!isTeamMatchplay && pIdx === 2 && wonTeam === '2')
-
-                          let cellBg = "text-slate-800"
-                          if (won) {
-                            if (isTeamMatchplay) {
-                              if (pIdx === 1 || pIdx === 2) {
-                                const otherNet = pIdx === 1 ? netValuesAtHole[num]?.[2] : netValuesAtHole[num]?.[1]
-                                const myNet = netValuesAtHole[num]?.[pIdx]
-                                cellBg = myNet < otherNet ? "bg-emerald-100 text-emerald-950 font-black" : "bg-emerald-50 text-emerald-800"
-                              } else {
-                                const otherNet = pIdx === 3 ? netValuesAtHole[num]?.[4] : netValuesAtHole[num]?.[3]
-                                const myNet = netValuesAtHole[num]?.[pIdx]
-                                cellBg = myNet < otherNet ? "bg-emerald-100 text-emerald-950 font-black" : "bg-emerald-50 text-emerald-800"
-                              }
-                            } else {
-                              cellBg = "bg-emerald-50 text-emerald-800"
-                            }
-                          }
-
-                          const strokeCount = allowance > 0 ? (strokesMap[num] || 0) : 0
-                          const markerMarkup = getMarkerMarkup(displayVal, diff, isWiped)
-
-                          return (
-                            <td key={num} className={`px-1 py-2 border-r border-slate-200/80 relative font-bold text-[11px] transition-colors duration-150 ${cellBg}`}>
-                              <div className="flex items-center justify-center h-7 relative w-full">
-                                <span className={isWiped ? 'text-red-650 font-black' : ''}>{displayVal}</span>
-                                {markerMarkup}
-                                {strokeCount > 0 && (
-                                  <div className="absolute top-1 right-1 flex space-x-[1.5px]" title={`${strokeCount} allowance strokes given on this hole`}>
-                                    {Array.from({ length: strokeCount }).map((_, idx) => (
-                                      <div key={idx} className="w-[4px] h-[4px] bg-cyan-500 rounded-full" />
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            </td>
-                          )
-                        })}
-                        <td className="px-1.5 py-2 font-extrabold text-slate-850 text-[10px] bg-slate-50/50">{totalStrokes}</td>
-                      </tr>
-                    )
-                  }
-
-                  return (
-                    <div className="overflow-x-auto border border-slate-200 rounded-xl w-full shadow-sm">
-                      <table className="w-full text-[10px] text-center border-collapse">
-                        <thead className="bg-slate-50 text-slate-650">
-                          <tr className="border-b border-slate-200">
-                            <th className="px-3 py-2 text-left font-extrabold border-r border-slate-200 w-28 text-[10px] text-slate-800 bg-slate-100/50">Hole</th>
-                            {holeNums.map(num => {
-                              return (
-                                <th key={num} className="px-1 py-1 border-r border-slate-200/80 font-black w-8 md:w-10 text-[10px] text-slate-700">
-                                  {num}
-                                </th>
-                              )
-                            })}
-                            <th className="px-1.5 py-1 font-bold w-12 text-slate-700 text-[10px]">Total</th>
-                          </tr>
-                          <tr className="border-b border-slate-200 text-[9px] text-slate-550">
-                            <td className="px-3 py-1 text-left border-r border-slate-200">Par</td>
-                            {holeNums.map(num => {
-                              const adjusted = getRoundHoleInfo(round, num)
-                              const hole = round.course.holes.find((h: any) => h.number === num)
-                              const holePar = adjusted ? adjusted.par : (hole?.par || 4)
-                              return (
-                                <td key={num} className="px-1 py-0.5 border-r border-slate-200/80 font-mono">
-                                  {holePar}
-                                </td>
-                              )
-                            })}
-                            <td className="px-1.5 py-1.5 font-bold font-mono text-[9px]">{sumPar}</td>
-                          </tr>
-                          <tr className="border-b border-slate-200 text-[9px] text-slate-550">
-                            <td className="px-3 py-1 text-left border-r border-slate-200">Index</td>
-                            {holeNums.map(num => {
-                              const adjusted = getRoundHoleInfo(round, num)
-                              const hole = round.course.holes.find((h: any) => h.number === num)
-                              const holeStrokeIndex = adjusted ? adjusted.strokeIndex : (hole?.strokeIndex || 1)
-                              return (
-                                <td key={num} className="px-1 py-0.5 border-r border-slate-200/80 font-mono">
-                                  {holeStrokeIndex}
-                                </td>
-                              )
-                            })}
-                            <td className="px-1.5 py-1.5 font-mono text-[9px]">-</td>
-                          </tr>
-                        </thead>
-                        <tbody className="bg-white text-slate-800">
-                          {renderPlayerRow(p1, name1, p1Allowance, strokesMap1, 1)}
-
-                          {isTeamMatchplay && p2 && renderPlayerRow(p2, name2, p2Allowance, strokesMap2, 2)}
-
-                          {/* Running Match Score Row */}
-                          <tr className="border-b border-slate-200 bg-slate-50/40 text-[9px]">
-                            <td className="px-3 py-1.5 text-left font-bold text-slate-555 border-r border-slate-200 bg-slate-50/60">
-                              Match Score
-                            </td>
-                            {holeNums.map(num => {
-                              const val = standingsAtHole[num] || "-"
-                              const isPositive = val.startsWith("+")
-                              const isNegative = val.startsWith("-")
-                              let colorClass = "text-slate-500 font-semibold"
-                              if (isPositive) colorClass = "text-emerald-600 font-black bg-emerald-50/30"
-                              if (isNegative) colorClass = "text-red-600 font-black bg-red-50/30"
-                              if (val === "AS") colorClass = "text-slate-800 font-bold bg-slate-100/30"
-
-                              return (
-                                <td key={num} className={`px-1 py-1.5 border-r border-slate-200/80 font-mono ${colorClass}`}>
-                                  {val}
-                                </td>
-                              )
-                            })}
-                            <td className="px-1.5 py-1.5 font-bold font-mono">-</td>
-                          </tr>
-
-                          {isTeamMatchplay ? (
-                            <>
-                              {p3 && renderPlayerRow(p3, name3, p3Allowance, strokesMap3, 3)}
-                              {p4 && renderPlayerRow(p4, name4, p4Allowance, strokesMap4, 4)}
-                            </>
-                          ) : (
-                            p2 && renderPlayerRow(p2, name2, p2Allowance, strokesMap2, 2)
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  )
-                }
-
-                return (
-                  <div className="space-y-6">
-                    <div className="flex justify-between items-center bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs">
-                      <div>
-                        <span className="font-bold text-slate-600 block">Allowance</span>
-                        <span className="text-sm font-black text-slate-900">
-                          {isTeamMatchplay
-                            ? `${getInitials(name1)}:${p1Allowance}, ${p2 ? `${getInitials(name2)}:${p2Allowance}` : ""}, ${p3 ? `${getInitials(name3)}:${p3Allowance}` : ""}, ${p4 ? `${getInitials(name4)}:${p4Allowance}` : ""}`
-                            : `${allowance} strokes`
-                          }
-                        </span>
-                      </div>
-                      <div>
-                        <span className="font-bold text-slate-600 block">Calculation Method</span>
-                        <span className="text-sm font-black text-slate-900">{match.allowanceType || "75%"} base</span>
-                      </div>
-                      <div>
-                        <span className="font-bold text-slate-600 block">Holes</span>
-                        <span className="text-sm font-black text-slate-900">{match.holeRange || "1-18"}</span>
-                      </div>
-                      <div>
-                        <span className="font-bold text-slate-600 block">Status</span>
-                        <span className="text-sm font-black text-emerald-600 uppercase">
-                          {(() => {
-                            const { statusText } = computeMatchplayStatus(match, round)
-                            return statusText
-                          })()}
-                        </span>
-                      </div>
-                    </div>
-
-                    {frontHoleNums.length > 0 && (
-                      <div className="space-y-2">
-                        <h4 className="font-extrabold text-xs text-slate-550 uppercase tracking-wider">Front 9</h4>
-                        {renderMatchplayHoleTable(frontHoleNums)}
-                      </div>
-                    )}
-
-                    {backHoleNums.length > 0 && (
-                      <div className="space-y-2 pt-4">
-                        <h4 className="font-extrabold text-xs text-slate-555 uppercase tracking-wider">Back 9</h4>
-                        {renderMatchplayHoleTable(backHoleNums)}
-                      </div>
-                    )}
-                  </div>
-                )
-              })()}
-            </div>
-          </div>
-        </div>
+        <MatchplayScorecardModal
+          selectedMatchForScorecard={selectedMatchForScorecard}
+          selectedMatchRoundForScorecard={selectedMatchRoundForScorecard}
+          competition={competition}
+          onClose={() => {
+            setSelectedMatchForScorecard(null)
+            setSelectedMatchRoundForScorecard(null)
+          }}
+          computeMatchplayStatus={computeMatchplayStatus}
+        />
       )}
 
       {/* Landscape scorecard popup modal */}
       {selectedParticipantForScorecard && (
-        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 rounded-2xl max-w-4xl w-full p-6 shadow-2xl space-y-4 overflow-hidden max-h-[90vh] flex flex-col text-slate-800">
-            <div className="flex justify-between items-center border-b border-slate-200 pb-3">
-              <div>
-                <h3 className="text-xl font-bold text-slate-900">
-                  {selectedParticipantForScorecard.userId ? (selectedParticipantForScorecard.user?.name || selectedParticipantForScorecard.user?.email) : selectedParticipantForScorecard.dummyName}
-                </h3>
-                <p className="text-xs text-slate-550">
-                  Competition Handicap Index: {selectedParticipantForScorecard.compHandicap !== null ? selectedParticipantForScorecard.compHandicap.toFixed(1) : "-"}
-                </p>
-              </div>
-              <button
-                onClick={() => {
-                  setSelectedParticipantForScorecard(null)
-                  setSelectedRoundIdForScorecard(null)
-                }}
-                className="p-1.5 bg-slate-50 border border-slate-200 text-slate-500 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-colors shadow-sm focus:outline-none"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto space-y-8 scrollbar-thin">
-              {competition.rounds
-                .filter((r: any) => !selectedRoundIdForScorecard || r.id === selectedRoundIdForScorecard)
-                .map((round: any) => {
-                  const tee = round.tee ||
-                              round.course.tees.find((t: any) => t.name.toLowerCase().includes('yellow')) ||
-                              round.course.tees.find((t: any) => t.name.toLowerCase().includes('white')) ||
-                              round.course.tees[0]
-
-                  // Sum course par
-                  const coursePar = round.course.holes.reduce((sum: number, h: any) => sum + h.par, 0)
-                  
-                  // Course Handicap
-                  const courseHandicap = getPlayingHandicap(selectedParticipantForScorecard, round)
-
-                  const frontHoleNums = Array.from({ length: 9 }, (_, i) => i + 1)
-                  const backHoleNums = Array.from({ length: 9 }, (_, i) => i + 10)
-
-                  const activeRoundHoles = round.holesPlayed && round.holesPlayed.length > 0
-                    ? round.holesPlayed
-                    : Array.from({ length: 18 }, (_, i) => i + 1)
-
-                  const frontHolesPlayed = frontHoleNums.filter(num => activeRoundHoles.includes(num))
-                  const backHolesPlayed = backHoleNums.filter(num => activeRoundHoles.includes(num))
-
-                  const renderHoleColumns = (holeNums: number[]) => {
-                    let sumPar = 0
-                    let sumStrokes = 0
-                    let sumPoints = 0
-
-                    return (
-                      <div className="overflow-x-auto border border-slate-200 rounded-xl w-full">
-                        <table className="w-full text-[10px] text-center border-collapse">
-                          <thead className="bg-slate-50 text-slate-650">
-                            <tr className="border-b border-slate-200">
-                              <th className="px-2 py-1 text-left font-extrabold border-r border-slate-200 w-16 text-[10px]">Hole</th>
-                              {holeNums.map(num => {
-                                const adjusted = getRoundHoleInfo(round, num)
-                                const hole = round.course.holes.find((h: any) => h.number === num)
-                                const holePar = adjusted ? adjusted.par : (hole?.par || 4)
-                                sumPar += holePar
-                                return (
-                                  <th key={num} className="px-1 py-1 border-r border-slate-200/80 font-black w-8 md:w-10 text-[10px] text-slate-700">
-                                    {num}
-                                  </th>
-                                )
-                              })}
-                              <th className="px-1.5 py-1 font-bold w-12 text-slate-700 text-[10px]">Total</th>
-                            </tr>
-                            <tr className="border-b border-slate-200 text-[9px] text-slate-550">
-                              <td className="px-2 py-1 text-left border-r border-slate-200">Par</td>
-                              {holeNums.map(num => {
-                                const adjusted = getRoundHoleInfo(round, num)
-                                const hole = round.course.holes.find((h: any) => h.number === num)
-                                const holePar = adjusted ? adjusted.par : (hole?.par || 4)
-                                return (
-                                  <td key={num} className="px-1 py-0.5 border-r border-slate-200/80 font-mono">
-                                    {holePar}
-                                  </td>
-                                )
-                              })}
-                              <td className="px-1.5 py-1.5 font-bold font-mono text-[9px]">{sumPar}</td>
-                            </tr>
-                            <tr className="border-b border-slate-200 text-[9px] text-slate-550">
-                              <td className="px-2 py-1 text-left border-r border-slate-200">Index</td>
-                              {holeNums.map(num => {
-                                const adjusted = getRoundHoleInfo(round, num)
-                                const hole = round.course.holes.find((h: any) => h.number === num)
-                                const holeStrokeIndex = adjusted ? adjusted.strokeIndex : (hole?.strokeIndex || 1)
-                                return (
-                                  <td key={num} className="px-1 py-0.5 border-r border-slate-200/80 font-mono">
-                                    {holeStrokeIndex}
-                                  </td>
-                                )
-                              })}
-                              <td className="px-1.5 py-1.5 font-mono text-[9px]">-</td>
-                            </tr>
-                            <tr className="border-b border-slate-200 text-[9px] text-slate-550">
-                              <td className="px-2 py-1 text-left border-r border-slate-200">Shots</td>
-                              {holeNums.map(num => {
-                                const adjusted = getRoundHoleInfo(round, num)
-                                const hole = round.course.holes.find((h: any) => h.number === num)
-                                const holeStrokeIndex = adjusted ? adjusted.strokeIndex : (hole?.strokeIndex || 1)
-                                const hcpStrokes = getHandicapStrokesOnHole(courseHandicap, holeStrokeIndex)
-                                return (
-                                  <td key={num} className="px-1 py-0.5 border-r border-slate-200/80 font-bold text-cyan-600 font-mono">
-                                    {hcpStrokes === 1 ? "|" : hcpStrokes >= 2 ? "||" : ""}
-                                  </td>
-                                )
-                              })}
-                              <td className="px-1.5 py-1.5 font-mono font-bold text-cyan-600 text-[9px]">
-                                {courseHandicap}
-                              </td>
-                            </tr>
-                          </thead>
-                          <tbody className="bg-white text-slate-800">
-                            {/* Gross Strokes Row */}
-                            <tr className="border-b border-slate-200">
-                              <td className="px-2 py-1.5 text-left font-bold text-slate-700 border-r border-slate-200 text-[10px]">Strokes</td>
-                              {holeNums.map(num => {
-                                const adjusted = getRoundHoleInfo(round, num)
-                                const hole = round.course.holes.find((h: any) => h.number === num)
-                                if (!hole) return <td key={num} className="border-r border-slate-200/80">-</td>
-
-                                const holePar = adjusted ? adjusted.par : hole.par
-
-                                const score = selectedParticipantForScorecard.scores.find(
-                                  (s: any) => s.roundId === round.id && s.holeId === hole.id
-                                )
-
-                                let displayVal = "-"
-                                let diff = 0
-                                let isWiped = false
-                                
-                                if (score && (score.grossStrokes !== null || (score.status !== null && score.status !== 'NOT_PLAYED'))) {
-                                  if (score.status === 'WIPED') {
-                                    displayVal = "/"
-                                    isWiped = true
-                                    sumStrokes += holePar + 3 // wiped hole is triple bogey
-                                  } else if (score.grossStrokes !== null) {
-                                    displayVal = String(score.grossStrokes)
-                                    sumStrokes += score.grossStrokes
-                                    diff = score.grossStrokes - holePar
-                                  }
-                                }
-
-                                // Style circle/square markers (more compact)
-                                let markerMarkup = null
-                                if (displayVal !== '-' && displayVal !== '/' && score?.grossStrokes) {
-                                  if (diff === -1) {
-                                    // Birdie: single circle
-                                    markerMarkup = (
-                                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                        <div className="w-[18px] h-[18px] border border-emerald-500 rounded-full opacity-80" />
-                                      </div>
-                                    )
-                                  } else if (diff <= -2) {
-                                    // Eagle: double circle
-                                    markerMarkup = (
-                                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                        <div className="absolute w-[18px] h-[18px] border border-emerald-500 rounded-full opacity-80" />
-                                        <div className="absolute w-[12px] h-[12px] border border-emerald-500 rounded-full opacity-80" />
-                                      </div>
-                                    )
-                                  } else if (diff === 1) {
-                                    // Bogey: single rectangle
-                                    markerMarkup = (
-                                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                        <div className="w-[14px] h-[14px] border border-red-500 rounded-none opacity-80" />
-                                      </div>
-                                    )
-                                  } else if (diff === 2) {
-                                    // Double Bogey: double rectangle
-                                    markerMarkup = (
-                                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                        <div className="absolute w-[20px] h-[20px] border border-red-500 rounded-none opacity-80" />
-                                        <div className="absolute w-[14px] h-[14px] border border-red-500 rounded-none opacity-80" />
-                                      </div>
-                                    )
-                                  } else if (diff >= 3) {
-                                    // Triple bogey or worse: three rectangles
-                                    markerMarkup = (
-                                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                        <div className="absolute w-[26px] h-[26px] border border-red-500 rounded-none opacity-80" />
-                                        <div className="absolute w-[20px] h-[20px] border border-red-500 rounded-none opacity-80" />
-                                        <div className="absolute w-[14px] h-[14px] border border-red-500 rounded-none opacity-80" />
-                                      </div>
-                                    )
-                                  }
-                                }
-
-                                return (
-                                  <td key={num} className="px-1 py-1.5 border-r border-slate-200/80 relative font-bold text-slate-800 text-[11px]">
-                                    <div className="flex items-center justify-center h-7 relative w-full">
-                                      <span className={isWiped ? 'text-red-650 font-black' : ''}>{displayVal}</span>
-                                      {markerMarkup}
-                                    </div>
-                                  </td>
-                                )
-                              })}
-                              <td className="px-1.5 py-1.5 font-extrabold text-slate-850 text-[10px]">{sumStrokes}</td>
-                            </tr>
-
-                            {/* Stableford Points Row */}
-                            <tr>
-                              <td className="px-2 py-1.5 text-left font-bold text-slate-500 border-r border-slate-200 text-[10px]">
-                                Points {selectedLeaderboardType === 'STABLEFORD_BRUTTO' ? '(gross)' : '(netto)'}
-                              </td>
-                              {holeNums.map(num => {
-                                const adjusted = getRoundHoleInfo(round, num)
-                                const hole = round.course.holes.find((h: any) => h.number === num)
-                                if (!hole) return <td key={num} className="border-r border-slate-200/80">-</td>
-
-                                const holePar = adjusted ? adjusted.par : hole.par
-                                const holeStrokeIndex = adjusted ? adjusted.strokeIndex : hole.strokeIndex
-
-                                const score = selectedParticipantForScorecard.scores.find(
-                                  (s: any) => s.roundId === round.id && s.holeId === hole.id
-                                )
-
-                                let pts = null
-                                if (score && (score.grossStrokes !== null || (score.status !== null && score.status !== 'NOT_PLAYED'))) {
-                                  if (score.status === 'WIPED') {
-                                    pts = 0
-                                  } else if (score.grossStrokes !== null) {
-                                    const isNet = selectedLeaderboardType !== 'STABLEFORD_BRUTTO'
-                                    const hcpStrokes = isNet ? getHandicapStrokesOnHole(courseHandicap, holeStrokeIndex) : 0
-                                    pts = calculateStablefordPoints(score.grossStrokes, holePar, hcpStrokes, isNet)
-                                  }
-                                }
-
-                                if (pts !== null) {
-                                  sumPoints += pts
-                                }
-
-                                return (
-                                  <td key={num} className="px-1 py-1.5 border-r border-slate-200/80 font-extrabold text-emerald-600 font-mono text-[10px]">
-                                    {pts !== null ? pts : "-"}
-                                  </td>
-                                )
-                              })}
-                              <td className="px-1.5 py-1.5 font-black text-emerald-600 font-mono text-[10px]">{sumPoints}</td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
-                    )
-                  }
-
-                  return (
-                    <div key={round.id} className="bg-slate-50 p-5 rounded-2xl border border-slate-200 space-y-4">
-                      <div>
-                        <h4 className="text-base font-extrabold text-slate-800">{round.name}</h4>
-                        <p className="text-xs text-slate-550">
-                          Course: <span className="font-semibold text-emerald-650">{round.course.name}</span> | Tee: <span className="text-slate-700">{tee?.name || "Standard"}</span> (Rating: {tee?.courseRating || "-"}, Slope: {tee?.slope || "-"})
-                        </p>
-                      </div>
-
-                      <div className="space-y-4">
-                        {frontHolesPlayed.length > 0 && (
-                          <div>
-                            <div className="text-[10px] uppercase font-bold text-slate-500 tracking-wider mb-1">Front Nine</div>
-                            {renderHoleColumns(frontHolesPlayed)}
-                          </div>
-                        )}
-
-                        {backHolesPlayed.length > 0 && (
-                          <div>
-                            <div className="text-[10px] uppercase font-bold text-slate-500 tracking-wider mb-1">Back Nine</div>
-                            {renderHoleColumns(backHolesPlayed)}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
-            </div>
-          </div>
-        </div>
+        <PlayerScorecardModal
+          selectedParticipantForScorecard={selectedParticipantForScorecard}
+          selectedRoundIdForScorecard={selectedRoundIdForScorecard}
+          competition={competition}
+          selectedLeaderboardType={selectedLeaderboardType}
+          onClose={() => {
+            setSelectedParticipantForScorecard(null)
+            setSelectedRoundIdForScorecard(null)
+          }}
+        />
       )}
 
       {/* Team scorecard popup modal */}
       {selectedTeamForScorecard && (
-        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 rounded-2xl max-w-4xl w-full p-6 shadow-2xl space-y-4 overflow-hidden max-h-[90vh] flex flex-col text-slate-800">
-            <div className="flex justify-between items-center border-b border-slate-200 pb-3">
-              <div>
-                <h3 className="text-xl font-bold text-slate-900">
-                  Team Scorecard: {selectedTeamForScorecard.name}
-                </h3>
-                <p className="text-xs text-slate-550">
-                  Members: {competition.participants.filter((p: any) => p.teamId === selectedTeamForScorecard.id).map((p: any) => p.userId ? (p.user?.name || p.user?.email) : p.dummyName).join(" & ")}
-                </p>
-              </div>
-              <button
-                onClick={() => {
-                  setSelectedTeamForScorecard(null)
-                }}
-                className="p-1.5 bg-slate-50 border border-slate-200 text-slate-500 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-colors shadow-sm focus:outline-none"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto space-y-8 scrollbar-thin">
-              {competition.rounds.map((round: any) => {
-                const members = competition.participants
-                  .filter((p: any) => p.teamId === selectedTeamForScorecard.id)
-                  .sort((a: any, b: any) => getPlayingHandicap(a, round) - getPlayingHandicap(b, round))
-
-                if (members.length === 0) return null
-
-                const frontHoleNums = Array.from({ length: 9 }, (_, i) => i + 1)
-                const backHoleNums = Array.from({ length: 9 }, (_, i) => i + 10)
-
-                const activeRoundHoles = round.holesPlayed && round.holesPlayed.length > 0
-                  ? round.holesPlayed
-                  : Array.from({ length: 18 }, (_, i) => i + 1)
-
-                const frontHolesPlayed = frontHoleNums.filter(num => activeRoundHoles.includes(num))
-                const backHolesPlayed = backHoleNums.filter(num => activeRoundHoles.includes(num))
-
-                const renderTeamHoleColumns = (holeNums: number[]) => {
-                  if (holeNums.length === 0) return null
-
-                  const sumPar = holeNums.reduce((sum, num) => {
-                    const hole = round.course.holes.find((h: any) => h.number === num)
-                    return sum + (hole?.par || 4)
-                  }, 0)
-
-                  let totalTeamStableford = 0
-
-                  const getMemberStats = (m: any) => {
-                    let totalStrokes = 0
-                    let totalPoints = 0
-                    const courseHandicap = getPlayingHandicap(m, round)
-                    
-                    const list = holeNums.map(num => {
-                      const adjusted = getRoundHoleInfo(round, num)
-                      const hole = round.course.holes.find((h: any) => h.number === num)
-                      if (!hole) return { displayVal: "-", diff: 0, pts: 0, hcpStrokes: 0, isWiped: false }
-
-                      const holePar = adjusted ? adjusted.par : hole.par
-                      const holeStrokeIndex = adjusted ? adjusted.strokeIndex : hole.strokeIndex
-                      const hcpStrokes = getHandicapStrokesOnHole(courseHandicap, holeStrokeIndex)
-
-                      const score = m.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
-
-                      let displayVal = "-"
-                      let diff = 0
-                      let pts = 0
-                      let isWiped = false
-
-                      if (score && (score.grossStrokes !== null || (score.status !== null && score.status !== 'NOT_PLAYED'))) {
-                        if (score.status === 'WIPED') {
-                          displayVal = "/"
-                          isWiped = true
-                          totalStrokes += holePar + 3
-                        } else if (score.grossStrokes !== null) {
-                          displayVal = String(score.grossStrokes)
-                          totalStrokes += score.grossStrokes
-                          diff = score.grossStrokes - holePar
-                          const pStableford = calculateStablefordPoints(score.grossStrokes, holePar, hcpStrokes, true)
-                          if (pStableford !== null) pts = pStableford
-                        }
-                      }
-
-                      totalPoints += pts
-                      return { displayVal, diff, pts, hcpStrokes, isWiped, score }
-                    })
-
-                    return { list, totalStrokes, totalPoints, courseHandicap }
-                  }
-
-                  const mStats = members.map((m: any) => getMemberStats(m))
-
-                  const teamBestballPts = holeNums.map((num, i) => {
-                    const pts = Math.max(...mStats.map((ms: any) => ms.list[i].pts), 0)
-                    totalTeamStableford += pts
-                    return pts
-                  })
-
-                  const renderPlayerRows = (p: any, ms: any, idx: number) => {
-                    const name = p.userId ? (p.user?.name || p.user?.email) : p.dummyName
-                    const compact = getCompactName(name || "", competition.participants.map((x: any) => x.userId ? (x.user?.name || x.user?.email) : x.dummyName).filter(Boolean))
-
-                    return (
-                      <>
-                        <tr className="bg-slate-50/40 text-[9px] text-slate-550 border-t border-slate-100">
-                          <td className="px-2 py-1 text-left border-r border-slate-200 font-medium">
-                            {compact} (Shots)
-                          </td>
-                          {holeNums.map((num, i) => {
-                            const hcpStrokes = ms.list[i].hcpStrokes
-                            return (
-                              <td key={num} className="px-1 py-0.5 border-r border-slate-200/80 font-bold text-cyan-600 font-mono">
-                                {hcpStrokes === 1 ? "|" : hcpStrokes >= 2 ? "||" : ""}
-                              </td>
-                            )
-                          })}
-                          <td className="px-1.5 py-0.5 font-mono text-[9px] font-bold text-cyan-600">{ms.courseHandicap}</td>
-                        </tr>
-
-                        <tr className="border-b border-slate-100">
-                          <td className="px-2 py-1.5 text-left font-bold text-slate-700 border-r border-slate-200 text-[10px]">
-                            {compact} (Strokes)
-                          </td>
-                          {holeNums.map((num, i) => {
-                            const { displayVal, diff, isWiped, score } = ms.list[i]
-                            const adjusted = getRoundHoleInfo(round, num)
-                            const hole = round.course.holes.find((h: any) => h.number === num)
-                            const holePar = adjusted ? adjusted.par : (hole?.par || 4)
-
-                            let markerMarkup = null
-                            if (displayVal !== '-' && displayVal !== '/' && score?.grossStrokes) {
-                              if (diff === -1) {
-                                markerMarkup = (
-                                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                    <div className="w-[18px] h-[18px] border border-emerald-500 rounded-full opacity-80" />
-                                  </div>
-                                )
-                              } else if (diff <= -2) {
-                                markerMarkup = (
-                                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                    <div className="absolute w-[18px] h-[18px] border border-emerald-500 rounded-full opacity-80" />
-                                    <div className="absolute w-[12px] h-[12px] border border-emerald-500 rounded-full opacity-80" />
-                                  </div>
-                                )
-                              } else if (diff === 1) {
-                                markerMarkup = (
-                                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                    <div className="w-[14px] h-[14px] border border-red-500 rounded-none opacity-80" />
-                                  </div>
-                                )
-                              } else if (diff === 2) {
-                                markerMarkup = (
-                                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                    <div className="absolute w-[20px] h-[20px] border border-red-500 rounded-none opacity-80" />
-                                    <div className="absolute w-[14px] h-[14px] border border-red-500 rounded-none opacity-80" />
-                                  </div>
-                                )
-                              } else if (diff >= 3) {
-                                markerMarkup = (
-                                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                    <div className="absolute w-[26px] h-[26px] border border-red-500 rounded-none opacity-80" />
-                                    <div className="absolute w-[20px] h-[20px] border border-red-500 rounded-none opacity-80" />
-                                    <div className="absolute w-[14px] h-[14px] border border-red-500 rounded-none opacity-80" />
-                                  </div>
-                                )
-                              }
-                            }
-
-                            return (
-                              <td key={num} className="px-1 py-1.5 border-r border-slate-200/85 relative font-bold text-[11px] text-slate-800">
-                                <div className="flex items-center justify-center h-6 relative w-full">
-                                  <span className={isWiped ? 'text-red-650 font-black' : ''}>{displayVal}</span>
-                                  {markerMarkup}
-                                </div>
-                              </td>
-                            )
-                          })}
-                          <td className="px-1.5 py-1.5 font-extrabold text-[10px] bg-slate-50/50">{ms.totalStrokes}</td>
-                        </tr>
-
-                        <tr className="border-b border-slate-200 text-slate-650 bg-slate-50/20">
-                          <td className="px-2 py-1 text-left font-medium text-slate-550 border-r border-slate-200 text-[9px]">
-                            {compact} (Points)
-                          </td>
-                          {holeNums.map((num, i) => {
-                            const pts = ms.list[i].pts
-                            return (
-                              <td key={num} className="px-1 py-1 border-r border-slate-200/80 font-mono text-[10px]">
-                                {pts}
-                              </td>
-                            )
-                          })}
-                          <td className="px-1.5 py-1 font-mono font-bold text-[9px] bg-slate-50/50">{ms.totalPoints}</td>
-                        </tr>
-                      </>
-                    )
-                  }
-
-                  return (
-                    <div key={round.id} className="space-y-3">
-                      <h4 className="font-extrabold text-sm text-slate-800 flex justify-between items-center">
-                        <span>Round: {round.name} | Course: {round.course.name}</span>
-                      </h4>
-                      <div className="overflow-x-auto border border-slate-200 rounded-xl w-full shadow-sm">
-                        <table className="w-full text-[10px] text-center border-collapse">
-                          <thead className="bg-slate-50 text-slate-650">
-                            <tr className="border-b border-slate-200">
-                              <th className="px-2 py-1.5 text-left font-extrabold border-r border-slate-200 w-24 text-[10px] bg-slate-100/50 text-slate-850">Hole</th>
-                              {holeNums.map(num => (
-                                <th key={num} className="px-1 py-1 border-r border-slate-200/80 font-black w-8 md:w-10 text-[10px] text-slate-700">
-                                  {num}
-                                </th>
-                              ))}
-                              <th className="px-1.5 py-1 font-bold w-12 text-slate-700 text-[10px]">Total</th>
-                            </tr>
-                            <tr className="border-b border-slate-200 text-[9px] text-slate-550">
-                              <td className="px-2 py-1 text-left border-r border-slate-200">Par</td>
-                              {holeNums.map(num => {
-                                const adjusted = getRoundHoleInfo(round, num)
-                                const hole = round.course.holes.find((h: any) => h.number === num)
-                                const holePar = adjusted ? adjusted.par : (hole?.par || 4)
-                                return (
-                                  <td key={num} className="px-1 py-0.5 border-r border-slate-200/80 font-mono">
-                                    {holePar}
-                                  </td>
-                                )
-                              })}
-                              <td className="px-1.5 py-1.5 font-bold font-mono text-[9px]">{sumPar}</td>
-                            </tr>
-                            <tr className="border-b border-slate-200 text-[9px] text-slate-550">
-                              <td className="px-2 py-1 text-left border-r border-slate-200">Index</td>
-                              {holeNums.map(num => {
-                                const adjusted = getRoundHoleInfo(round, num)
-                                const hole = round.course.holes.find((h: any) => h.number === num)
-                                const holeStrokeIndex = adjusted ? adjusted.strokeIndex : (hole?.strokeIndex || 1)
-                                return (
-                                  <td key={num} className="px-1 py-0.5 border-r border-slate-200/80 font-mono">
-                                    {holeStrokeIndex}
-                                  </td>
-                                )
-                              })}
-                              <td className="px-1.5 py-1.5 font-mono text-[9px]">-</td>
-                            </tr>
-                          </thead>
-                          <tbody className="bg-white text-slate-800">
-                            {renderPlayerRows(members[0], mStats[0], 1)}
-                            {members[1] && renderPlayerRows(members[1], mStats[1], 2)}
-
-                            <tr className="bg-emerald-50/50 text-emerald-950 font-bold border-t border-slate-300">
-                              <td className="px-2 py-1.5 text-left border-r border-slate-200 text-[10px] text-emerald-900 font-extrabold">
-                                Team Bestball
-                              </td>
-                              {holeNums.map((num, i) => (
-                                <td key={num} className="px-1 py-1.5 border-r border-slate-200/80 font-mono text-[11px] text-emerald-700 font-black">
-                                  {teamBestballPts[i]}
-                                </td>
-                              ))}
-                              <td className="px-1.5 py-1.5 font-mono font-black text-[11px] text-emerald-800 bg-emerald-100/50">
-                                {totalTeamStableford}
-                              </td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  )
-                }
-
-                return (
-                  <div key={round.id} className="space-y-6">
-                    {frontHolesPlayed.length > 0 && (
-                      <div className="space-y-2">
-                        <h5 className="font-extrabold text-xs text-slate-550 uppercase tracking-wider">Front 9</h5>
-                        {renderTeamHoleColumns(frontHolesPlayed)}
-                      </div>
-                    )}
-                    {backHolesPlayed.length > 0 && (
-                      <div className="space-y-2">
-                        <h5 className="font-extrabold text-xs text-slate-550 uppercase tracking-wider">Back 9</h5>
-                        {renderTeamHoleColumns(backHolesPlayed)}
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        </div>
+        <TeamScorecardModal
+          selectedTeamForScorecard={selectedTeamForScorecard}
+          competition={competition}
+          onClose={() => setSelectedTeamForScorecard(null)}
+        />
       )}
     </div>
   )

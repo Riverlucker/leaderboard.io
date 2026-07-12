@@ -13,7 +13,7 @@ import {
   addRound, deleteRound, updateRoundHoles,
   addTeam, deleteTeam, 
   addParticipant, deleteParticipant, 
-  addMatch, deleteMatch, updateMatchAllowance, updateMatchPlayUntilEnd 
+  addMatch, deleteMatch, updateMatchAllowance, updateMatchPlayUntilEnd, updateMatchHoleRange 
 } from "../actions"
 
 // Helper to format date for input type="date"
@@ -115,8 +115,11 @@ export function EditCompetitionClient({
   const [matchType, setMatchType] = useState("SINGLES")
   const [allowanceType, setAllowanceType] = useState("75%")
   const [playUntilEnd, setPlayUntilEnd] = useState(false)
+  const [holeRange, setHoleRange] = useState("1-18")
   const [overrideAllowances, setOverrideAllowances] = useState<Record<string, string>>({})
   const [savingAllowance, setSavingAllowance] = useState<Record<string, boolean>>({})
+  const [overrideHoleRanges, setOverrideHoleRanges] = useState<Record<string, string>>({})
+  const [savingHoleRange, setSavingHoleRange] = useState<Record<string, boolean>>({})
   const [selectedPartIds, setSelectedPartIds] = useState<string[]>([])
   const [pairingError, setPairingError] = useState("")
   const [isCreatingPairing, setIsCreatingPairing] = useState(false)
@@ -357,11 +360,13 @@ export function EditCompetitionClient({
         type: matchType,
         participantIds: selectedPartIds,
         allowanceType: matchType === "SINGLES" ? allowanceType : null,
-        playUntilEnd: matchType === "SINGLES" ? playUntilEnd : false
+        playUntilEnd: matchType === "SINGLES" ? playUntilEnd : false,
+        holeRange: matchType === "SINGLES" ? holeRange : null
       })
 
       setSelectedPartIds([])
       setPlayUntilEnd(false)
+      setHoleRange("1-18")
       router.refresh()
     } catch (err: any) {
       setPairingError(err.message || "Failed to create match.")
@@ -395,6 +400,22 @@ export function EditCompetitionClient({
     } catch (err) {
       console.error(err)
       alert("Failed to update play until end setting.")
+    }
+  }
+
+  const handleSaveHoleRange = async (matchId: string) => {
+    const val = overrideHoleRanges[matchId]
+    if (val === undefined) return
+
+    setSavingHoleRange(prev => ({ ...prev, [matchId]: true }))
+    try {
+      await updateMatchHoleRange(matchId, competition.id, val)
+      router.refresh()
+    } catch (err) {
+      console.error(err)
+      alert("Failed to update hole range.")
+    } finally {
+      setSavingHoleRange(prev => ({ ...prev, [matchId]: false }))
     }
   }
 
@@ -1396,6 +1417,24 @@ export function EditCompetitionClient({
                                   Bis zum Ende spielen (kein vorzeitiges Ende)
                                 </label>
                               </div>
+                              <div className="flex items-center space-x-2 pt-1">
+                                <label className="text-xs text-slate-450 font-semibold">Holes (Löcher):</label>
+                                <input
+                                  type="text"
+                                  value={overrideHoleRanges[match.id] !== undefined ? overrideHoleRanges[match.id] : (match.holeRange ?? "1-18")}
+                                  onChange={e => setOverrideHoleRanges(prev => ({ ...prev, [match.id]: e.target.value }))}
+                                  placeholder="1-18"
+                                  className="w-20 bg-slate-950 border border-slate-700 rounded px-1.5 py-0.5 text-center text-xs text-slate-250 focus:ring-1 focus:ring-emerald-500 focus:outline-none"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => handleSaveHoleRange(match.id)}
+                                  disabled={savingHoleRange[match.id]}
+                                  className="px-2.5 py-1 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-slate-950 font-bold text-[10px] rounded transition-colors"
+                                >
+                                  {savingHoleRange[match.id] ? "Saving..." : "Save"}
+                                </button>
+                              </div>
                             </div>
                           )}
                         </div>
@@ -1456,6 +1495,16 @@ export function EditCompetitionClient({
                       <label htmlFor="newPlayUntilEnd" className="text-xs text-slate-400 font-semibold select-none cursor-pointer">
                         Bis zum Ende spielen (kein vorzeitiges Ende)
                       </label>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-400 mb-1">Hole Range (e.g. 1-18, 1-9, 10-18)</label>
+                      <input
+                        type="text"
+                        value={holeRange}
+                        onChange={e => setHoleRange(e.target.value)}
+                        placeholder="1-18"
+                        className="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-sm text-slate-200"
+                      />
                     </div>
                   </div>
                 )}

@@ -399,10 +399,48 @@ export function CompetitionClientView({ competition, session, courses = [], user
     return base + (strokeIndex <= remainder ? 1 : 0)
   }
 
+  const parseHoleRange = (rangeStr: string | null | undefined, roundHoles: number[]): number[] => {
+    if (!rangeStr) return roundHoles.length > 0 ? roundHoles : Array.from({ length: 18 }, (_, i) => i + 1)
+    const parts = rangeStr.split('-')
+    if (parts.length === 2) {
+      const start = parseInt(parts[0])
+      const end = parseInt(parts[1])
+      if (!isNaN(start) && !isNaN(end) && start <= end) {
+        return Array.from({ length: end - start + 1 }, (_, i) => start + i)
+      }
+    }
+    return roundHoles.length > 0 ? roundHoles : Array.from({ length: 18 }, (_, i) => i + 1)
+  }
+
+  const getMatchHoleStrokesMap = (matchHoles: number[], round: any, allowance: number) => {
+    const holeInfos = matchHoles.map(num => {
+      const hole = round.course.holes.find((h: any) => h.number === num)
+      const adjusted = getRoundHoleInfo(round, num)
+      const strokeIndex = adjusted ? adjusted.strokeIndex : (hole?.strokeIndex || 18)
+      return { num, strokeIndex }
+    }).filter(h => h.num !== undefined)
+
+    // Sort by strokeIndex ascending (hardest first)
+    holeInfos.sort((a, b) => a.strokeIndex - b.strokeIndex)
+
+    const N = holeInfos.length
+    if (N === 0) return {}
+
+    const base = Math.floor(allowance / N)
+    const remainder = allowance % N
+
+    const strokesMap: Record<number, number> = {}
+    for (let i = 0; i < N; i++) {
+      const hInfo = holeInfos[i]
+      strokesMap[hInfo.num] = base + (i < remainder ? 1 : 0)
+    }
+    return strokesMap
+  }
+
   const computeMatchplayStatus = (match: any, round: any) => {
     const p1 = competition.participants.find((p: any) => p.id === match.matchPlayers[0]?.participantId)
     const p2 = competition.participants.find((p: any) => p.id === match.matchPlayers[1]?.participantId)
-    if (!p1 || !p2) return { statusText: "Unknown Players", holesPlayed: 0, totalHoles: 18, allowance: 0, playerAName: "Unknown", playerBName: "Unknown" }
+    if (!p1 || !p2) return { statusText: "Unknown Players", holesPlayed: 0, totalHoles: 18, allowance: 0, playerAName: "Unknown", playerBName: "Unknown", isFinished: false }
 
     const hcp1 = getPlayingHandicap(p1, round)
     const hcp2 = getPlayingHandicap(p2, round)
@@ -425,6 +463,9 @@ export function CompetitionClientView({ competition, session, courses = [], user
       ? [...round.holesPlayed].sort((a: number, b: number) => a - b)
       : Array.from({ length: 18 }, (_, i) => i + 1)
 
+    const matchHoles = parseHoleRange(match.holeRange, roundHoles)
+    const strokesMap = getMatchHoleStrokesMap(matchHoles, round, allowance)
+
     let lead = 0
     let holesPlayedCount = 0
     let decidedInfo: { winnerName: string; lead: number; remaining: number } | null = null
@@ -436,13 +477,10 @@ export function CompetitionClientView({ competition, session, courses = [], user
       return score.grossStrokes
     }
 
-    for (let i = 0; i < roundHoles.length; i++) {
-      const holeNum = roundHoles[i]
+    for (let i = 0; i < matchHoles.length; i++) {
+      const holeNum = matchHoles[i]
       const hole = round.course.holes.find((h: any) => h.number === holeNum)
       if (!hole) continue
-
-      const adjusted = getRoundHoleInfo(round, holeNum)
-      const holeStrokeIndex = adjusted ? adjusted.strokeIndex : hole.strokeIndex
 
       const scoreA = pA.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
       const scoreB = pB.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
@@ -453,7 +491,8 @@ export function CompetitionClientView({ competition, session, courses = [], user
       if (strokesA !== null && strokesB !== null) {
         holesPlayedCount++
         const netA = strokesA
-        const netB = strokesB === 99 ? 99 : (strokesB - getMatchHandicapStrokesOnHole(allowance, holeStrokeIndex))
+        const strokesGiven = strokesMap[holeNum] || 0
+        const netB = strokesB === 99 ? 99 : (strokesB - strokesGiven)
 
         if (netA < netB) {
           lead++
@@ -461,7 +500,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
           lead--
         }
 
-        const remaining = roundHoles.length - holesPlayedCount
+        const remaining = matchHoles.length - holesPlayedCount
         if (!match.playUntilEnd && Math.abs(lead) > remaining && decidedInfo === null) {
           decidedInfo = {
             winnerName: lead > 0 ? (pA.userId ? pA.user?.name : pA.dummyName) : (pB.userId ? pB.user?.name : pB.dummyName),
@@ -484,7 +523,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
       }
     } else {
       if (holesPlayedCount === 0) {
-        statusText = "All Square"
+        statusText = "Not Started"
       } else if (lead === 0) {
         statusText = "All Square"
       } else if (lead > 0) {
@@ -497,10 +536,11 @@ export function CompetitionClientView({ competition, session, courses = [], user
     return {
       statusText,
       holesPlayed: holesPlayedCount,
-      totalHoles: roundHoles.length,
+      totalHoles: matchHoles.length,
       allowance,
       playerAName: nameA,
-      playerBName: nameB
+      playerBName: nameB,
+      isFinished: decidedInfo !== null || holesPlayedCount === matchHoles.length
     }
   }
 
@@ -1587,8 +1627,38 @@ export function CompetitionClientView({ competition, session, courses = [], user
                         )
                       }
 
-                      return matchplayList.map(({ round, match }) => {
-                        const { statusText, holesPlayed, totalHoles, allowance, playerAName, playerBName } = computeMatchplayStatus(match, round)
+                      // Evaluate status to sort
+                      const evaluated = matchplayList.map(({ round, match }) => {
+                        const status = computeMatchplayStatus(match, round)
+                        return { round, match, status }
+                      })
+
+                      const getMatchCategory = (mInfo: any) => {
+                        if (mInfo.status.isFinished) return 3 // Finished
+                        if (mInfo.status.holesPlayed > 0) return 1 // Live (In progress)
+                        return 2 // Not started
+                      }
+
+                      evaluated.sort((a, b) => {
+                        const catA = getMatchCategory(a)
+                        const catB = getMatchCategory(b)
+                        if (catA !== catB) return catA - catB
+
+                        // Finished matches: newest round first
+                        if (catA === 3) {
+                          const dateA = new Date(a.round.startDate).getTime()
+                          const dateB = new Date(b.round.startDate).getTime()
+                          return dateB - dateA
+                        }
+
+                        // Live / Not started: oldest round first
+                        const dateA = new Date(a.round.startDate).getTime()
+                        const dateB = new Date(b.round.startDate).getTime()
+                        return dateA - dateB
+                      })
+
+                      return evaluated.map(({ round, match, status }) => {
+                        const { statusText, holesPlayed, totalHoles, allowance, playerAName, playerBName } = status
                         return (
                           <tr key={match.id} className="hover:bg-slate-50/50 transition-colors cursor-pointer" onClick={() => {
                             setSelectedMatchForScorecard(match)
@@ -1597,6 +1667,9 @@ export function CompetitionClientView({ competition, session, courses = [], user
                             <td className="px-5 py-4 font-bold text-slate-900">{round.name}</td>
                             <td className="px-5 py-4">
                               <span className="font-semibold text-slate-800">{playerAName}</span>
+                              {match.holeRange && match.holeRange !== "1-18" && (
+                                <span className="ml-1.5 text-[10px] bg-slate-100 text-slate-500 px-1 py-0.5 rounded font-mono">({match.holeRange})</span>
+                              )}
                               <span className="mx-2 text-slate-400 text-xs">vs</span>
                               <span className="font-semibold text-slate-800">{playerBName}</span>
                             </td>
@@ -1604,7 +1677,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
                             <td className="px-5 py-4 text-center font-mono text-slate-600">
                               {holesPlayed} / {totalHoles}
                             </td>
-                            <td className="px-5 py-4 text-right font-black text-emerald-600 text-sm md:text-base">
+                            <td className={`px-5 py-4 text-right font-black text-sm md:text-base ${statusText === "Not Started" ? "text-slate-400 font-bold" : "text-emerald-600"}`}>
                               {statusText}
                             </td>
                           </tr>
@@ -3199,8 +3272,15 @@ export function CompetitionClientView({ competition, session, courses = [], user
                 const nameB = pB.userId ? pB.user?.name : pB.dummyName
                 const allowance = getMatchAllowance(match, hcpA, hcpB)
 
-                const frontHoleNums = Array.from({ length: 9 }, (_, i) => i + 1)
-                const backHoleNums = Array.from({ length: 9 }, (_, i) => i + 10)
+                const roundHoles = round.holesPlayed && round.holesPlayed.length > 0
+                  ? [...round.holesPlayed].sort((a: number, b: number) => a - b)
+                  : Array.from({ length: 18 }, (_, i) => i + 1)
+
+                const matchHoles = parseHoleRange(match.holeRange, roundHoles)
+                const strokesMap = getMatchHoleStrokesMap(matchHoles, round, allowance)
+
+                const frontHoleNums = matchHoles.filter(num => num >= 1 && num <= 9)
+                const backHoleNums = matchHoles.filter(num => num >= 10 && num <= 18)
 
                 const renderMatchplayHoleTable = (holeNums: number[]) => {
                   let sumPar = 0
@@ -3218,13 +3298,9 @@ export function CompetitionClientView({ competition, session, courses = [], user
                     return score.grossStrokes
                   }
 
-                  const allHoleNums = Array.from({ length: 18 }, (_, i) => i + 1)
-                  for (const num of allHoleNums) {
+                  for (const num of matchHoles) {
                     const hole = round.course.holes.find((h: any) => h.number === num)
                     if (!hole) continue
-                    const adjusted = getRoundHoleInfo(round, num)
-                    const holeStrokeIndex = adjusted ? adjusted.strokeIndex : hole.strokeIndex
-
                     const scoreA = pA.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
                     const scoreB = pB.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
 
@@ -3233,7 +3309,8 @@ export function CompetitionClientView({ competition, session, courses = [], user
 
                     if (strokesA !== null && strokesB !== null) {
                       const netA = strokesA
-                      const netB = strokesB === 99 ? 99 : (strokesB - getMatchHandicapStrokesOnHole(allowance, holeStrokeIndex))
+                      const strokesGiven = strokesMap[num] || 0
+                      const netB = strokesB === 99 ? 99 : (strokesB - strokesGiven)
 
                       if (netA < netB) {
                         runningLead++
@@ -3446,7 +3523,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
                               }
 
                               const won = holeWinner[num] === 'B'
-                              const hasStroke = getMatchHandicapStrokesOnHole(allowance, holeStrokeIndex) > 0
+                              const hasStroke = (strokesMap[num] || 0) > 0
                               const markerMarkup = getMarkerMarkup(displayVal, diff, isWiped)
 
                               return (
@@ -3481,6 +3558,10 @@ export function CompetitionClientView({ competition, session, courses = [], user
                         <span className="text-sm font-black text-slate-900">{match.allowanceType || "75%"} base</span>
                       </div>
                       <div>
+                        <span className="font-bold text-slate-600 block">Holes</span>
+                        <span className="text-sm font-black text-slate-900">{match.holeRange || "1-18"}</span>
+                      </div>
+                      <div>
                         <span className="font-bold text-slate-600 block">Status</span>
                         <span className="text-sm font-black text-emerald-600 uppercase">
                           {(() => {
@@ -3491,12 +3572,14 @@ export function CompetitionClientView({ competition, session, courses = [], user
                       </div>
                     </div>
 
-                    <div className="space-y-2">
-                      <h4 className="font-extrabold text-xs text-slate-550 uppercase tracking-wider">Front 9</h4>
-                      {renderMatchplayHoleTable(frontHoleNums)}
-                    </div>
+                    {frontHoleNums.length > 0 && (
+                      <div className="space-y-2">
+                        <h4 className="font-extrabold text-xs text-slate-550 uppercase tracking-wider">Front 9</h4>
+                        {renderMatchplayHoleTable(frontHoleNums)}
+                      </div>
+                    )}
 
-                    {backHoleNums.some(n => round.holesPlayed?.includes(n) || !round.holesPlayed || round.holesPlayed.length === 0) && (
+                    {backHoleNums.length > 0 && (
                       <div className="space-y-2 pt-4">
                         <h4 className="font-extrabold text-xs text-slate-555 uppercase tracking-wider">Back 9</h4>
                         {renderMatchplayHoleTable(backHoleNums)}

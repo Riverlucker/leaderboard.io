@@ -149,6 +149,7 @@ model Match {
   allowanceType String? // e.g. "75%", "50%", "100%", "0%"
   handicapAllowance Int?
   playUntilEnd  Boolean @default(false)
+  holeRange     String? // e.g. "1-18", "1-9", "2-14"
   
   matchPlayers  MatchPlayer[]
 }

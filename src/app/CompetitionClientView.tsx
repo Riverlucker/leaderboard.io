@@ -90,6 +90,8 @@ export function CompetitionClientView({ competition, session, courses = [], user
   // Scorecard modal state
   const [selectedParticipantForScorecard, setSelectedParticipantForScorecard] = useState<any | null>(null)
   const [selectedRoundIdForScorecard, setSelectedRoundIdForScorecard] = useState<string | null>(null)
+  const [selectedMatchForScorecard, setSelectedMatchForScorecard] = useState<any | null>(null)
+  const [selectedMatchRoundForScorecard, setSelectedMatchRoundForScorecard] = useState<any | null>(null)
   
   // Score Entry state
   const [loginEmail, setLoginEmail] = useState("")
@@ -460,7 +462,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
         }
 
         const remaining = roundHoles.length - holesPlayedCount
-        if (Math.abs(lead) > remaining && decidedInfo === null) {
+        if (!match.playUntilEnd && Math.abs(lead) > remaining && decidedInfo === null) {
           decidedInfo = {
             winnerName: lead > 0 ? (pA.userId ? pA.user?.name : pA.dummyName) : (pB.userId ? pB.user?.name : pB.dummyName),
             lead: Math.abs(lead),
@@ -1588,7 +1590,10 @@ export function CompetitionClientView({ competition, session, courses = [], user
                       return matchplayList.map(({ round, match }) => {
                         const { statusText, holesPlayed, totalHoles, allowance, playerAName, playerBName } = computeMatchplayStatus(match, round)
                         return (
-                          <tr key={match.id} className="hover:bg-slate-50/50 transition-colors">
+                          <tr key={match.id} className="hover:bg-slate-50/50 transition-colors cursor-pointer" onClick={() => {
+                            setSelectedMatchForScorecard(match)
+                            setSelectedMatchRoundForScorecard(round)
+                          }}>
                             <td className="px-5 py-4 font-bold text-slate-900">{round.name}</td>
                             <td className="px-5 py-4">
                               <span className="font-semibold text-slate-800">{playerAName}</span>
@@ -3141,6 +3146,369 @@ export function CompetitionClientView({ competition, session, courses = [], user
           </div>
         )}
       </main>
+
+      {/* Matchplay scorecard popup modal */}
+      {selectedMatchForScorecard && selectedMatchRoundForScorecard && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-2xl max-w-5xl w-full p-6 shadow-2xl space-y-4 overflow-hidden max-h-[90vh] flex flex-col text-slate-800">
+            <div className="flex justify-between items-center border-b border-slate-200 pb-3">
+              <div>
+                <h3 className="text-xl font-bold text-slate-900">
+                  Matchplay Scorecard
+                </h3>
+                <p className="text-xs text-slate-550">
+                  Round: {selectedMatchRoundForScorecard.name} | Course: {selectedMatchRoundForScorecard.course.name}
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setSelectedMatchForScorecard(null)
+                  setSelectedMatchRoundForScorecard(null)
+                }}
+                className="p-1.5 bg-slate-50 border border-slate-200 text-slate-500 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-colors shadow-sm focus:outline-none"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto space-y-8 scrollbar-thin">
+              {(() => {
+                const round = selectedMatchRoundForScorecard
+                const match = selectedMatchForScorecard
+
+                const p1 = competition.participants.find((p: any) => p.id === match.matchPlayers[0]?.participantId)
+                const p2 = competition.participants.find((p: any) => p.id === match.matchPlayers[1]?.participantId)
+                if (!p1 || !p2) return <p className="text-center text-slate-500 italic">Unknown Players</p>
+
+                const hcp1 = getPlayingHandicap(p1, round)
+                const hcp2 = getPlayingHandicap(p2, round)
+
+                let pA = p1
+                let pB = p2
+                let hcpA = hcp1
+                let hcpB = hcp2
+
+                if (hcp1 > hcp2) {
+                  pA = p2
+                  pB = p1
+                  hcpA = hcp2
+                  hcpB = hcp1
+                }
+
+                const nameA = pA.userId ? pA.user?.name : pA.dummyName
+                const nameB = pB.userId ? pB.user?.name : pB.dummyName
+                const allowance = getMatchAllowance(match, hcpA, hcpB)
+
+                const frontHoleNums = Array.from({ length: 9 }, (_, i) => i + 1)
+                const backHoleNums = Array.from({ length: 9 }, (_, i) => i + 10)
+
+                const renderMatchplayHoleTable = (holeNums: number[]) => {
+                  let sumPar = 0
+                  let sumStrokesA = 0
+                  let sumStrokesB = 0
+
+                  let runningLead = 0
+                  const standingsAtHole: Record<number, string> = {}
+                  const holeWinner: Record<number, 'A' | 'B' | 'halved' | null> = {}
+
+                  const getMatchHoleStrokes = (score: any) => {
+                    if (!score) return null
+                    if (score.status === 'WIPED') return 99
+                    if (score.status === 'NOT_PLAYED') return null
+                    return score.grossStrokes
+                  }
+
+                  const allHoleNums = Array.from({ length: 18 }, (_, i) => i + 1)
+                  for (const num of allHoleNums) {
+                    const hole = round.course.holes.find((h: any) => h.number === num)
+                    if (!hole) continue
+                    const adjusted = getRoundHoleInfo(round, num)
+                    const holeStrokeIndex = adjusted ? adjusted.strokeIndex : hole.strokeIndex
+
+                    const scoreA = pA.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
+                    const scoreB = pB.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
+
+                    const strokesA = getMatchHoleStrokes(scoreA)
+                    const strokesB = getMatchHoleStrokes(scoreB)
+
+                    if (strokesA !== null && strokesB !== null) {
+                      const netA = strokesA
+                      const netB = strokesB === 99 ? 99 : (strokesB - getMatchHandicapStrokesOnHole(allowance, holeStrokeIndex))
+
+                      if (netA < netB) {
+                        runningLead++
+                        holeWinner[num] = 'A'
+                      } else if (netA > netB) {
+                        runningLead--
+                        holeWinner[num] = 'B'
+                      } else {
+                        holeWinner[num] = 'halved'
+                      }
+
+                      if (runningLead === 0) {
+                        standingsAtHole[num] = "AS"
+                      } else if (runningLead > 0) {
+                        standingsAtHole[num] = `+${runningLead}`
+                      } else {
+                        standingsAtHole[num] = `${runningLead}`
+                      }
+                    } else {
+                      standingsAtHole[num] = "-"
+                      holeWinner[num] = null
+                    }
+                  }
+
+                  const getMarkerMarkup = (displayVal: string, diff: number, isWiped: boolean) => {
+                    if (displayVal === '-' || displayVal === '/' || isWiped) return null
+                    if (diff === -1) {
+                      return (
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <div className="w-[18px] h-[18px] border border-emerald-500 rounded-full opacity-80" />
+                        </div>
+                      )
+                    } else if (diff <= -2) {
+                      return (
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <div className="absolute w-[18px] h-[18px] border border-emerald-500 rounded-full opacity-80" />
+                          <div className="absolute w-[12px] h-[12px] border border-emerald-500 rounded-full opacity-80" />
+                        </div>
+                      )
+                    } else if (diff === 1) {
+                      return (
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <div className="w-[14px] h-[14px] border border-red-500 rounded-none opacity-80" />
+                        </div>
+                      )
+                    } else if (diff === 2) {
+                      return (
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <div className="absolute w-[20px] h-[20px] border border-red-500 rounded-none opacity-80" />
+                          <div className="absolute w-[14px] h-[14px] border border-red-500 rounded-none opacity-80" />
+                        </div>
+                      )
+                    } else if (diff >= 3) {
+                      return (
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <div className="absolute w-[26px] h-[26px] border border-red-500 rounded-none opacity-80" />
+                          <div className="absolute w-[20px] h-[20px] border border-red-500 rounded-none opacity-80" />
+                          <div className="absolute w-[14px] h-[14px] border border-red-500 rounded-none opacity-80" />
+                        </div>
+                      )
+                    }
+                    return null
+                  }
+
+                  return (
+                    <div className="overflow-x-auto border border-slate-200 rounded-xl w-full shadow-sm">
+                      <table className="w-full text-[10px] text-center border-collapse">
+                        <thead className="bg-slate-50 text-slate-650">
+                          <tr className="border-b border-slate-200">
+                            <th className="px-3 py-2 text-left font-extrabold border-r border-slate-200 w-28 text-[10px] text-slate-800 bg-slate-100/50">Hole</th>
+                            {holeNums.map(num => {
+                              const adjusted = getRoundHoleInfo(round, num)
+                              const hole = round.course.holes.find((h: any) => h.number === num)
+                              const holePar = adjusted ? adjusted.par : (hole?.par || 4)
+                              sumPar += holePar
+                              return (
+                                <th key={num} className="px-1 py-1 border-r border-slate-200/80 font-black w-8 md:w-10 text-[10px] text-slate-700">
+                                  {num}
+                                </th>
+                              )
+                            })}
+                            <th className="px-1.5 py-1 font-bold w-12 text-slate-700 text-[10px]">Total</th>
+                          </tr>
+                          <tr className="border-b border-slate-200 text-[9px] text-slate-550">
+                            <td className="px-3 py-1 text-left border-r border-slate-200">Par</td>
+                            {holeNums.map(num => {
+                              const adjusted = getRoundHoleInfo(round, num)
+                              const hole = round.course.holes.find((h: any) => h.number === num)
+                              const holePar = adjusted ? adjusted.par : (hole?.par || 4)
+                              return (
+                                <td key={num} className="px-1 py-0.5 border-r border-slate-200/80 font-mono">
+                                  {holePar}
+                                </td>
+                              )
+                            })}
+                            <td className="px-1.5 py-1.5 font-bold font-mono text-[9px]">{sumPar}</td>
+                          </tr>
+                          <tr className="border-b border-slate-200 text-[9px] text-slate-550">
+                            <td className="px-3 py-1 text-left border-r border-slate-200">Index</td>
+                            {holeNums.map(num => {
+                              const adjusted = getRoundHoleInfo(round, num)
+                              const hole = round.course.holes.find((h: any) => h.number === num)
+                              const holeStrokeIndex = adjusted ? adjusted.strokeIndex : (hole?.strokeIndex || 1)
+                              return (
+                                <td key={num} className="px-1 py-0.5 border-r border-slate-200/80 font-mono">
+                                  {holeStrokeIndex}
+                                </td>
+                              )
+                            })}
+                            <td className="px-1.5 py-1.5 font-mono text-[9px]">-</td>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white text-slate-800">
+                          {/* Player A Row */}
+                          <tr className="border-b border-slate-200">
+                            <td className="px-3 py-2 text-left font-bold text-slate-700 border-r border-slate-200 text-[10px] bg-slate-50/50 truncate max-w-[110px]">
+                              {nameA}
+                            </td>
+                            {holeNums.map(num => {
+                              const adjusted = getRoundHoleInfo(round, num)
+                              const hole = round.course.holes.find((h: any) => h.number === num)
+                              if (!hole) return <td key={num} className="border-r border-slate-200/80">-</td>
+
+                              const holePar = adjusted ? adjusted.par : hole.par
+                              const score = pA.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
+
+                              let displayVal = "-"
+                              let diff = 0
+                              let isWiped = false
+
+                              if (score && (score.grossStrokes !== null || (score.status !== null && score.status !== 'NOT_PLAYED'))) {
+                                if (score.status === 'WIPED') {
+                                  displayVal = "/"
+                                  isWiped = true
+                                  sumStrokesA += holePar + 3
+                                } else if (score.grossStrokes !== null) {
+                                  displayVal = String(score.grossStrokes)
+                                  sumStrokesA += score.grossStrokes
+                                  diff = score.grossStrokes - holePar
+                                }
+                              }
+
+                              const won = holeWinner[num] === 'A'
+                              const markerMarkup = getMarkerMarkup(displayVal, diff, isWiped)
+
+                              return (
+                                <td key={num} className={`px-1 py-2 border-r border-slate-200/80 relative font-bold text-[11px] transition-colors duration-150 ${won ? 'bg-emerald-50 text-emerald-800' : 'text-slate-800'}`}>
+                                  <div className="flex items-center justify-center h-7 relative w-full">
+                                    <span className={isWiped ? 'text-red-650 font-black' : ''}>{displayVal}</span>
+                                    {markerMarkup}
+                                  </div>
+                                </td>
+                              )
+                            })}
+                            <td className="px-1.5 py-2 font-extrabold text-slate-850 text-[10px] bg-slate-50/50">{sumStrokesA}</td>
+                          </tr>
+
+                          {/* Running Match Score Row */}
+                          <tr className="border-b border-slate-200 bg-slate-50/40 text-[9px]">
+                            <td className="px-3 py-1.5 text-left font-bold text-slate-500 border-r border-slate-200 bg-slate-50/60">
+                              Match Score
+                            </td>
+                            {holeNums.map(num => {
+                              const val = standingsAtHole[num] || "-"
+                              const isPositive = val.startsWith("+")
+                              const isNegative = val.startsWith("-")
+                              let colorClass = "text-slate-500 font-semibold"
+                              if (isPositive) colorClass = "text-emerald-600 font-black bg-emerald-50/30"
+                              if (isNegative) colorClass = "text-red-600 font-black bg-red-50/30"
+                              if (val === "AS") colorClass = "text-slate-800 font-bold bg-slate-100/30"
+
+                              return (
+                                <td key={num} className={`px-1 py-1.5 border-r border-slate-200/80 font-mono ${colorClass}`}>
+                                  {val}
+                                </td>
+                              )
+                            })}
+                            <td className="px-1.5 py-1.5 font-bold font-mono">-</td>
+                          </tr>
+
+                          {/* Player B Row */}
+                          <tr className="border-b border-slate-200">
+                            <td className="px-3 py-2 text-left font-bold text-slate-700 border-r border-slate-200 text-[10px] bg-slate-50/50 truncate max-w-[110px]">
+                              {nameB}
+                            </td>
+                            {holeNums.map(num => {
+                              const adjusted = getRoundHoleInfo(round, num)
+                              const hole = round.course.holes.find((h: any) => h.number === num)
+                              if (!hole) return <td key={num} className="border-r border-slate-200/80">-</td>
+
+                              const holePar = adjusted ? adjusted.par : hole.par
+                              const holeStrokeIndex = adjusted ? adjusted.strokeIndex : hole.strokeIndex
+
+                              const score = pB.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
+
+                              let displayVal = "-"
+                              let diff = 0
+                              let isWiped = false
+
+                              if (score && (score.grossStrokes !== null || (score.status !== null && score.status !== 'NOT_PLAYED'))) {
+                                if (score.status === 'WIPED') {
+                                  displayVal = "/"
+                                  isWiped = true
+                                  sumStrokesB += holePar + 3
+                                } else if (score.grossStrokes !== null) {
+                                  displayVal = String(score.grossStrokes)
+                                  sumStrokesB += score.grossStrokes
+                                  diff = score.grossStrokes - holePar
+                                }
+                              }
+
+                              const won = holeWinner[num] === 'B'
+                              const hasStroke = getMatchHandicapStrokesOnHole(allowance, holeStrokeIndex) > 0
+                              const markerMarkup = getMarkerMarkup(displayVal, diff, isWiped)
+
+                              return (
+                                <td key={num} className={`px-1 py-2 border-r border-slate-200/80 relative font-bold text-[11px] transition-colors duration-150 ${won ? 'bg-emerald-50 text-emerald-800' : 'text-slate-800'}`}>
+                                  <div className="flex items-center justify-center h-7 relative w-full">
+                                    <span className={isWiped ? 'text-red-650 font-black' : ''}>{displayVal}</span>
+                                    {markerMarkup}
+                                    {hasStroke && (
+                                      <div className="absolute top-1 right-1 w-[5px] h-[5px] bg-cyan-500 rounded-full" title="Allowance stroke given on this hole" />
+                                    )}
+                                  </div>
+                                </td>
+                              )
+                            })}
+                            <td className="px-1.5 py-2 font-extrabold text-slate-850 text-[10px] bg-slate-50/50">{sumStrokesB}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  )
+                }
+
+                return (
+                  <div className="space-y-6">
+                    <div className="flex justify-between items-center bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs">
+                      <div>
+                        <span className="font-bold text-slate-600 block">Vorgabe (Allowance)</span>
+                        <span className="text-sm font-black text-slate-900">{allowance} strokes</span>
+                      </div>
+                      <div>
+                        <span className="font-bold text-slate-600 block">Calculation Method</span>
+                        <span className="text-sm font-black text-slate-900">{match.allowanceType || "75%"} base</span>
+                      </div>
+                      <div>
+                        <span className="font-bold text-slate-600 block">Status</span>
+                        <span className="text-sm font-black text-emerald-600 uppercase">
+                          {(() => {
+                            const { statusText } = computeMatchplayStatus(match, round)
+                            return statusText
+                          })()}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <h4 className="font-extrabold text-xs text-slate-550 uppercase tracking-wider">Front 9</h4>
+                      {renderMatchplayHoleTable(frontHoleNums)}
+                    </div>
+
+                    {backHoleNums.some(n => round.holesPlayed?.includes(n) || !round.holesPlayed || round.holesPlayed.length === 0) && (
+                      <div className="space-y-2 pt-4">
+                        <h4 className="font-extrabold text-xs text-slate-555 uppercase tracking-wider">Back 9</h4>
+                        {renderMatchplayHoleTable(backHoleNums)}
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Landscape scorecard popup modal */}
       {selectedParticipantForScorecard && (

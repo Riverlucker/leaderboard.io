@@ -13,7 +13,7 @@ import {
   addRound, deleteRound, updateRoundHoles,
   addTeam, deleteTeam, 
   addParticipant, deleteParticipant, 
-  addMatch, deleteMatch, updateMatchAllowance 
+  addMatch, deleteMatch, updateMatchAllowance, updateMatchPlayUntilEnd 
 } from "../actions"
 
 // Helper to format date for input type="date"
@@ -114,6 +114,7 @@ export function EditCompetitionClient({
   const [selectedRoundId, setSelectedRoundId] = useState(competition.rounds[0]?.id || "")
   const [matchType, setMatchType] = useState("SINGLES")
   const [allowanceType, setAllowanceType] = useState("75%")
+  const [playUntilEnd, setPlayUntilEnd] = useState(false)
   const [overrideAllowances, setOverrideAllowances] = useState<Record<string, string>>({})
   const [savingAllowance, setSavingAllowance] = useState<Record<string, boolean>>({})
   const [selectedPartIds, setSelectedPartIds] = useState<string[]>([])
@@ -355,10 +356,12 @@ export function EditCompetitionClient({
       await addMatch(selectedRoundId, competition.id, {
         type: matchType,
         participantIds: selectedPartIds,
-        allowanceType: matchType === "SINGLES" ? allowanceType : null
+        allowanceType: matchType === "SINGLES" ? allowanceType : null,
+        playUntilEnd: matchType === "SINGLES" ? playUntilEnd : false
       })
 
       setSelectedPartIds([])
+      setPlayUntilEnd(false)
       router.refresh()
     } catch (err: any) {
       setPairingError(err.message || "Failed to create match.")
@@ -382,6 +385,16 @@ export function EditCompetitionClient({
       alert("Failed to save allowance.")
     } finally {
       setSavingAllowance(prev => ({ ...prev, [matchId]: false }))
+    }
+  }
+
+  const handleTogglePlayUntilEnd = async (matchId: string, currentVal: boolean) => {
+    try {
+      await updateMatchPlayUntilEnd(matchId, competition.id, !currentVal)
+      router.refresh()
+    } catch (err) {
+      console.error(err)
+      alert("Failed to update play until end setting.")
     }
   }
 
@@ -1352,23 +1365,37 @@ export function EditCompetitionClient({
                           </div>
 
                           {match.type === "SINGLES" && (
-                            <div className="flex items-center space-x-2 pt-3 border-t border-slate-850/60 mt-2">
-                              <label className="text-xs text-slate-400 font-semibold">Handicap Allowance (Vorgabe):</label>
-                              <input
-                                type="number"
-                                value={overrideAllowances[match.id] !== undefined ? overrideAllowances[match.id] : (match.handicapAllowance ?? "")}
-                                onChange={e => setOverrideAllowances(prev => ({ ...prev, [match.id]: e.target.value }))}
-                                className="w-14 bg-slate-950 border border-slate-700 rounded px-1.5 py-0.5 text-center text-xs text-slate-250 focus:ring-1 focus:ring-emerald-500 focus:outline-none"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => handleSaveAllowance(match.id)}
-                                disabled={savingAllowance[match.id]}
-                                className="px-2.5 py-1 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-slate-950 font-bold text-[10px] rounded transition-colors"
-                              >
-                                {savingAllowance[match.id] ? "Saving..." : "Save"}
-                              </button>
-                              <span className="text-[10px] text-slate-500 font-mono">({match.allowanceType || "75%"} base)</span>
+                            <div className="flex flex-col space-y-2 pt-3 border-t border-slate-850/60 mt-2">
+                              <div className="flex items-center space-x-2">
+                                <label className="text-xs text-slate-450 font-semibold">Handicap Allowance (Vorgabe):</label>
+                                <input
+                                  type="number"
+                                  value={overrideAllowances[match.id] !== undefined ? overrideAllowances[match.id] : (match.handicapAllowance ?? "")}
+                                  onChange={e => setOverrideAllowances(prev => ({ ...prev, [match.id]: e.target.value }))}
+                                  className="w-14 bg-slate-950 border border-slate-700 rounded px-1.5 py-0.5 text-center text-xs text-slate-250 focus:ring-1 focus:ring-emerald-500 focus:outline-none"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => handleSaveAllowance(match.id)}
+                                  disabled={savingAllowance[match.id]}
+                                  className="px-2.5 py-1 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-slate-950 font-bold text-[10px] rounded transition-colors"
+                                >
+                                  {savingAllowance[match.id] ? "Saving..." : "Save"}
+                                </button>
+                                <span className="text-[10px] text-slate-500 font-mono">({match.allowanceType || "75%"} base)</span>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <input
+                                  type="checkbox"
+                                  id={`playUntilEnd-${match.id}`}
+                                  checked={match.playUntilEnd}
+                                  onChange={() => handleTogglePlayUntilEnd(match.id, match.playUntilEnd)}
+                                  className="w-3.5 h-3.5 rounded text-emerald-500 border-slate-800 bg-slate-900 focus:ring-offset-slate-950 cursor-pointer"
+                                />
+                                <label htmlFor={`playUntilEnd-${match.id}`} className="text-xs text-slate-450 font-semibold select-none cursor-pointer">
+                                  Bis zum Ende spielen (kein vorzeitiges Ende)
+                                </label>
+                              </div>
                             </div>
                           )}
                         </div>
@@ -1404,18 +1431,32 @@ export function EditCompetitionClient({
                 </div>
 
                 {matchType === "SINGLES" && (
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-400 mb-1">Handicap Allowance Calculation</label>
-                    <select
-                      value={allowanceType}
-                      onChange={e => setAllowanceType(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-sm text-slate-200"
-                    >
-                      <option value="75%">75% Difference of Playing HCP (Default)</option>
-                      <option value="50%">50% Difference of Playing HCP</option>
-                      <option value="100%">100% Difference of Playing HCP</option>
-                      <option value="0%">Scratch / 0% Allowance</option>
-                    </select>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-400 mb-1">Handicap Allowance Calculation</label>
+                      <select
+                        value={allowanceType}
+                        onChange={e => setAllowanceType(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-sm text-slate-200"
+                      >
+                        <option value="75%">75% Difference of Playing HCP (Default)</option>
+                        <option value="50%">50% Difference of Playing HCP</option>
+                        <option value="100%">100% Difference of Playing HCP</option>
+                        <option value="0%">Scratch / 0% Allowance</option>
+                      </select>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="newPlayUntilEnd"
+                        checked={playUntilEnd}
+                        onChange={e => setPlayUntilEnd(e.target.checked)}
+                        className="w-3.5 h-3.5 rounded text-emerald-500 border-slate-800 bg-slate-900 focus:ring-offset-slate-955 cursor-pointer"
+                      />
+                      <label htmlFor="newPlayUntilEnd" className="text-xs text-slate-400 font-semibold select-none cursor-pointer">
+                        Bis zum Ende spielen (kein vorzeitiges Ende)
+                      </label>
+                    </div>
                   </div>
                 )}
 

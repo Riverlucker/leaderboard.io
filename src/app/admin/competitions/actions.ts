@@ -402,6 +402,7 @@ export async function addMatch(roundId: string, compId: string, data: {
   type: string
   participantIds: string[]
   allowanceType?: string | null
+  playUntilEnd?: boolean | null
 }) {
   if (!data.type) throw new Error("Match type is required.")
   if (!data.participantIds || data.participantIds.length === 0) {
@@ -429,7 +430,8 @@ export async function addMatch(roundId: string, compId: string, data: {
       roundId,
       type: data.type,
       allowanceType: data.type === "SINGLES" ? (data.allowanceType || "75%") : null,
-      handicapAllowance: computedAllowance
+      handicapAllowance: computedAllowance,
+      playUntilEnd: data.type === "SINGLES" ? (data.playUntilEnd || false) : false
     }
   })
 
@@ -453,6 +455,19 @@ export async function updateMatchAllowance(matchId: string, compId: string, hand
     where: { id: matchId },
     data: {
       handicapAllowance
+    }
+  })
+
+  revalidatePath(`/admin/competitions/${compId}`)
+  revalidatePath('/')
+  return { success: true }
+}
+
+export async function updateMatchPlayUntilEnd(matchId: string, compId: string, playUntilEnd: boolean) {
+  await prisma.match.update({
+    where: { id: matchId },
+    data: {
+      playUntilEnd
     }
   })
 

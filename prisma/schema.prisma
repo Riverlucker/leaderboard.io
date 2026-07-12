@@ -148,6 +148,7 @@ model Match {
   type          String // e.g. "SINGLES", "4BALL", "CHAPMAN", "GROUP"
   allowanceType String? // e.g. "75%", "50%", "100%", "0%"
   handicapAllowance Int?
+  playUntilEnd  Boolean @default(false)
   
   matchPlayers  MatchPlayer[]
 }

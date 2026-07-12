@@ -437,6 +437,33 @@ export function CompetitionClientView({ competition, session, courses = [], user
     return strokesMap
   }
 
+  const getCompactName = (fullName: string, allNames: string[]) => {
+    if (!fullName) return "Unknown"
+    const parts = fullName.trim().split(/\s+/)
+    if (parts.length < 2) return fullName
+
+    const firstName = parts[0]
+    const lastName = parts.slice(1).join(" ")
+    const lastInitial = lastName.charAt(0)
+
+    const others = allNames.filter(n => {
+      if (!n || n === fullName) return false
+      const p = n.trim().split(/\s+/)
+      return p[0] === firstName
+    })
+
+    if (others.length === 0) return firstName
+
+    const sameInitial = others.some(n => {
+      const p = n.trim().split(/\s+/)
+      const otherLast = p.slice(1).join(" ")
+      return otherLast.charAt(0) === lastInitial
+    })
+
+    if (sameInitial) return fullName
+    return `${firstName} ${lastInitial}.`
+  }
+
   const computeMatchplayStatus = (match: any, round: any) => {
     const p1 = competition.participants.find((p: any) => p.id === match.matchPlayers[0]?.participantId)
     const p2 = competition.participants.find((p: any) => p.id === match.matchPlayers[1]?.participantId)
@@ -458,6 +485,16 @@ export function CompetitionClientView({ competition, session, courses = [], user
     }
 
     const allowance = getMatchAllowance(match, hcpA, hcpB)
+
+    const allNames = competition.participants.map((p: any) =>
+      p.userId ? p.user?.name : p.dummyName
+    ).filter((n: any): n is string => typeof n === 'string' && n.length > 0)
+
+    const fullNameA = pA.userId ? pA.user?.name : pA.dummyName || ""
+    const fullNameB = pB.userId ? pB.user?.name : pB.dummyName || ""
+
+    const nameA = getCompactName(fullNameA, allNames)
+    const nameB = getCompactName(fullNameB, allNames)
 
     const roundHoles = round.holesPlayed && round.holesPlayed.length > 0
       ? [...round.holesPlayed].sort((a: number, b: number) => a - b)
@@ -503,16 +540,13 @@ export function CompetitionClientView({ competition, session, courses = [], user
         const remaining = matchHoles.length - holesPlayedCount
         if (!match.playUntilEnd && Math.abs(lead) > remaining && decidedInfo === null) {
           decidedInfo = {
-            winnerName: lead > 0 ? (pA.userId ? pA.user?.name : pA.dummyName) : (pB.userId ? pB.user?.name : pB.dummyName),
+            winnerName: lead > 0 ? nameA : nameB,
             lead: Math.abs(lead),
             remaining
           }
         }
       }
     }
-
-    const nameA = pA.userId ? pA.user?.name : pA.dummyName
-    const nameB = pB.userId ? pB.user?.name : pB.dummyName
 
     let statusText = ""
     if (decidedInfo !== null) {
@@ -527,9 +561,9 @@ export function CompetitionClientView({ competition, session, courses = [], user
       } else if (lead === 0) {
         statusText = "All Square"
       } else if (lead > 0) {
-        statusText = `${nameA} ${lead} up`
+        statusText = `${nameA} ${lead}up`
       } else {
-        statusText = `${nameB} ${Math.abs(lead)} up`
+        statusText = `${nameB} ${Math.abs(lead)}up`
       }
     }
 
@@ -1598,8 +1632,8 @@ export function CompetitionClientView({ competition, session, courses = [], user
                     <tr>
                       <th className="px-5 py-4">Round</th>
                       <th className="px-5 py-4">Match</th>
-                      <th className="px-5 py-4 text-center">Vorgabe (Allowance)</th>
-                      <th className="px-5 py-4 text-center">Holes Played</th>
+                      <th className="px-5 py-4 text-center">Allowance</th>
+                      <th className="px-5 py-4 text-center">Holes</th>
                       <th className="px-5 py-4 text-right">Standing</th>
                     </tr>
                   </thead>
@@ -1666,16 +1700,20 @@ export function CompetitionClientView({ competition, session, courses = [], user
                           }}>
                             <td className="px-5 py-4 font-bold text-slate-900">{round.name}</td>
                             <td className="px-5 py-4">
-                              <span className="font-semibold text-slate-800">{playerAName}</span>
-                              {match.holeRange && match.holeRange !== "1-18" && (
-                                <span className="ml-1.5 text-[10px] bg-slate-100 text-slate-500 px-1 py-0.5 rounded font-mono">({match.holeRange})</span>
-                              )}
-                              <span className="mx-2 text-slate-400 text-xs">vs</span>
-                              <span className="font-semibold text-slate-800">{playerBName}</span>
+                              <div className="flex flex-col space-y-0.5 text-left">
+                                <span className="font-semibold text-slate-800 leading-tight">{playerAName}</span>
+                                <div className="flex items-center space-x-1.5">
+                                  <span className="text-[9px] text-slate-400 font-black uppercase tracking-wider">vs</span>
+                                  {match.holeRange && match.holeRange !== "1-18" && (
+                                    <span className="text-[8px] bg-slate-100 text-slate-500 px-1 py-0.2 rounded font-mono">({match.holeRange})</span>
+                                  )}
+                                </div>
+                                <span className="font-semibold text-slate-800 leading-tight">{playerBName}</span>
+                              </div>
                             </td>
                             <td className="px-5 py-4 text-center font-mono font-bold text-slate-800">{allowance}</td>
                             <td className="px-5 py-4 text-center font-mono text-slate-600">
-                              {holesPlayed} / {totalHoles}
+                              {holesPlayed}/{totalHoles}
                             </td>
                             <td className={`px-5 py-4 text-right font-black text-sm md:text-base ${statusText === "Not Started" ? "text-slate-400 font-bold" : "text-emerald-600"}`}>
                               {statusText}

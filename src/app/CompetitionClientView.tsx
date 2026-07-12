@@ -1346,11 +1346,15 @@ export function CompetitionClientView({ competition, session, courses = [], user
 
         let teamPoints = 0
         let teamStrokes = 0
+        let holesPlayedCount = 0
+        let totalHolesCount = 0
 
         for (const round of activeRounds) {
           const roundHoles = round.holesPlayed && round.holesPlayed.length > 0 
             ? round.holesPlayed 
             : Array.from({ length: 18 }, (_, i) => i + 1)
+
+          totalHolesCount += roundHoles.length
 
           for (const holeNum of roundHoles) {
             const hole = round.course.holes.find((h: any) => h.number === holeNum)
@@ -1379,6 +1383,15 @@ export function CompetitionClientView({ competition, session, courses = [], user
               return { pts, str }
             })
 
+            // A team has played a hole if at least one participant has grossStrokes or status WIPED
+            const anyPlayed = teamParticipants.some((p: any) => {
+              const score = p.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
+              return score && (score.grossStrokes !== null || score.status === 'WIPED')
+            })
+            if (anyPlayed) {
+              holesPlayedCount++
+            }
+
             if (isBestball) {
               teamPoints += Math.max(...memberHoleStats.map(m => m.pts), 0)
               const activeStrokes = memberHoleStats.map(m => m.str).filter(s => s > 0)
@@ -1401,7 +1414,8 @@ export function CompetitionClientView({ competition, session, courses = [], user
           memberNames,
           totalPoints: isStroke ? teamStrokes : teamPoints,
           totalStrokes: teamStrokes,
-          holesPlayed: activeRounds.length
+          holesPlayed: holesPlayedCount,
+          totalHoles: totalHolesCount
         }
       })
 
@@ -2270,6 +2284,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
                         <th className="px-5 py-4 text-center w-14">Rank</th>
                         <th className="px-5 py-4">Team</th>
                         <th className="px-5 py-4">Members</th>
+                        <th className="px-5 py-4 text-center w-24">Played</th>
                         <th className="px-5 py-4 text-center w-28">
                           {selectedLeaderboardType === 'TEAM_STROKEPLAY' ? 'Gross Strokes' : 'Stableford Points'}
                         </th>
@@ -2288,6 +2303,9 @@ export function CompetitionClientView({ competition, session, courses = [], user
                           </td>
                           <td className="px-5 py-4.5 text-sm text-slate-500 italic max-w-sm truncate">
                             {entry.memberNames}
+                          </td>
+                          <td className="px-5 py-4.5 text-center font-mono text-slate-500 text-sm">
+                            {entry.holesPlayed}/{entry.totalHoles || 18}
                           </td>
                           <td className="px-5 py-4.5 text-center text-emerald-600 font-black text-xl">
                             {entry.totalPoints}

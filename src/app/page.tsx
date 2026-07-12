@@ -53,7 +53,7 @@ export default async function Home({ searchParams }: HomeProps) {
               }
             }
           },
-          orderBy: { name: 'asc' }
+          orderBy: { startDate: 'asc' }
         },
         teams: {
           orderBy: { name: 'asc' }
@@ -133,7 +133,7 @@ export default async function Home({ searchParams }: HomeProps) {
                   }
                 }
               },
-              orderBy: { name: 'asc' }
+              orderBy: { startDate: 'asc' }
             },
             teams: {
               orderBy: { name: 'asc' }

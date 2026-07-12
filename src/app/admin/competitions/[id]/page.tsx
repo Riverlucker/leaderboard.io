@@ -30,7 +30,7 @@ export default async function EditCompetitionPage({ params }: EditCompetitionPag
             }
           }
         },
-        orderBy: { name: 'asc' }
+        orderBy: { startDate: 'asc' }
       },
       teams: {
         orderBy: { name: 'asc' }

@@ -85,15 +85,14 @@ export function CompetitionClientView({ competition, session, courses = [], user
   
   // Leaderboard filters
   const [selectedRoundFilter, setSelectedRoundFilter] = useState<string>("TOTAL")
-  const [selectedLeaderboardType, setSelectedLeaderboardType] = useState<string>(
-    competition.type === 'TEAM_MATCHPLAY' ? 'TEAM_MATCHPLAY' : (competition.type === 'MATCHPLAY' ? 'MATCHPLAY' : 'MAIN')
-  )
+  const [selectedLeaderboardType, setSelectedLeaderboardType] = useState<string>("MAIN")
   
   // Scorecard modal state
   const [selectedParticipantForScorecard, setSelectedParticipantForScorecard] = useState<any | null>(null)
   const [selectedRoundIdForScorecard, setSelectedRoundIdForScorecard] = useState<string | null>(null)
   const [selectedMatchForScorecard, setSelectedMatchForScorecard] = useState<any | null>(null)
   const [selectedMatchRoundForScorecard, setSelectedMatchRoundForScorecard] = useState<any | null>(null)
+  const [selectedTeamForScorecard, setSelectedTeamForScorecard] = useState<any | null>(null)
   
   // Score Entry state
   const [loginEmail, setLoginEmail] = useState("")
@@ -1953,7 +1952,14 @@ export function CompetitionClientView({ competition, session, courses = [], user
                   onChange={e => setSelectedLeaderboardType(e.target.value)}
                   className="bg-emerald-50 border-2 border-emerald-300 rounded-lg px-3 py-1.5 text-sm font-black text-emerald-850 focus:ring-emerald-500 focus:outline-none cursor-pointer shadow-sm transition-all"
                 >
-                  <option value="MAIN">Main Standings ({competition.type === 'NETTO_STABLEFORD' ? 'Stableford Netto' : competition.type})</option>
+                  <option value="MAIN">
+                    {competition.type === 'TEAM_MATCHPLAY'
+                      ? 'Team Matchplay'
+                      : competition.type === 'MATCHPLAY'
+                        ? 'Matchplays'
+                        : `Main Standings (${competition.type === 'NETTO_STABLEFORD' ? 'Stableford Netto' : competition.type})`
+                    }
+                  </option>
                   {selectedExtraLeaderboards.includes('STROKEPLAY') && competition.type !== 'STROKEPLAY_GROSS' && (
                     <option value="STROKEPLAY">Strokeplay Gross</option>
                   )}
@@ -1981,10 +1987,10 @@ export function CompetitionClientView({ competition, session, courses = [], user
                   {isTeamComp && selectedExtraLeaderboards.includes('TEAM_STABLEFORD_BRUTTO') && (
                     <option value="TEAM_STABLEFORD_BRUTTO">Team Stableford Brutto</option>
                   )}
-                  {competition.rounds.some((r: any) => r.matches?.some((m: any) => m.type === "SINGLES")) && (
+                  {competition.rounds.some((r: any) => r.matches?.some((m: any) => m.type === "SINGLES")) && competition.type !== 'MATCHPLAY' && (
                     <option value="MATCHPLAY">Matchplays</option>
                   )}
-                  {competition.rounds.some((r: any) => r.matches?.some((m: any) => m.type === "TEAM_MATCHPLAY")) && (
+                  {competition.rounds.some((r: any) => r.matches?.some((m: any) => m.type === "TEAM_MATCHPLAY")) && competition.type !== 'TEAM_MATCHPLAY' && (
                     <option value="TEAM_MATCHPLAY">Team Matchplay</option>
                   )}
                   {selectedExtraLeaderboards.includes('MVP') && (
@@ -1994,274 +2000,305 @@ export function CompetitionClientView({ competition, session, courses = [], user
               </div>
             </div>
 
-            {/* Standings Table (Matchplay) */}
-            {selectedLeaderboardType === 'MATCHPLAY' || selectedLeaderboardType === 'TEAM_MATCHPLAY' ? (
-              <div className="bg-white/60 backdrop-blur-sm border border-slate-200 rounded-2xl overflow-x-auto shadow-sm">
-                <table className="w-full text-sm text-left border-collapse">
-                  <thead className="bg-slate-100/50 text-slate-550 uppercase tracking-wider text-xs border-b border-slate-200">
-                    <tr>
-                      <th className="px-5 py-4">Round</th>
-                      <th className="px-5 py-4">Match</th>
-                      <th className="px-5 py-4 text-center">Holes</th>
-                      <th className="px-5 py-4 text-right">Standing</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 bg-white/30 text-slate-700">
-                    {(() => {
-                      const matchplayList: any[] = []
-                      const roundsToUse = selectedRoundFilter === 'TOTAL'
-                        ? competition.rounds
-                        : competition.rounds.filter((r: any) => r.id === selectedRoundFilter)
+            {(() => {
+              const isViewingTeamMatchplay = selectedLeaderboardType === 'TEAM_MATCHPLAY' || (selectedLeaderboardType === 'MAIN' && competition.type === 'TEAM_MATCHPLAY')
+              const isViewingSinglesMatchplay = selectedLeaderboardType === 'MATCHPLAY' || (selectedLeaderboardType === 'MAIN' && competition.type === 'MATCHPLAY')
 
-                      for (const r of roundsToUse) {
-                        const matches = (r.matches || []).filter((m: any) => 
-                          selectedLeaderboardType === 'TEAM_MATCHPLAY' ? m.type === 'TEAM_MATCHPLAY' : m.type === 'SINGLES'
-                        )
-                        for (const m of matches) {
-                          matchplayList.push({ round: r, match: m })
-                        }
-                      }
+              if (isViewingTeamMatchplay || isViewingSinglesMatchplay) {
+                return (
+                  <div className="bg-white/60 backdrop-blur-sm border border-slate-200 rounded-2xl overflow-x-auto shadow-sm">
+                    <table className="w-full text-sm text-left border-collapse">
+                      <thead className="bg-slate-100/50 text-slate-550 uppercase tracking-wider text-xs border-b border-slate-200">
+                        <tr>
+                          <th className="px-5 py-4">Round</th>
+                          <th className="px-5 py-4">Match</th>
+                          <th className="px-5 py-4 text-center">Holes</th>
+                          <th className="px-5 py-4 text-right">Standing</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 bg-white/30 text-slate-700">
+                        {(() => {
+                          const matchplayList: any[] = []
+                          const roundsToUse = selectedRoundFilter === 'TOTAL'
+                            ? competition.rounds
+                            : competition.rounds.filter((r: any) => r.id === selectedRoundFilter)
 
-                      if (matchplayList.length === 0) {
-                        return (
-                          <tr>
-                            <td colSpan={5} className="px-5 py-8 text-center text-slate-500 italic">
-                              No matchplay pairings found for the selected filter.
-                            </td>
-                          </tr>
-                        )
-                      }
-
-                      // Evaluate status to sort
-                      const evaluated = matchplayList.map(({ round, match }) => {
-                        const status = computeMatchplayStatus(match, round)
-                        return { round, match, status }
-                      })
-
-                      const getMatchCategory = (mInfo: any) => {
-                        if (mInfo.status.isFinished) return 3 // Finished
-                        if (mInfo.status.holesPlayed > 0) return 1 // Live (In progress)
-                        return 2 // Not started
-                      }
-
-                      evaluated.sort((a, b) => {
-                        const catA = getMatchCategory(a)
-                        const catB = getMatchCategory(b)
-                        if (catA !== catB) return catA - catB
-
-                        // Finished matches: newest round first
-                        if (catA === 3) {
-                          const dateA = new Date(a.round.startDate).getTime()
-                          const dateB = new Date(b.round.startDate).getTime()
-                          return dateB - dateA
-                        }
-
-                        // Live / Not started: oldest round first
-                        const dateA = new Date(a.round.startDate).getTime()
-                        const dateB = new Date(b.round.startDate).getTime()
-                        return dateA - dateB
-                      })
-
-                      return evaluated.map(({ round, match, status }) => {
-                        const { statusText, holesPlayed, totalHoles, player1Name, player2Name, player3Name, player4Name, player1Allowance, player2Allowance, player3Allowance, player4Allowance, isTeamMatchplay } = status
-                        return (
-                          <tr key={match.id} className="hover:bg-slate-50/50 transition-colors cursor-pointer" onClick={() => {
-                            setSelectedMatchForScorecard(match)
-                            setSelectedMatchRoundForScorecard(round)
-                          }}>
-                            <td className="px-5 py-4 font-bold text-slate-900">{round.name}</td>
-                            <td className="px-5 py-4">
-                              {isTeamMatchplay ? (
-                                <div className="flex flex-col space-y-0.5 text-left font-semibold text-slate-800 leading-tight">
-                                  <span>
-                                    {player1Name}
-                                    {player1Allowance > 0 && ` (${player1Allowance})`}
-                                    {` & `}
-                                    {player2Name}
-                                    {player2Allowance > 0 && ` (${player2Allowance})`}
-                                    <span className="text-slate-400 font-normal ml-1">v</span>
-                                  </span>
-                                  <span>
-                                    {player3Name}
-                                    {player3Allowance > 0 && ` (${player3Allowance})`}
-                                    {` & `}
-                                    {player4Name}
-                                    {player4Allowance > 0 && ` (${player4Allowance})`}
-                                    {match.holeRange && match.holeRange !== "1-18" && (
-                                      <span className="ml-1.5 text-[8px] bg-slate-100 text-slate-500 px-1 py-0.2 rounded font-mono">({match.holeRange})</span>
-                                    )}
-                                  </span>
-                                </div>
-                              ) : (
-                                <div className="flex flex-col space-y-0.5 text-left font-semibold text-slate-800 leading-tight">
-                                  <span>
-                                    {player1Name}
-                                    {player1Allowance > 0 && ` (${player1Allowance})`}
-                                    <span className="text-slate-400 font-normal ml-1">v</span>
-                                  </span>
-                                  <span>
-                                    {player2Name}
-                                    {player2Allowance > 0 && ` (${player2Allowance})`}
-                                    {match.holeRange && match.holeRange !== "1-18" && (
-                                      <span className="ml-1.5 text-[8px] bg-slate-100 text-slate-500 px-1 py-0.2 rounded font-mono">({match.holeRange})</span>
-                                    )}
-                                  </span>
-                                </div>
-                              )}
-                            </td>
-                            <td className="px-5 py-4 text-center font-mono text-slate-600">
-                              {holesPlayed}/{totalHoles}
-                            </td>
-                            <td className={`px-5 py-4 text-right font-black text-sm md:text-base ${statusText === "Not Started" ? "text-slate-400 font-bold" : "text-emerald-600"}`}>
-                              {statusText}
-                            </td>
-                          </tr>
-                        )
-                      })
-                    })()}
-                  </tbody>
-                </table>
-              </div>
-            ) : !selectedLeaderboardType.startsWith('TEAM_') ? (
-              <div className="bg-white/60 backdrop-blur-sm border border-slate-200 rounded-2xl overflow-x-auto shadow-sm">
-                <table className="w-full text-sm text-left border-collapse">
-                  <thead className="bg-slate-100/50 text-slate-550 uppercase tracking-wider text-xs border-b border-slate-200">
-                    <tr>
-                      <th className="px-2 py-2.5 md:px-5 md:py-4 text-center w-10 md:w-14">Rank</th>
-                      <th className="px-3 py-2.5 md:px-5 md:py-4 min-w-[110px] md:min-w-[140px]">Player</th>
-                      <th className="px-2 py-2.5 md:px-5 md:py-4 text-center w-20 md:w-28">
-                        {competition.showRelToPar && (selectedLeaderboardType === 'MAIN' || selectedLeaderboardType === 'STABLEFORD_NETTO' || selectedLeaderboardType === 'STABLEFORD_BRUTTO')
-                          ? 'Score (+/-)'
-                          : (selectedLeaderboardType === 'STROKEPLAY' ? 'Gross Strokes' : selectedLeaderboardType === 'BIRDIE' ? 'Birdies (Pars)' : selectedLeaderboardType === 'DOUBLE_BOGEY_PLUS' ? 'DB+' : selectedLeaderboardType === 'PAR_PLUS_SERIES' ? 'Streak' : 'Total Points')
-                        }
-                      </th>
-                      <th className="px-2 py-2.5 md:px-4 md:py-4 text-center w-16 md:w-24">Played</th>
-                      {competition.rounds.map((round: any, i: number) => {
-                        return (
-                          <th key={round.id} className="px-1 py-2.5 md:px-3 md:py-4 text-center text-xs font-semibold text-slate-555 min-w-[75px] md:min-w-[90px]">
-                            <div>R{i + 1}</div>
-                            {round.tee && (
-                              <div className="text-[8px] md:text-[9px] text-slate-400 font-mono font-medium uppercase tracking-wider block mt-0.5">
-                                {round.tee.name.split(" ")[0]}
-                              </div>
-                            )}
-                          </th>
-                        )
-                      })}
-                      <th className="px-2 py-2.5 md:px-5 md:py-4 text-right w-12 md:w-16">Cards</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 bg-white/30 text-slate-700">
-                    {leaderboardList.map((entry) => {
-                      const totalHolesForFilter = selectedRoundFilter === 'TOTAL'
-                        ? totalCompHoles
-                        : (competition.rounds.find((r: any) => r.id === selectedRoundFilter)?.holesPlayed?.length || 18)
-
-                      return (
-                        <tr key={entry.participantId} className="hover:bg-slate-50/50 transition-colors">
-                          <td className="px-2 py-2.5 md:px-5 md:py-4 text-center font-extrabold font-mono text-slate-700">
-                            {entry.rank}
-                          </td>
-                          <td className="px-3 py-2.5 md:px-5 md:py-4">
-                            <div className="font-extrabold text-slate-900 text-sm md:text-base leading-tight">{entry.name}</div>
-                            <div className="text-[10px] md:text-xs text-slate-500 font-mono mt-0.5">
-                              HCP Index: {entry.participant.compHandicap !== null ? entry.participant.compHandicap.toFixed(1) : "-"}
-                            </div>
-                          </td>
-                          <td className="px-2 py-2.5 md:px-5 md:py-4 text-center text-emerald-600 font-black text-base md:text-xl">
-                            {competition.showRelToPar && (selectedLeaderboardType === 'MAIN' || selectedLeaderboardType === 'STABLEFORD_NETTO' || selectedLeaderboardType === 'STABLEFORD_BRUTTO')
-                              ? (entry.relToPar === 0 ? "Even" : (entry.relToPar < 0 ? String(entry.relToPar) : `+${entry.relToPar}`))
-                              : (selectedLeaderboardType === 'BIRDIE' ? `${entry.totalPoints} (${entry.pars})` : entry.totalPoints)
+                          for (const r of roundsToUse) {
+                            const matches = (r.matches || []).filter((m: any) => 
+                              isViewingTeamMatchplay ? m.type === 'TEAM_MATCHPLAY' : m.type === 'SINGLES'
+                            )
+                            for (const m of matches) {
+                              matchplayList.push({ round: r, match: m })
                             }
-                          </td>
-                          <td className="px-2 py-2.5 md:px-4 md:py-4 text-center text-slate-600 font-semibold font-mono">
-                            {entry.holesPlayed}/{totalHolesForFilter}
-                          </td>
-                          
-                          {/* Round points columns */}
-                          {competition.rounds.map((round: any) => {
-                            const pts = entry.roundPoints[round.id]
-                            const showRel = competition.showRelToPar && (selectedLeaderboardType === 'MAIN' || selectedLeaderboardType === 'STABLEFORD_NETTO' || selectedLeaderboardType === 'STABLEFORD_BRUTTO')
-                            
-                            let displayVal = "-"
-                            if (pts !== undefined) {
-                              if (showRel) {
-                                const rel = entry.roundRelToPar?.[round.id] ?? 0
-                                displayVal = rel === 0 ? "Even" : (rel < 0 ? String(rel) : `+${rel}`)
-                              } else {
-                                displayVal = String(pts)
-                              }
-                            }
+                          }
 
+                          if (matchplayList.length === 0) {
                             return (
-                              <td key={round.id} className="px-1 py-1.5 md:px-3 md:py-4 text-center">
-                                <button
-                                  onClick={() => {
-                                    setSelectedParticipantForScorecard(entry.participant)
-                                    setSelectedRoundIdForScorecard(round.id)
-                                  }}
-                                  className="px-2 py-0.5 md:px-2.5 md:py-1 text-xs font-extrabold bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-250 text-slate-700 hover:text-emerald-600 rounded-md transition-all font-mono shadow-sm"
-                                  title={`View Round ${round.name} Scorecard`}
-                                >
-                                  {displayVal}
-                                </button>
-                              </td>
+                              <tr>
+                                <td colSpan={5} className="px-5 py-8 text-center text-slate-500 italic">
+                                  No matchplay pairings found for the selected filter.
+                                </td>
+                              </tr>
+                            )
+                          }
+
+                          // Evaluate status to sort
+                          const evaluated = matchplayList.map(({ round, match }) => {
+                            const status = computeMatchplayStatus(match, round)
+                            return { round, match, status }
+                          })
+
+                          // Sort: Live matches first, then Not Started, then Finished (newest first)
+                          evaluated.sort((a, b) => {
+                            const isFinishedA = a.status.isFinished
+                            const isFinishedB = b.status.isFinished
+
+                            const holesA = a.status.holesPlayed
+                            const holesB = b.status.holesPlayed
+
+                            // 1. Finished status
+                            if (isFinishedA && !isFinishedB) return 1
+                            if (!isFinishedA && isFinishedB) return -1
+
+                            if (!isFinishedA && !isFinishedB) {
+                              const isLiveA = holesA > 0
+                              const isLiveB = holesB > 0
+                              // Live matches first
+                              if (isLiveA && !isLiveB) return -1
+                              if (!isLiveA && isLiveB) return 1
+
+                              // Live / Not started: oldest round first
+                              const dateA = new Date(a.round.startDate).getTime()
+                              const dateB = new Date(b.round.startDate).getTime()
+                              return dateA - dateB
+                            }
+
+                            // Both finished: newest first
+                            const dateA = new Date(a.round.startDate).getTime()
+                            const dateB = new Date(b.round.startDate).getTime()
+                            return dateB - dateA
+                          })
+
+                          return evaluated.map(({ round, match, status }) => {
+                            const { statusText, holesPlayed, totalHoles, player1Name, player2Name, player3Name, player4Name, player1Allowance, player2Allowance, player3Allowance, player4Allowance, isTeamMatchplay } = status
+                            return (
+                              <tr key={match.id} className="hover:bg-slate-50/50 transition-colors cursor-pointer" onClick={() => {
+                                setSelectedMatchForScorecard(match)
+                                setSelectedMatchRoundForScorecard(round)
+                              }}>
+                                <td className="px-5 py-4 font-bold text-slate-900">{round.name}</td>
+                                <td className="px-5 py-4">
+                                  {isTeamMatchplay ? (
+                                    <div className="flex flex-col space-y-0.5 text-left font-semibold text-slate-800 leading-tight">
+                                      <span>
+                                        {player1Name}
+                                        {player1Allowance > 0 && ` (${player1Allowance})`}
+                                        {` & `}
+                                        {player2Name}
+                                        {player2Allowance > 0 && ` (${player2Allowance})`}
+                                        <span className="text-slate-400 font-normal ml-1">v</span>
+                                      </span>
+                                      <span>
+                                        {player3Name}
+                                        {player3Allowance > 0 && ` (${player3Allowance})`}
+                                        {` & `}
+                                        {player4Name}
+                                        {player4Allowance > 0 && ` (${player4Allowance})`}
+                                        {match.holeRange && match.holeRange !== "1-18" && (
+                                          <span className="ml-1.5 text-[8px] bg-slate-100 text-slate-500 px-1 py-0.2 rounded font-mono">({match.holeRange})</span>
+                                        )}
+                                      </span>
+                                    </div>
+                                  ) : (
+                                    <div className="flex flex-col space-y-0.5 text-left font-semibold text-slate-800 leading-tight">
+                                      <span>
+                                        {player1Name}
+                                        {player1Allowance > 0 && ` (${player1Allowance})`}
+                                        <span className="text-slate-400 font-normal ml-1">v</span>
+                                      </span>
+                                      <span>
+                                        {player2Name}
+                                        {player2Allowance > 0 && ` (${player2Allowance})`}
+                                        {match.holeRange && match.holeRange !== "1-18" && (
+                                          <span className="ml-1.5 text-[8px] bg-slate-100 text-slate-500 px-1 py-0.2 rounded font-mono">({match.holeRange})</span>
+                                        )}
+                                      </span>
+                                    </div>
+                                  )}
+                                </td>
+                                <td className="px-5 py-4 text-center font-mono text-slate-600">
+                                  {holesPlayed}/{totalHoles}
+                                </td>
+                                <td className={`px-5 py-4 text-right font-black text-sm md:text-base ${statusText === "Not Started" ? "text-slate-400 font-bold" : "text-emerald-600"}`}>
+                                  {statusText}
+                                </td>
+                              </tr>
+                            )
+                          })
+                        })()}
+                      </tbody>
+                    </table>
+                  </div>
+                )
+              }
+
+              if (!selectedLeaderboardType.startsWith('TEAM_')) {
+                return (
+                  <div className="bg-white/60 backdrop-blur-sm border border-slate-200 rounded-2xl overflow-x-auto shadow-sm">
+                    <table className="w-full text-sm text-left border-collapse">
+                      <thead className="bg-slate-100/50 text-slate-550 uppercase tracking-wider text-xs border-b border-slate-200">
+                        <tr>
+                          <th className="px-2 py-2.5 md:px-5 md:py-4 text-center w-10 md:w-14">Rank</th>
+                          <th className="px-3 py-2.5 md:px-5 md:py-4 min-w-[110px] md:min-w-[140px]">Player</th>
+                          <th className="px-2 py-2.5 md:px-5 md:py-4 text-center w-20 md:w-28">
+                            {competition.showRelToPar && (selectedLeaderboardType === 'MAIN' || selectedLeaderboardType === 'STABLEFORD_NETTO' || selectedLeaderboardType === 'STABLEFORD_BRUTTO')
+                              ? 'Score (+/-)'
+                              : (selectedLeaderboardType === 'STROKEPLAY' ? 'Gross Strokes' : selectedLeaderboardType === 'BIRDIE' ? 'Birdies (Pars)' : selectedLeaderboardType === 'DOUBLE_BOGEY_PLUS' ? 'DB+' : selectedLeaderboardType === 'PAR_PLUS_SERIES' ? 'Streak' : 'Total Points')
+                            }
+                          </th>
+                          <th className="px-2 py-2.5 md:px-4 md:py-4 text-center w-16 md:w-24">Played</th>
+                          {competition.rounds.map((round: any, i: number) => {
+                            return (
+                              <th key={round.id} className="px-1 py-2.5 md:px-3 md:py-4 text-center text-xs font-semibold text-slate-555 min-w-[75px] md:min-w-[90px]">
+                                <div>R{i + 1}</div>
+                                {round.tee && (
+                                  <div className="text-[8px] md:text-[9px] text-slate-400 font-mono font-medium uppercase tracking-wider block mt-0.5">
+                                    {round.tee.name.split(" ")[0]}
+                                  </div>
+                                )}
+                              </th>
                             )
                           })}
+                          <th className="px-2 py-2.5 md:px-5 md:py-4 text-right w-12 md:w-16">Cards</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 bg-white/30 text-slate-700">
+                        {leaderboardList.map((entry) => {
+                          const totalHolesForFilter = selectedRoundFilter === 'TOTAL'
+                            ? totalCompHoles
+                            : (competition.rounds.find((r: any) => r.id === selectedRoundFilter)?.holesPlayed?.length || 18)
 
-                          <td className="px-2 py-2.5 md:px-5 md:py-4 text-right">
-                            <button
-                              onClick={() => {
-                                setSelectedParticipantForScorecard(entry.participant)
-                                setSelectedRoundIdForScorecard(null)
-                              }}
-                              className="p-1 md:p-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-500 hover:text-emerald-600 rounded-lg transition-colors shadow-sm"
-                              title="View Full Scorecard"
-                            >
-                              <Eye size={16} className="landscape:w-3.5 landscape:h-3.5" />
-                            </button>
+                          return (
+                            <tr key={entry.participantId} className="hover:bg-slate-50/50 transition-colors">
+                              <td className="px-2 py-2.5 md:px-5 md:py-4 text-center font-extrabold font-mono text-slate-700">
+                                {entry.rank}
+                              </td>
+                              <td className="px-3 py-2.5 md:px-5 md:py-4">
+                                <div className="font-extrabold text-slate-900 text-sm md:text-base leading-tight">{entry.name}</div>
+                                {entry.team && (
+                                  <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">{entry.team.name}</div>
+                                )}
+                              </td>
+                              <td className="px-2 py-2.5 md:px-5 md:py-4 text-center text-emerald-600 font-black text-base md:text-xl">
+                                {competition.showRelToPar && (selectedLeaderboardType === 'MAIN' || selectedLeaderboardType === 'STABLEFORD_NETTO' || selectedLeaderboardType === 'STABLEFORD_BRUTTO')
+                                  ? (entry.relToPar === 0 ? "Even" : (entry.relToPar < 0 ? String(entry.relToPar) : `+${entry.relToPar}`))
+                                  : (selectedLeaderboardType === 'BIRDIE' ? `${entry.totalPoints} (${entry.pars})` : entry.totalPoints)
+                                }
+                              </td>
+                              <td className="px-2 py-2.5 md:px-4 md:py-4 text-center font-mono text-slate-500 text-xs md:text-sm">
+                                {entry.holesPlayed}/{totalHolesForFilter}
+                              </td>
+
+                              {competition.rounds.map((round: any) => {
+                                const pts = entry.roundPoints[round.id]
+                                const showRel = competition.showRelToPar && (selectedLeaderboardType === 'MAIN' || selectedLeaderboardType === 'STABLEFORD_NETTO' || selectedLeaderboardType === 'STABLEFORD_BRUTTO')
+                                
+                                let displayVal = "-"
+                                if (pts !== undefined) {
+                                  if (showRel) {
+                                    const rel = entry.roundRelToPar?.[round.id] ?? 0
+                                    displayVal = rel === 0 ? "Even" : (rel < 0 ? String(rel) : `+${rel}`)
+                                  } else {
+                                    displayVal = String(pts)
+                                  }
+                                }
+
+                                return (
+                                  <td key={round.id} className="px-1 py-1.5 md:px-3 md:py-4 text-center">
+                                    <button
+                                      onClick={() => {
+                                        if (selectedLeaderboardType === 'MVP') {
+                                          const match = round.matches?.find((m: any) =>
+                                            m.matchPlayers.some((mp: any) => mp.participantId === entry.participant.id)
+                                          )
+                                          if (match) {
+                                            setSelectedMatchForScorecard(match)
+                                            setSelectedMatchRoundForScorecard(round)
+                                          }
+                                        } else {
+                                          setSelectedParticipantForScorecard(entry.participant)
+                                          setSelectedRoundIdForScorecard(round.id)
+                                        }
+                                      }}
+                                      className="px-2 py-0.5 md:px-2.5 md:py-1 text-xs font-extrabold bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-250 text-slate-700 hover:text-emerald-600 rounded-md transition-all font-mono shadow-sm"
+                                      title={`View Round ${round.name} Scorecard`}
+                                    >
+                                      {displayVal}
+                                    </button>
+                                  </td>
+                                )
+                              })}
+
+                              <td className="px-2 py-2.5 md:px-5 md:py-4 text-right">
+                                {selectedLeaderboardType !== 'MVP' && (
+                                  <button
+                                    onClick={() => {
+                                      setSelectedParticipantForScorecard(entry.participant)
+                                      setSelectedRoundIdForScorecard(null)
+                                    }}
+                                    className="p-1 md:p-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-500 hover:text-emerald-600 rounded-lg transition-colors shadow-sm"
+                                    title="View Full Scorecard"
+                                  >
+                                    <Eye size={16} className="landscape:w-3.5 landscape:h-3.5" />
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )
+              }
+
+              return (
+                <div className="bg-white/60 backdrop-blur-sm border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+                  <table className="w-full text-sm text-left border-collapse">
+                    <thead className="bg-slate-100/50 text-slate-550 uppercase tracking-wider text-xs border-b border-slate-200">
+                      <tr>
+                        <th className="px-5 py-4 text-center w-14">Rank</th>
+                        <th className="px-5 py-4">Team</th>
+                        <th className="px-5 py-4">Members</th>
+                        <th className="px-5 py-4 text-center w-28">
+                          {selectedLeaderboardType === 'TEAM_STROKEPLAY' ? 'Gross Strokes' : 'Stableford Points'}
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 bg-white/30 text-slate-750">
+                      {leaderboardList.map((entry) => (
+                        <tr key={entry.teamId} className="hover:bg-slate-50/50 transition-colors cursor-pointer" onClick={() => {
+                          setSelectedTeamForScorecard(entry.team)
+                        }}>
+                          <td className="px-5 py-4.5 text-center font-extrabold font-mono text-slate-700">
+                            {entry.rank}
+                          </td>
+                          <td className="px-5 py-4.5 font-bold text-slate-900 text-base">
+                            {entry.name}
+                          </td>
+                          <td className="px-5 py-4.5 text-sm text-slate-500 italic max-w-sm truncate">
+                            {entry.memberNames}
+                          </td>
+                          <td className="px-5 py-4.5 text-center text-emerald-600 font-black text-xl">
+                            {entry.totalPoints}
                           </td>
                         </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              /* Standings Table (Teams) */
-              <div className="bg-white/60 backdrop-blur-sm border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-                <table className="w-full text-sm text-left border-collapse">
-                  <thead className="bg-slate-100/50 text-slate-550 uppercase tracking-wider text-xs border-b border-slate-200">
-                    <tr>
-                      <th className="px-5 py-4 text-center w-14">Rank</th>
-                      <th className="px-5 py-4">Team</th>
-                      <th className="px-5 py-4">Members</th>
-                      <th className="px-5 py-4 text-center w-28">
-                        {selectedLeaderboardType === 'TEAM_STROKEPLAY' ? 'Gross Strokes' : 'Stableford Points'}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 bg-white/30 text-slate-750">
-                    {leaderboardList.map((entry) => (
-                      <tr key={entry.teamId} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="px-5 py-4.5 text-center font-extrabold font-mono text-slate-700">
-                          {entry.rank}
-                        </td>
-                        <td className="px-5 py-4.5 font-bold text-slate-900 text-base">
-                          {entry.name}
-                        </td>
-                        <td className="px-5 py-4.5 text-sm text-slate-500 italic max-w-sm truncate">
-                          {entry.memberNames}
-                        </td>
-                        <td className="px-5 py-4.5 text-center text-emerald-600 font-black text-xl">
-                          {entry.totalPoints}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )
+            })()}
           </div>
         )}
 
@@ -3978,7 +4015,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
                             }
                           }
 
-                          const hasStroke = allowance > 0 && (strokesMap[num] || 0) > 0
+                          const strokeCount = allowance > 0 ? (strokesMap[num] || 0) : 0
                           const markerMarkup = getMarkerMarkup(displayVal, diff, isWiped)
 
                           return (
@@ -3986,8 +4023,12 @@ export function CompetitionClientView({ competition, session, courses = [], user
                               <div className="flex items-center justify-center h-7 relative w-full">
                                 <span className={isWiped ? 'text-red-650 font-black' : ''}>{displayVal}</span>
                                 {markerMarkup}
-                                {hasStroke && (
-                                  <div className="absolute top-1 right-1 w-[5px] h-[5px] bg-cyan-500 rounded-full" title="Allowance stroke given on this hole" />
+                                {strokeCount > 0 && (
+                                  <div className="absolute top-1 right-1 flex space-x-[1.5px]" title={`${strokeCount} allowance strokes given on this hole`}>
+                                    {Array.from({ length: strokeCount }).map((_, idx) => (
+                                      <div key={idx} className="w-[4px] h-[4px] bg-cyan-500 rounded-full" />
+                                    ))}
+                                  </div>
                                 )}
                               </div>
                             </td>
@@ -4416,6 +4457,299 @@ export function CompetitionClientView({ competition, session, courses = [], user
                     </div>
                   )
                 })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Team scorecard popup modal */}
+      {selectedTeamForScorecard && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-2xl max-w-4xl w-full p-6 shadow-2xl space-y-4 overflow-hidden max-h-[90vh] flex flex-col text-slate-800">
+            <div className="flex justify-between items-center border-b border-slate-200 pb-3">
+              <div>
+                <h3 className="text-xl font-bold text-slate-900">
+                  Team Scorecard: {selectedTeamForScorecard.name}
+                </h3>
+                <p className="text-xs text-slate-550">
+                  Members: {competition.participants.filter((p: any) => p.teamId === selectedTeamForScorecard.id).map((p: any) => p.userId ? (p.user?.name || p.user?.email) : p.dummyName).join(" & ")}
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setSelectedTeamForScorecard(null)
+                }}
+                className="p-1.5 bg-slate-50 border border-slate-200 text-slate-500 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-colors shadow-sm focus:outline-none"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto space-y-8 scrollbar-thin">
+              {competition.rounds.map((round: any) => {
+                const members = competition.participants
+                  .filter((p: any) => p.teamId === selectedTeamForScorecard.id)
+                  .sort((a: any, b: any) => getPlayingHandicap(a, round) - getPlayingHandicap(b, round))
+
+                if (members.length === 0) return null
+
+                const frontHoleNums = Array.from({ length: 9 }, (_, i) => i + 1)
+                const backHoleNums = Array.from({ length: 9 }, (_, i) => i + 10)
+
+                const activeRoundHoles = round.holesPlayed && round.holesPlayed.length > 0
+                  ? round.holesPlayed
+                  : Array.from({ length: 18 }, (_, i) => i + 1)
+
+                const frontHolesPlayed = frontHoleNums.filter(num => activeRoundHoles.includes(num))
+                const backHolesPlayed = backHoleNums.filter(num => activeRoundHoles.includes(num))
+
+                const renderTeamHoleColumns = (holeNums: number[]) => {
+                  if (holeNums.length === 0) return null
+
+                  const sumPar = holeNums.reduce((sum, num) => {
+                    const hole = round.course.holes.find((h: any) => h.number === num)
+                    return sum + (hole?.par || 4)
+                  }, 0)
+
+                  let totalTeamStableford = 0
+
+                  const getMemberStats = (m: any) => {
+                    let totalStrokes = 0
+                    let totalPoints = 0
+                    const courseHandicap = getPlayingHandicap(m, round)
+                    
+                    const list = holeNums.map(num => {
+                      const adjusted = getRoundHoleInfo(round, num)
+                      const hole = round.course.holes.find((h: any) => h.number === num)
+                      if (!hole) return { displayVal: "-", diff: 0, pts: 0, hcpStrokes: 0, isWiped: false }
+
+                      const holePar = adjusted ? adjusted.par : hole.par
+                      const holeStrokeIndex = adjusted ? adjusted.strokeIndex : hole.strokeIndex
+                      const hcpStrokes = getHandicapStrokesOnHole(courseHandicap, holeStrokeIndex)
+
+                      const score = m.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
+
+                      let displayVal = "-"
+                      let diff = 0
+                      let pts = 0
+                      let isWiped = false
+
+                      if (score && (score.grossStrokes !== null || (score.status !== null && score.status !== 'NOT_PLAYED'))) {
+                        if (score.status === 'WIPED') {
+                          displayVal = "/"
+                          isWiped = true
+                          totalStrokes += holePar + 3
+                        } else if (score.grossStrokes !== null) {
+                          displayVal = String(score.grossStrokes)
+                          totalStrokes += score.grossStrokes
+                          diff = score.grossStrokes - holePar
+                          const pStableford = calculateStablefordPoints(score.grossStrokes, holePar, hcpStrokes, true)
+                          if (pStableford !== null) pts = pStableford
+                        }
+                      }
+
+                      totalPoints += pts
+                      return { displayVal, diff, pts, hcpStrokes, isWiped, score }
+                    })
+
+                    return { list, totalStrokes, totalPoints, courseHandicap }
+                  }
+
+                  const mStats = members.map((m: any) => getMemberStats(m))
+
+                  const teamBestballPts = holeNums.map((num, i) => {
+                    const pts = Math.max(...mStats.map((ms: any) => ms.list[i].pts), 0)
+                    totalTeamStableford += pts
+                    return pts
+                  })
+
+                  const renderPlayerRows = (p: any, ms: any, idx: number) => {
+                    const name = p.userId ? (p.user?.name || p.user?.email) : p.dummyName
+                    const compact = getCompactName(name || "", competition.participants.map((x: any) => x.userId ? (x.user?.name || x.user?.email) : x.dummyName).filter(Boolean))
+
+                    return (
+                      <>
+                        <tr className="bg-slate-50/40 text-[9px] text-slate-550 border-t border-slate-100">
+                          <td className="px-2 py-1 text-left border-r border-slate-200 font-medium">
+                            {compact} (Shots)
+                          </td>
+                          {holeNums.map((num, i) => {
+                            const hcpStrokes = ms.list[i].hcpStrokes
+                            return (
+                              <td key={num} className="px-1 py-0.5 border-r border-slate-200/80 font-bold text-cyan-600 font-mono">
+                                {hcpStrokes === 1 ? "|" : hcpStrokes >= 2 ? "||" : ""}
+                              </td>
+                            )
+                          })}
+                          <td className="px-1.5 py-0.5 font-mono text-[9px] font-bold text-cyan-600">{ms.courseHandicap}</td>
+                        </tr>
+
+                        <tr className="border-b border-slate-100">
+                          <td className="px-2 py-1.5 text-left font-bold text-slate-700 border-r border-slate-200 text-[10px]">
+                            {compact} (Strokes)
+                          </td>
+                          {holeNums.map((num, i) => {
+                            const { displayVal, diff, isWiped, score } = ms.list[i]
+                            const adjusted = getRoundHoleInfo(round, num)
+                            const hole = round.course.holes.find((h: any) => h.number === num)
+                            const holePar = adjusted ? adjusted.par : (hole?.par || 4)
+
+                            let markerMarkup = null
+                            if (displayVal !== '-' && displayVal !== '/' && score?.grossStrokes) {
+                              if (diff === -1) {
+                                markerMarkup = (
+                                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                    <div className="w-[18px] h-[18px] border border-emerald-500 rounded-full opacity-80" />
+                                  </div>
+                                )
+                              } else if (diff <= -2) {
+                                markerMarkup = (
+                                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                    <div className="absolute w-[18px] h-[18px] border border-emerald-500 rounded-full opacity-80" />
+                                    <div className="absolute w-[12px] h-[12px] border border-emerald-500 rounded-full opacity-80" />
+                                  </div>
+                                )
+                              } else if (diff === 1) {
+                                markerMarkup = (
+                                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                    <div className="w-[14px] h-[14px] border border-red-500 rounded-none opacity-80" />
+                                  </div>
+                                )
+                              } else if (diff === 2) {
+                                markerMarkup = (
+                                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                    <div className="absolute w-[20px] h-[20px] border border-red-500 rounded-none opacity-80" />
+                                    <div className="absolute w-[14px] h-[14px] border border-red-500 rounded-none opacity-80" />
+                                  </div>
+                                )
+                              } else if (diff >= 3) {
+                                markerMarkup = (
+                                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                    <div className="absolute w-[26px] h-[26px] border border-red-500 rounded-none opacity-80" />
+                                    <div className="absolute w-[20px] h-[20px] border border-red-500 rounded-none opacity-80" />
+                                    <div className="absolute w-[14px] h-[14px] border border-red-500 rounded-none opacity-80" />
+                                  </div>
+                                )
+                              }
+                            }
+
+                            return (
+                              <td key={num} className="px-1 py-1.5 border-r border-slate-200/85 relative font-bold text-[11px] text-slate-800">
+                                <div className="flex items-center justify-center h-6 relative w-full">
+                                  <span className={isWiped ? 'text-red-650 font-black' : ''}>{displayVal}</span>
+                                  {markerMarkup}
+                                </div>
+                              </td>
+                            )
+                          })}
+                          <td className="px-1.5 py-1.5 font-extrabold text-[10px] bg-slate-50/50">{ms.totalStrokes}</td>
+                        </tr>
+
+                        <tr className="border-b border-slate-200 text-slate-650 bg-slate-50/20">
+                          <td className="px-2 py-1 text-left font-medium text-slate-550 border-r border-slate-200 text-[9px]">
+                            {compact} (Points)
+                          </td>
+                          {holeNums.map((num, i) => {
+                            const pts = ms.list[i].pts
+                            return (
+                              <td key={num} className="px-1 py-1 border-r border-slate-200/80 font-mono text-[10px]">
+                                {pts}
+                              </td>
+                            )
+                          })}
+                          <td className="px-1.5 py-1 font-mono font-bold text-[9px] bg-slate-50/50">{ms.totalPoints}</td>
+                        </tr>
+                      </>
+                    )
+                  }
+
+                  return (
+                    <div key={round.id} className="space-y-3">
+                      <h4 className="font-extrabold text-sm text-slate-800 flex justify-between items-center">
+                        <span>Round: {round.name} | Course: {round.course.name}</span>
+                      </h4>
+                      <div className="overflow-x-auto border border-slate-200 rounded-xl w-full shadow-sm">
+                        <table className="w-full text-[10px] text-center border-collapse">
+                          <thead className="bg-slate-50 text-slate-650">
+                            <tr className="border-b border-slate-200">
+                              <th className="px-2 py-1.5 text-left font-extrabold border-r border-slate-200 w-24 text-[10px] bg-slate-100/50 text-slate-850">Hole</th>
+                              {holeNums.map(num => (
+                                <th key={num} className="px-1 py-1 border-r border-slate-200/80 font-black w-8 md:w-10 text-[10px] text-slate-700">
+                                  {num}
+                                </th>
+                              ))}
+                              <th className="px-1.5 py-1 font-bold w-12 text-slate-700 text-[10px]">Total</th>
+                            </tr>
+                            <tr className="border-b border-slate-200 text-[9px] text-slate-550">
+                              <td className="px-2 py-1 text-left border-r border-slate-200">Par</td>
+                              {holeNums.map(num => {
+                                const adjusted = getRoundHoleInfo(round, num)
+                                const hole = round.course.holes.find((h: any) => h.number === num)
+                                const holePar = adjusted ? adjusted.par : (hole?.par || 4)
+                                return (
+                                  <td key={num} className="px-1 py-0.5 border-r border-slate-200/80 font-mono">
+                                    {holePar}
+                                  </td>
+                                )
+                              })}
+                              <td className="px-1.5 py-1.5 font-bold font-mono text-[9px]">{sumPar}</td>
+                            </tr>
+                            <tr className="border-b border-slate-200 text-[9px] text-slate-550">
+                              <td className="px-2 py-1 text-left border-r border-slate-200">Index</td>
+                              {holeNums.map(num => {
+                                const adjusted = getRoundHoleInfo(round, num)
+                                const hole = round.course.holes.find((h: any) => h.number === num)
+                                const holeStrokeIndex = adjusted ? adjusted.strokeIndex : (hole?.strokeIndex || 1)
+                                return (
+                                  <td key={num} className="px-1 py-0.5 border-r border-slate-200/80 font-mono">
+                                    {holeStrokeIndex}
+                                  </td>
+                                )
+                              })}
+                              <td className="px-1.5 py-1.5 font-mono text-[9px]">-</td>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white text-slate-800">
+                            {renderPlayerRows(members[0], mStats[0], 1)}
+                            {members[1] && renderPlayerRows(members[1], mStats[1], 2)}
+
+                            <tr className="bg-emerald-50/50 text-emerald-950 font-bold border-t border-slate-300">
+                              <td className="px-2 py-1.5 text-left border-r border-slate-200 text-[10px] text-emerald-900 font-extrabold">
+                                Team Bestball
+                              </td>
+                              {holeNums.map((num, i) => (
+                                <td key={num} className="px-1 py-1.5 border-r border-slate-200/80 font-mono text-[11px] text-emerald-700 font-black">
+                                  {teamBestballPts[i]}
+                                </td>
+                              ))}
+                              <td className="px-1.5 py-1.5 font-mono font-black text-[11px] text-emerald-800 bg-emerald-100/50">
+                                {totalTeamStableford}
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )
+                }
+
+                return (
+                  <div key={round.id} className="space-y-6">
+                    {frontHolesPlayed.length > 0 && (
+                      <div className="space-y-2">
+                        <h5 className="font-extrabold text-xs text-slate-550 uppercase tracking-wider">Front 9</h5>
+                        {renderTeamHoleColumns(frontHolesPlayed)}
+                      </div>
+                    )}
+                    {backHolesPlayed.length > 0 && (
+                      <div className="space-y-2">
+                        <h5 className="font-extrabold text-xs text-slate-550 uppercase tracking-wider">Back 9</h5>
+                        {renderTeamHoleColumns(backHolesPlayed)}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           </div>
         </div>

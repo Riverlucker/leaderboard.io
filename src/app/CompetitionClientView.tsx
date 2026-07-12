@@ -58,6 +58,39 @@ const formatDateTimeInput = (dateVal: any) => {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
 
+const getTeamRowStyle = (teamName: string | undefined | null) => {
+  if (!teamName) return {}
+  const lower = teamName.toLowerCase()
+  
+  let hue = 210 // Default blue-ish
+  if (lower.includes("blau") || lower.includes("blue")) {
+    hue = 220 // Blue
+  } else if (lower.includes("rot") || lower.includes("red")) {
+    hue = 0 // Red
+  } else if (lower.includes("grün") || lower.includes("green")) {
+    hue = 142 // Green
+  } else if (lower.includes("gelb") || lower.includes("yellow")) {
+    hue = 47 // Yellow
+  } else if (lower.includes("orange")) {
+    hue = 24 // Orange
+  } else if (lower.includes("lila") || lower.includes("violett") || lower.includes("purple")) {
+    hue = 271 // Purple
+  } else {
+    // Generate hue deterministically from name
+    let hash = 0
+    for (let i = 0; i < teamName.length; i++) {
+      hash = teamName.charCodeAt(i) + ((hash << 5) - hash)
+    }
+    hue = Math.abs(hash % 360)
+  }
+
+  return {
+    backgroundColor: `hsla(${hue}, 85%, 97%, 0.65)`,
+    borderLeft: `4px solid hsl(${hue}, 75%, 55%)`
+  }
+}
+
+
 export function getPlayingHandicap(p: any, round: any) {
   if (!round) return 0
   // Check manual override
@@ -2215,8 +2248,13 @@ export function CompetitionClientView({ competition, session, courses = [], user
                             ? totalCompHoles
                             : (competition.rounds.find((r: any) => r.id === selectedRoundFilter)?.holesPlayed?.length || 18)
 
+                          const isStableford = selectedLeaderboardType === 'STABLEFORD_NETTO' || selectedLeaderboardType === 'STABLEFORD_BRUTTO'
+                          const rowStyle = (isTeamComp && isStableford && entry.team)
+                            ? getTeamRowStyle(entry.team.name)
+                            : {}
+
                           return (
-                            <tr key={entry.participantId} className="hover:bg-slate-50/50 transition-colors">
+                            <tr key={entry.participantId} style={rowStyle} className="hover:bg-slate-50/50 transition-colors">
                               <td className="px-2 py-2.5 md:px-5 md:py-4 text-center font-extrabold font-mono text-slate-700">
                                 {entry.rank}
                               </td>
@@ -2486,7 +2524,14 @@ export function CompetitionClientView({ competition, session, courses = [], user
                   const name = p.userId ? (p.user?.name || p.user?.email) : p.dummyName
                   return (
                     <div key={p.id} className="py-2.5 flex justify-between items-center">
-                      <div className="font-semibold text-sm text-slate-850 truncate max-w-[150px]">{name}</div>
+                      <div>
+                        <div className="font-semibold text-sm text-slate-850 truncate max-w-[150px]">{name}</div>
+                        {isTeamComp && p.team && (
+                          <div className="text-[10px] font-extrabold text-slate-450 uppercase mt-0.5">
+                            Team: {p.team.name}
+                          </div>
+                        )}
+                      </div>
                       <div className="text-xs font-mono font-bold text-cyan-600">
                         {p.compHandicap !== null ? p.compHandicap.toFixed(1) : "-"}
                       </div>

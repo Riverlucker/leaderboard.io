@@ -2264,6 +2264,9 @@ export function CompetitionClientView({ competition, session, courses = [], user
                                 {entry.rank}
                               </td>
                               <td className="px-3 py-2.5 md:px-5 md:py-4">
+                                <div className="text-[10px] text-red-500 font-mono font-bold">
+                                  DB_TEAM: {entry.participant?.team?.name || "MISSING"} (id: {entry.participant?.teamId || "NULL"})
+                                </div>
                                 <div 
                                   style={isTeamComp && isStableford && team ? { color: `hsl(${getTeamHue(team.name)}, 75%, 25%)` } : {}}
                                   className="font-extrabold text-slate-900 text-sm md:text-base leading-tight"

@@ -359,9 +359,9 @@ export function EditCompetitionClient({
       await addMatch(selectedRoundId, competition.id, {
         type: matchType,
         participantIds: selectedPartIds,
-        allowanceType: matchType === "SINGLES" ? allowanceType : null,
-        playUntilEnd: matchType === "SINGLES" ? playUntilEnd : false,
-        holeRange: matchType === "SINGLES" ? holeRange : null
+        allowanceType: (matchType === "SINGLES" || matchType === "TEAM_MATCHPLAY") ? allowanceType : null,
+        playUntilEnd: (matchType === "SINGLES" || matchType === "TEAM_MATCHPLAY") ? playUntilEnd : false,
+        holeRange: (matchType === "SINGLES" || matchType === "TEAM_MATCHPLAY") ? holeRange : null
       })
 
       setSelectedPartIds([])
@@ -1385,7 +1385,7 @@ export function EditCompetitionClient({
                             })}
                           </div>
 
-                          {match.type === "SINGLES" && (
+                          {(match.type === "SINGLES" || match.type === "TEAM_MATCHPLAY") && (
                             <div className="flex flex-col space-y-2 pt-3 border-t border-slate-850/60 mt-2">
                               <div className="flex items-center space-x-2">
                                 <label className="text-xs text-slate-450 font-semibold">Handicap Allowance (Vorgabe):</label>
@@ -1463,13 +1463,14 @@ export function EditCompetitionClient({
                     required
                   >
                     <option value="SINGLES">SINGLES (Matchplay or Group)</option>
+                    <option value="TEAM_MATCHPLAY">TEAM MATCHPLAY (2 vs 2 Best Ball Matchplay)</option>
                     <option value="4BALL">FOURBALL (2 vs 2 Best Ball)</option>
                     <option value="CHAPMAN">CHAPMAN (Chapman-System)</option>
                     <option value="GROUP">STANDARD GROUP (Strokeplay / Stableford)</option>
                   </select>
                 </div>
 
-                {matchType === "SINGLES" && (
+                {(matchType === "SINGLES" || matchType === "TEAM_MATCHPLAY") && (
                   <div className="space-y-3">
                     <div>
                       <label className="block text-xs font-semibold text-slate-400 mb-1">Handicap Allowance Calculation</label>

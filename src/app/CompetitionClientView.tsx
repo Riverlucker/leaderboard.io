@@ -85,7 +85,9 @@ export function CompetitionClientView({ competition, session, courses = [], user
   
   // Leaderboard filters
   const [selectedRoundFilter, setSelectedRoundFilter] = useState<string>("TOTAL")
-  const [selectedLeaderboardType, setSelectedLeaderboardType] = useState<string>("MAIN")
+  const [selectedLeaderboardType, setSelectedLeaderboardType] = useState<string>(
+    competition.type === 'TEAM_MATCHPLAY' ? 'TEAM_MATCHPLAY' : (competition.type === 'MATCHPLAY' ? 'MATCHPLAY' : 'MAIN')
+  )
   
   // Scorecard modal state
   const [selectedParticipantForScorecard, setSelectedParticipantForScorecard] = useState<any | null>(null)
@@ -465,108 +467,303 @@ export function CompetitionClientView({ competition, session, courses = [], user
   }
 
   const computeMatchplayStatus = (match: any, round: any) => {
-    const p1 = competition.participants.find((p: any) => p.id === match.matchPlayers[0]?.participantId)
-    const p2 = competition.participants.find((p: any) => p.id === match.matchPlayers[1]?.participantId)
-    if (!p1 || !p2) return { statusText: "Unknown Players", holesPlayed: 0, totalHoles: 18, allowance: 0, player1Name: "Unknown", player2Name: "Unknown", player1Allowance: 0, player2Allowance: 0, isFinished: false }
+    const isTeamMatchplay = match.type === 'TEAM_MATCHPLAY'
 
-    const hcp1 = getPlayingHandicap(p1, round)
-    const hcp2 = getPlayingHandicap(p2, round)
+    if (isTeamMatchplay) {
+      const pIds = match.matchPlayers.map((mp: any) => mp.participantId)
+      const players = pIds.map((id: string) => competition.participants.find((p: any) => p.id === id)).filter(Boolean)
 
-    const allowance = getMatchAllowance(match, hcp1, hcp2)
-    const p1Allowance = hcp1 > hcp2 ? allowance : 0
-    const p2Allowance = hcp2 > hcp1 ? allowance : 0
+      if (players.length < 4) {
+        return { statusText: "Setup Pending", holesPlayed: 0, totalHoles: 18, allowance: 0, player1Name: "Unknown", player2Name: "Unknown", player3Name: "Unknown", player4Name: "Unknown", player1Allowance: 0, player2Allowance: 0, player3Allowance: 0, player4Allowance: 0, isFinished: false, isTeamMatchplay: true }
+      }
 
-    const allNames = competition.participants.map((p: any) =>
-      p.userId ? p.user?.name : p.dummyName
-    ).filter((n: any): n is string => typeof n === 'string' && n.length > 0)
+      const allNames = competition.participants.map((p: any) =>
+        p.userId ? p.user?.name : p.dummyName
+      ).filter((n: any): n is string => typeof n === 'string' && n.length > 0)
 
-    const fullName1 = p1.userId ? p1.user?.name : p1.dummyName || ""
-    const fullName2 = p2.userId ? p2.user?.name : p2.dummyName || ""
+      const teamIds = Array.from(new Set(players.map((p: any) => p.teamId))).filter(Boolean)
+      let team1Id = teamIds[0]
+      let team2Id = teamIds[1]
 
-    const name1 = getCompactName(fullName1, allNames)
-    const name2 = getCompactName(fullName2, allNames)
+      const christoph = players.find((p: any) => (p.user?.name || p.dummyName || "").toLowerCase().includes("christoph"))
+      if (christoph && christoph.teamId === team2Id) {
+        const temp = team1Id
+        team1Id = team2Id
+        team2Id = temp
+      }
 
-    const roundHoles = round.holesPlayed && round.holesPlayed.length > 0
-      ? [...round.holesPlayed].sort((a: number, b: number) => a - b)
-      : Array.from({ length: 18 }, (_, i) => i + 1)
+      const team1Players = players.filter((p: any) => p.teamId === team1Id)
+      const team2Players = players.filter((p: any) => p.teamId === team2Id)
 
-    const matchHoles = parseHoleRange(match.holeRange, roundHoles)
-    const strokesMap = getMatchHoleStrokesMap(matchHoles, round, allowance)
+      if (team1Players.length !== 2 || team2Players.length !== 2) {
+        return { statusText: "Team Division Error", holesPlayed: 0, totalHoles: 18, allowance: 0, player1Name: "Unknown", player2Name: "Unknown", player3Name: "Unknown", player4Name: "Unknown", player1Allowance: 0, player2Allowance: 0, player3Allowance: 0, player4Allowance: 0, isFinished: false, isTeamMatchplay: true }
+      }
 
-    let lead = 0
-    let holesPlayedCount = 0
-    let decidedInfo: { winnerName: string; lead: number; remaining: number } | null = null
+      team1Players.sort((a: any, b: any) => getPlayingHandicap(a, round) - getPlayingHandicap(b, round))
+      team2Players.sort((a: any, b: any) => getPlayingHandicap(a, round) - getPlayingHandicap(b, round))
 
-    const getMatchHoleStrokes = (score: any) => {
-      if (!score) return null
-      if (score.status === 'WIPED') return 99
-      if (score.status === 'NOT_PLAYED') return null
-      return score.grossStrokes
-    }
+      const hcp1_1 = getPlayingHandicap(team1Players[0], round)
+      const hcp1_2 = getPlayingHandicap(team1Players[1], round)
+      const hcp2_1 = getPlayingHandicap(team2Players[0], round)
+      const hcp2_2 = getPlayingHandicap(team2Players[1], round)
 
-    for (let i = 0; i < matchHoles.length; i++) {
-      const holeNum = matchHoles[i]
-      const hole = round.course.holes.find((h: any) => h.number === holeNum)
-      if (!hole) continue
+      const minPH = Math.min(hcp1_1, hcp1_2, hcp2_1, hcp2_2)
 
-      const score1 = p1.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
-      const score2 = p2.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
+      const allowance1_1 = hcp1_1 - minPH
+      const allowance1_2 = hcp1_2 - minPH
+      const allowance2_1 = hcp2_1 - minPH
+      const allowance2_2 = hcp2_2 - minPH
 
-      const strokes1 = getMatchHoleStrokes(score1)
-      const strokes2 = getMatchHoleStrokes(score2)
+      const name1_1 = getCompactName(team1Players[0].userId ? team1Players[0].user?.name : team1Players[0].dummyName || "", allNames)
+      const name1_2 = getCompactName(team1Players[1].userId ? team1Players[1].user?.name : team1Players[1].dummyName || "", allNames)
+      const name2_1 = getCompactName(team2Players[0].userId ? team2Players[0].user?.name : team2Players[0].dummyName || "", allNames)
+      const name2_2 = getCompactName(team2Players[1].userId ? team2Players[1].user?.name : team2Players[1].dummyName || "", allNames)
 
-      if (strokes1 !== null && strokes2 !== null) {
-        holesPlayedCount++
-        const strokesGiven = strokesMap[holeNum] || 0
-        const net1Calculated = hcp1 > hcp2 ? (strokes1 === 99 ? 99 : strokes1 - strokesGiven) : strokes1
-        const net2Calculated = hcp2 > hcp1 ? (strokes2 === 99 ? 99 : strokes2 - strokesGiven) : strokes2
+      const roundHoles = round.holesPlayed && round.holesPlayed.length > 0
+        ? [...round.holesPlayed].sort((a: number, b: number) => a - b)
+        : Array.from({ length: 18 }, (_, i) => i + 1)
 
-        if (net1Calculated < net2Calculated) {
-          lead++
-        } else if (net1Calculated > net2Calculated) {
-          lead--
+      const matchHoles = parseHoleRange(match.holeRange, roundHoles)
+
+      const strokesMap1_1 = getMatchHoleStrokesMap(matchHoles, round, allowance1_1)
+      const strokesMap1_2 = getMatchHoleStrokesMap(matchHoles, round, allowance1_2)
+      const strokesMap2_1 = getMatchHoleStrokesMap(matchHoles, round, allowance2_1)
+      const strokesMap2_2 = getMatchHoleStrokesMap(matchHoles, round, allowance2_2)
+
+      const team1Name = team1Players[0].team?.name || "Team 1"
+      const team2Name = team2Players[0].team?.name || "Team 2"
+
+      let lead = 0
+      let holesPlayedCount = 0
+      let excludedHolesCount = 0
+      let decidedInfo: { winnerName: string; lead: number; remaining: number } | null = null
+
+      const getMatchHoleStrokes = (score: any) => {
+        if (!score) return null
+        if (score.status === 'WIPED') return 99
+        if (score.status === 'NOT_PLAYED') return null
+        return score.grossStrokes
+      }
+
+      for (let i = 0; i < matchHoles.length; i++) {
+        const holeNum = matchHoles[i]
+        const hole = round.course.holes.find((h: any) => h.number === holeNum)
+        if (!hole) continue
+
+        const score1_1 = team1Players[0].scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
+        const score1_2 = team1Players[1].scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
+        const score2_1 = team2Players[0].scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
+        const score2_2 = team2Players[1].scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
+
+        const strokes1_1 = getMatchHoleStrokes(score1_1)
+        const strokes1_2 = getMatchHoleStrokes(score1_2)
+        const strokes2_1 = getMatchHoleStrokes(score2_1)
+        const strokes2_2 = getMatchHoleStrokes(score2_2)
+
+        const scores = [score1_1, score1_2, score2_1, score2_2].filter(Boolean)
+        const isExplicitlyExcluded = scores.length > 0 && scores.every((s: any) => s.status === 'NOT_PLAYED')
+
+        if (isExplicitlyExcluded) {
+          excludedHolesCount++
+          continue
         }
 
-        const remaining = matchHoles.length - holesPlayedCount
-        if (!match.playUntilEnd && Math.abs(lead) > remaining && decidedInfo === null) {
-          decidedInfo = {
-            winnerName: lead > 0 ? name1 : name2,
-            lead: Math.abs(lead),
-            remaining
+        const isHoleUnplayed = strokes1_1 === null && strokes1_2 === null && strokes2_1 === null && strokes2_2 === null
+        if (isHoleUnplayed) {
+          continue
+        }
+
+        const getNetOnHole = (strokes: number | null, strokesGiven: number) => {
+          if (strokes === null) return 999
+          if (strokes === 99) return 99
+          return strokes - strokesGiven
+        }
+
+        const net1_1 = getNetOnHole(strokes1_1, strokesMap1_1[holeNum] || 0)
+        const net1_2 = getNetOnHole(strokes1_2, strokesMap1_2[holeNum] || 0)
+        const net2_1 = getNetOnHole(strokes2_1, strokesMap2_1[holeNum] || 0)
+        const net2_2 = getNetOnHole(strokes2_2, strokesMap2_2[holeNum] || 0)
+
+        const teamNet1 = Math.min(net1_1, net1_2)
+        const teamNet2 = Math.min(net2_1, net2_2)
+
+        if (teamNet1 !== 999 && teamNet2 !== 999) {
+          holesPlayedCount++
+          if (teamNet1 < teamNet2) {
+            lead++
+          } else if (teamNet1 > teamNet2) {
+            lead--
+          }
+
+          const remaining = matchHoles.length - (holesPlayedCount + excludedHolesCount)
+          if (!match.playUntilEnd && Math.abs(lead) > remaining && decidedInfo === null) {
+            decidedInfo = {
+              winnerName: lead > 0 ? team1Name : team2Name,
+              lead: Math.abs(lead),
+              remaining
+            }
           }
         }
       }
-    }
 
-    let statusText = ""
-    if (decidedInfo !== null) {
-      if (decidedInfo.remaining === 0) {
-        statusText = `${decidedInfo.winnerName} ${decidedInfo.lead}up`
+      let statusText = ""
+      if (decidedInfo !== null) {
+        if (decidedInfo.remaining === 0) {
+          statusText = `${decidedInfo.winnerName} ${decidedInfo.lead}up`
+        } else {
+          statusText = `${decidedInfo.winnerName} ${decidedInfo.lead}&${decidedInfo.remaining}`
+        }
       } else {
-        statusText = `${decidedInfo.winnerName} ${decidedInfo.lead}&${decidedInfo.remaining}`
+        if (holesPlayedCount === 0) {
+          statusText = "Not Started"
+        } else if (lead === 0) {
+          statusText = "All Square"
+        } else if (lead > 0) {
+          statusText = `${team1Name} ${lead}up`
+        } else {
+          statusText = `${team2Name} ${Math.abs(lead)}up`
+        }
+      }
+
+      return {
+        statusText,
+        holesPlayed: holesPlayedCount,
+        totalHoles: matchHoles.length - excludedHolesCount,
+        allowance: 0,
+        player1Name: name1_1,
+        player2Name: name1_2,
+        player3Name: name2_1,
+        player4Name: name2_2,
+        player1Allowance: allowance1_1,
+        player2Allowance: allowance1_2,
+        player3Allowance: allowance2_1,
+        player4Allowance: allowance2_2,
+        isFinished: decidedInfo !== null || (holesPlayedCount + excludedHolesCount === matchHoles.length),
+        isTeamMatchplay: true
       }
     } else {
-      if (holesPlayedCount === 0) {
-        statusText = "Not Started"
-      } else if (lead === 0) {
-        statusText = "All Square"
-      } else if (lead > 0) {
-        statusText = `${name1} ${lead}up`
-      } else {
-        statusText = `${name2} ${Math.abs(lead)}up`
-      }
-    }
+      const p1 = competition.participants.find((p: any) => p.id === match.matchPlayers[0]?.participantId)
+      const p2 = competition.participants.find((p: any) => p.id === match.matchPlayers[1]?.participantId)
+      if (!p1 || !p2) return { statusText: "Unknown Players", holesPlayed: 0, totalHoles: 18, allowance: 0, player1Name: "Unknown", player2Name: "Unknown", player3Name: "Unknown", player4Name: "Unknown", player1Allowance: 0, player2Allowance: 0, player3Allowance: 0, player4Allowance: 0, isFinished: false, isTeamMatchplay: false }
 
-    return {
-      statusText,
-      holesPlayed: holesPlayedCount,
-      totalHoles: matchHoles.length,
-      allowance,
-      player1Name: name1,
-      player2Name: name2,
-      player1Allowance: p1Allowance,
-      player2Allowance: p2Allowance,
-      isFinished: decidedInfo !== null || holesPlayedCount === matchHoles.length
+      const hcp1 = getPlayingHandicap(p1, round)
+      const hcp2 = getPlayingHandicap(p2, round)
+
+      const allowance = getMatchAllowance(match, hcp1, hcp2)
+      const p1Allowance = hcp1 > hcp2 ? allowance : 0
+      const p2Allowance = hcp2 > hcp1 ? allowance : 0
+
+      const allNames = competition.participants.map((p: any) =>
+        p.userId ? p.user?.name : p.dummyName
+      ).filter((n: any): n is string => typeof n === 'string' && n.length > 0)
+
+      const fullName1 = p1.userId ? p1.user?.name : p1.dummyName || ""
+      const fullName2 = p2.userId ? p2.user?.name : p2.dummyName || ""
+
+      const name1 = getCompactName(fullName1, allNames)
+      const name2 = getCompactName(fullName2, allNames)
+
+      const roundHoles = round.holesPlayed && round.holesPlayed.length > 0
+        ? [...round.holesPlayed].sort((a: number, b: number) => a - b)
+        : Array.from({ length: 18 }, (_, i) => i + 1)
+
+      const matchHoles = parseHoleRange(match.holeRange, roundHoles)
+      const strokesMap = getMatchHoleStrokesMap(matchHoles, round, allowance)
+
+      let lead = 0
+      let holesPlayedCount = 0
+      let excludedHolesCount = 0
+      let decidedInfo: { winnerName: string; lead: number; remaining: number } | null = null
+
+      const getMatchHoleStrokes = (score: any) => {
+        if (!score) return null
+        if (score.status === 'WIPED') return 99
+        if (score.status === 'NOT_PLAYED') return null
+        return score.grossStrokes
+      }
+
+      for (let i = 0; i < matchHoles.length; i++) {
+        const holeNum = matchHoles[i]
+        const hole = round.course.holes.find((h: any) => h.number === holeNum)
+        if (!hole) continue
+
+        const score1 = p1.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
+        const score2 = p2.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
+
+        const strokes1 = getMatchHoleStrokes(score1)
+        const strokes2 = getMatchHoleStrokes(score2)
+
+        const scores = [score1, score2].filter(Boolean)
+        const isExplicitlyExcluded = scores.length > 0 && scores.every((s: any) => s.status === 'NOT_PLAYED')
+
+        if (isExplicitlyExcluded) {
+          excludedHolesCount++
+          continue
+        }
+
+        const isHoleUnplayed = strokes1 === null && strokes2 === null
+        if (isHoleUnplayed) {
+          continue
+        }
+
+        if (strokes1 !== null && strokes2 !== null) {
+          holesPlayedCount++
+          const strokesGiven = strokesMap[holeNum] || 0
+          const net1Calculated = hcp1 > hcp2 ? (strokes1 === 99 ? 99 : strokes1 - strokesGiven) : strokes1
+          const net2Calculated = hcp2 > hcp1 ? (strokes2 === 99 ? 99 : strokes2 - strokesGiven) : strokes2
+
+          if (net1Calculated < net2Calculated) {
+            lead++
+          } else if (net1Calculated > net2Calculated) {
+            lead--
+          }
+
+          const remaining = matchHoles.length - (holesPlayedCount + excludedHolesCount)
+          if (!match.playUntilEnd && Math.abs(lead) > remaining && decidedInfo === null) {
+            decidedInfo = {
+              winnerName: lead > 0 ? name1 : name2,
+              lead: Math.abs(lead),
+              remaining
+            }
+          }
+        }
+      }
+
+      let statusText = ""
+      if (decidedInfo !== null) {
+        if (decidedInfo.remaining === 0) {
+          statusText = `${decidedInfo.winnerName} ${decidedInfo.lead}up`
+        } else {
+          statusText = `${decidedInfo.winnerName} ${decidedInfo.lead}&${decidedInfo.remaining}`
+        }
+      } else {
+        if (holesPlayedCount === 0) {
+          statusText = "Not Started"
+        } else if (lead === 0) {
+          statusText = "All Square"
+        } else if (lead > 0) {
+          statusText = `${name1} ${lead}up`
+        } else {
+          statusText = `${name2} ${Math.abs(lead)}up`
+        }
+      }
+
+      return {
+        statusText,
+        holesPlayed: holesPlayedCount,
+        totalHoles: matchHoles.length - excludedHolesCount,
+        allowance,
+        player1Name: name1,
+        player2Name: name2,
+        player3Name: "",
+        player4Name: "",
+        player1Allowance: p1Allowance,
+        player2Allowance: p2Allowance,
+        player3Allowance: 0,
+        player4Allowance: 0,
+        isFinished: decidedInfo !== null || (holesPlayedCount + excludedHolesCount === matchHoles.length),
+        isTeamMatchplay: false
+      }
     }
   }
 
@@ -1143,13 +1340,15 @@ export function CompetitionClientView({ competition, session, courses = [], user
       const isNet = selectedLeaderboardType === 'TEAM_STABLEFORD_NETTO'
       const isBrut = selectedLeaderboardType === 'TEAM_STABLEFORD_BRUTTO'
 
-      // First calculate individual stats for mapping
-      const playerStats = competition.participants.map((p: any) => {
-        let points = 0
-        let strokes = 0
-        
+      const isBestball = competition.type === 'TEAM_MATCHPLAY'
+
+      const teamEntries = competition.teams.map((t: any) => {
+        const teamParticipants = competition.participants.filter((p: any) => p.teamId === t.id)
+
+        let teamPoints = 0
+        let teamStrokes = 0
+
         for (const round of activeRounds) {
-          const courseHandicap = getPlayingHandicap(p, round)
           const roundHoles = round.holesPlayed && round.holesPlayed.length > 0 
             ? round.holesPlayed 
             : Array.from({ length: 18 }, (_, i) => i + 1)
@@ -1162,29 +1361,37 @@ export function CompetitionClientView({ competition, session, courses = [], user
             const holePar = adjusted ? adjusted.par : hole.par
             const holeStrokeIndex = adjusted ? adjusted.strokeIndex : hole.strokeIndex
 
-            const score = p.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
-            if (score && (score.grossStrokes !== null || (score.status !== null && score.status !== 'NOT_PLAYED'))) {
-              if (score.status === 'WIPED') {
-                strokes += isStroke ? (holePar + 3) : 0 // wiped hole is triple bogey in strokeplay gross
-              } else if (score.grossStrokes !== null) {
-                strokes += score.grossStrokes
-                const hcpStrokes = getHandicapStrokesOnHole(courseHandicap, holeStrokeIndex)
-                const pts = calculateStablefordPoints(score.grossStrokes, holePar, hcpStrokes, isNet)
-                if (pts !== null) points += pts
+            // Calculate score for each member on this hole
+            const memberHoleStats: { pts: number; str: number }[] = teamParticipants.map((p: any) => {
+              const courseHandicap = getPlayingHandicap(p, round)
+              const score = p.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
+              let pts = 0
+              let str = 0
+              if (score && (score.grossStrokes !== null || (score.status !== null && score.status !== 'NOT_PLAYED'))) {
+                if (score.status === 'WIPED') {
+                  str = holePar + 3
+                } else if (score.grossStrokes !== null) {
+                  str = score.grossStrokes
+                  const hcpStrokes = getHandicapStrokesOnHole(courseHandicap, holeStrokeIndex)
+                  const pStableford = calculateStablefordPoints(score.grossStrokes, holePar, hcpStrokes, isNet)
+                  if (pStableford !== null) pts = pStableford
+                }
               }
+              return { pts, str }
+            })
+
+            if (isBestball) {
+              teamPoints += Math.max(...memberHoleStats.map(m => m.pts), 0)
+              const activeStrokes = memberHoleStats.map(m => m.str).filter(s => s > 0)
+              teamStrokes += activeStrokes.length > 0 ? Math.min(...activeStrokes) : (holePar + 3)
+            } else {
+              teamPoints += memberHoleStats.reduce((sum, m) => sum + m.pts, 0)
+              teamStrokes += memberHoleStats.reduce((sum, m) => sum + m.str, 0)
             }
           }
         }
-        return { id: p.id, teamId: p.teamId, points, strokes }
-      })
 
-      // Aggregate by Team
-      const teamEntries = competition.teams.map((t: any) => {
-        const members = playerStats.filter((ps: any) => ps.teamId === t.id)
-        const teamPoints = members.reduce((sum: number, m: any) => sum + m.points, 0)
-        const teamStrokes = members.reduce((sum: number, m: any) => sum + m.strokes, 0)
-        const memberNames = competition.participants
-          .filter((p: any) => p.teamId === t.id)
+        const memberNames = teamParticipants
           .map((p: any) => p.userId ? (p.user?.name || p.user?.email) : p.dummyName)
           .join(", ")
 
@@ -1193,7 +1400,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
           team: t,
           name: t.name,
           memberNames,
-          totalPoints: isStroke ? teamStrokes : teamPoints, // for sorting generic
+          totalPoints: isStroke ? teamStrokes : teamPoints,
           totalStrokes: teamStrokes,
           holesPlayed: activeRounds.length
         }
@@ -1207,6 +1414,171 @@ export function CompetitionClientView({ competition, session, courses = [], user
         sorted = [...teamEntries].sort((a, b) => b.totalPoints - a.totalPoints)
       }
 
+      return sorted.map((entry, idx) => {
+        const ties = sorted.filter(x => x.totalPoints === entry.totalPoints)
+        const isTied = ties.length > 1
+        const firstIdx = sorted.findIndex(x => x.totalPoints === entry.totalPoints) + 1
+        return {
+          ...entry,
+          rank: isTied ? `T${firstIdx}` : `${idx + 1}`
+        }
+      })
+    }
+
+    if (selectedLeaderboardType === 'MVP') {
+      const entries = competition.participants.map((p: any) => {
+        let totalPoints = 0
+        const roundPoints: Record<string, number> = {}
+
+        for (const round of activeRounds) {
+          let roundMVPPoints = 0
+          const teamMatches = (round.matches || []).filter((m: any) => m.type === 'TEAM_MATCHPLAY')
+          
+          for (const match of teamMatches) {
+            const isPlayerInMatch = match.matchPlayers.some((mp: any) => mp.participantId === p.id)
+            if (!isPlayerInMatch) continue
+
+            const pIds = match.matchPlayers.map((mp: any) => mp.participantId)
+            const players = pIds.map((id: string) => competition.participants.find((x: any) => x.id === id)).filter(Boolean)
+            if (players.length < 4) continue
+
+            const teamIds = Array.from(new Set(players.map((x: any) => x.teamId))).filter(Boolean)
+            let team1Id = teamIds[0]
+            let team2Id = teamIds[1]
+
+            const christoph = players.find((x: any) => (x.user?.name || x.dummyName || "").toLowerCase().includes("christoph"))
+            if (christoph && christoph.teamId === team2Id) {
+              const temp = team1Id
+              team1Id = team2Id
+              team2Id = temp
+            }
+
+            const team1Players = players.filter((x: any) => x.teamId === team1Id)
+            const team2Players = players.filter((x: any) => x.teamId === team2Id)
+
+            if (team1Players.length !== 2 || team2Players.length !== 2) continue
+
+            team1Players.sort((a: any, b: any) => getPlayingHandicap(a, round) - getPlayingHandicap(b, round))
+            team2Players.sort((a: any, b: any) => getPlayingHandicap(a, round) - getPlayingHandicap(b, round))
+
+            const hcp1_1 = getPlayingHandicap(team1Players[0], round)
+            const hcp1_2 = getPlayingHandicap(team1Players[1], round)
+            const hcp2_1 = getPlayingHandicap(team2Players[0], round)
+            const hcp2_2 = getPlayingHandicap(team2Players[1], round)
+
+            const minPH = Math.min(hcp1_1, hcp1_2, hcp2_1, hcp2_2)
+
+            const allowance1_1 = hcp1_1 - minPH
+            const allowance1_2 = hcp1_2 - minPH
+            const allowance2_1 = hcp2_1 - minPH
+            const allowance2_2 = hcp2_2 - minPH
+
+            const roundHoles = round.holesPlayed && round.holesPlayed.length > 0
+              ? [...round.holesPlayed].sort((a: number, b: number) => a - b)
+              : Array.from({ length: 18 }, (_, i) => i + 1)
+
+            const matchHoles = parseHoleRange(match.holeRange, roundHoles)
+
+            const strokesMap1_1 = getMatchHoleStrokesMap(matchHoles, round, allowance1_1)
+            const strokesMap1_2 = getMatchHoleStrokesMap(matchHoles, round, allowance1_2)
+            const strokesMap2_1 = getMatchHoleStrokesMap(matchHoles, round, allowance2_1)
+            const strokesMap2_2 = getMatchHoleStrokesMap(matchHoles, round, allowance2_2)
+
+            for (const holeNum of matchHoles) {
+              const hole = round.course.holes.find((h: any) => h.number === holeNum)
+              if (!hole) continue
+
+              const score1_1 = team1Players[0].scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
+              const score1_2 = team1Players[1].scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
+              const score2_1 = team2Players[0].scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
+              const score2_2 = team2Players[1].scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
+
+              const getHoleStrokes = (score: any) => {
+                if (!score || score.status === 'NOT_PLAYED' || score.grossStrokes === null) return null
+                if (score.status === 'WIPED') return 99
+                return score.grossStrokes
+              }
+
+              const strokes1_1 = getHoleStrokes(score1_1)
+              const strokes1_2 = getHoleStrokes(score1_2)
+              const strokes2_1 = getHoleStrokes(score2_1)
+              const strokes2_2 = getHoleStrokes(score2_2)
+
+              if (strokes1_1 === null && strokes1_2 === null && strokes2_1 === null && strokes2_2 === null) {
+                continue
+              }
+
+              const getNet = (strokes: number | null, strokesGiven: number) => {
+                if (strokes === null) return 999
+                if (strokes === 99) return 99
+                return strokes - strokesGiven
+              }
+
+              const net1_1 = getNet(strokes1_1, strokesMap1_1[holeNum] || 0)
+              const net1_2 = getNet(strokes1_2, strokesMap1_2[holeNum] || 0)
+              const net2_1 = getNet(strokes2_1, strokesMap2_1[holeNum] || 0)
+              const net2_2 = getNet(strokes2_2, strokesMap2_2[holeNum] || 0)
+
+              const teamNet1 = Math.min(net1_1, net1_2)
+              const teamNet2 = Math.min(net2_1, net2_2)
+
+              if (teamNet1 !== 999 && teamNet2 !== 999) {
+                if (teamNet1 < teamNet2) {
+                  if (p.id === team1Players[0].id) {
+                    if (net1_1 < net1_2) roundMVPPoints += 1
+                    else if (net1_1 === net1_2) roundMVPPoints += 0.5
+                  } else if (p.id === team1Players[1].id) {
+                    if (net1_2 < net1_1) roundMVPPoints += 1
+                    else if (net1_2 === net1_1) roundMVPPoints += 0.5
+                  }
+                } else if (teamNet2 < teamNet1) {
+                  if (p.id === team2Players[0].id) {
+                    if (net2_1 < net2_2) roundMVPPoints += 1
+                    else if (net2_1 === net2_2) roundMVPPoints += 0.5
+                  } else if (p.id === team2Players[1].id) {
+                    if (net2_2 < net2_1) roundMVPPoints += 1
+                    else if (net2_2 === net2_1) roundMVPPoints += 0.5
+                  }
+                } else {
+                  let active1 = []
+                  if (net1_1 === teamNet1) active1.push(team1Players[0].id)
+                  if (net1_2 === teamNet1) active1.push(team1Players[1].id)
+
+                  let active2 = []
+                  if (net2_1 === teamNet2) active2.push(team2Players[0].id)
+                  if (net2_2 === teamNet2) active2.push(team2Players[1].id)
+
+                  const isActive = (p.id === team1Players[0].id && active1.includes(p.id)) ||
+                                   (p.id === team1Players[1].id && active1.includes(p.id)) ||
+                                   (p.id === team2Players[0].id && active2.includes(p.id)) ||
+                                   (p.id === team2Players[1].id && active2.includes(p.id))
+
+                  if (isActive) {
+                    const activeCount = (p.teamId === team1Id) ? active1.length : active2.length
+                    if (activeCount === 1) roundMVPPoints += 0.5
+                    else if (activeCount === 2) roundMVPPoints += 0.25
+                  }
+                }
+              }
+            }
+          }
+
+          roundPoints[round.id] = roundMVPPoints
+          totalPoints += roundMVPPoints
+        }
+
+        const name = p.userId ? p.user?.name : p.dummyName
+        return {
+          participantId: p.id,
+          participant: p,
+          name,
+          totalPoints,
+          roundPoints,
+          holesPlayed: activeRounds.length
+        }
+      })
+
+      const sorted = [...entries].sort((a, b) => b.totalPoints - a.totalPoints)
       return sorted.map((entry, idx) => {
         const ties = sorted.filter(x => x.totalPoints === entry.totalPoints)
         const isTied = ties.length > 1
@@ -1612,12 +1984,18 @@ export function CompetitionClientView({ competition, session, courses = [], user
                   {competition.rounds.some((r: any) => r.matches?.some((m: any) => m.type === "SINGLES")) && (
                     <option value="MATCHPLAY">Matchplays</option>
                   )}
+                  {competition.rounds.some((r: any) => r.matches?.some((m: any) => m.type === "TEAM_MATCHPLAY")) && (
+                    <option value="TEAM_MATCHPLAY">Team Matchplay</option>
+                  )}
+                  {selectedExtraLeaderboards.includes('MVP') && (
+                    <option value="MVP">MVP Leaderboard</option>
+                  )}
                 </select>
               </div>
             </div>
 
             {/* Standings Table (Matchplay) */}
-            {selectedLeaderboardType === 'MATCHPLAY' ? (
+            {selectedLeaderboardType === 'MATCHPLAY' || selectedLeaderboardType === 'TEAM_MATCHPLAY' ? (
               <div className="bg-white/60 backdrop-blur-sm border border-slate-200 rounded-2xl overflow-x-auto shadow-sm">
                 <table className="w-full text-sm text-left border-collapse">
                   <thead className="bg-slate-100/50 text-slate-550 uppercase tracking-wider text-xs border-b border-slate-200">
@@ -1636,8 +2014,10 @@ export function CompetitionClientView({ competition, session, courses = [], user
                         : competition.rounds.filter((r: any) => r.id === selectedRoundFilter)
 
                       for (const r of roundsToUse) {
-                        const singlesMatches = (r.matches || []).filter((m: any) => m.type === 'SINGLES')
-                        for (const m of singlesMatches) {
+                        const matches = (r.matches || []).filter((m: any) => 
+                          selectedLeaderboardType === 'TEAM_MATCHPLAY' ? m.type === 'TEAM_MATCHPLAY' : m.type === 'SINGLES'
+                        )
+                        for (const m of matches) {
                           matchplayList.push({ round: r, match: m })
                         }
                       }
@@ -1683,7 +2063,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
                       })
 
                       return evaluated.map(({ round, match, status }) => {
-                        const { statusText, holesPlayed, totalHoles, player1Name, player2Name, player1Allowance, player2Allowance } = status
+                        const { statusText, holesPlayed, totalHoles, player1Name, player2Name, player3Name, player4Name, player1Allowance, player2Allowance, player3Allowance, player4Allowance, isTeamMatchplay } = status
                         return (
                           <tr key={match.id} className="hover:bg-slate-50/50 transition-colors cursor-pointer" onClick={() => {
                             setSelectedMatchForScorecard(match)
@@ -1691,20 +2071,43 @@ export function CompetitionClientView({ competition, session, courses = [], user
                           }}>
                             <td className="px-5 py-4 font-bold text-slate-900">{round.name}</td>
                             <td className="px-5 py-4">
-                              <div className="flex flex-col space-y-0.5 text-left font-semibold text-slate-800 leading-tight">
-                                <span>
-                                  {player1Name}
-                                  {player1Allowance > 0 && ` (${player1Allowance})`}
-                                  <span className="text-slate-400 font-normal ml-1">v</span>
-                                </span>
-                                <span>
-                                  {player2Name}
-                                  {player2Allowance > 0 && ` (${player2Allowance})`}
-                                  {match.holeRange && match.holeRange !== "1-18" && (
-                                    <span className="ml-1.5 text-[8px] bg-slate-100 text-slate-500 px-1 py-0.2 rounded font-mono">({match.holeRange})</span>
-                                  )}
-                                </span>
-                              </div>
+                              {isTeamMatchplay ? (
+                                <div className="flex flex-col space-y-0.5 text-left font-semibold text-slate-800 leading-tight">
+                                  <span>
+                                    {player1Name}
+                                    {player1Allowance > 0 && ` (${player1Allowance})`}
+                                    {` & `}
+                                    {player2Name}
+                                    {player2Allowance > 0 && ` (${player2Allowance})`}
+                                    <span className="text-slate-400 font-normal ml-1">v</span>
+                                  </span>
+                                  <span>
+                                    {player3Name}
+                                    {player3Allowance > 0 && ` (${player3Allowance})`}
+                                    {` & `}
+                                    {player4Name}
+                                    {player4Allowance > 0 && ` (${player4Allowance})`}
+                                    {match.holeRange && match.holeRange !== "1-18" && (
+                                      <span className="ml-1.5 text-[8px] bg-slate-100 text-slate-500 px-1 py-0.2 rounded font-mono">({match.holeRange})</span>
+                                    )}
+                                  </span>
+                                </div>
+                              ) : (
+                                <div className="flex flex-col space-y-0.5 text-left font-semibold text-slate-800 leading-tight">
+                                  <span>
+                                    {player1Name}
+                                    {player1Allowance > 0 && ` (${player1Allowance})`}
+                                    <span className="text-slate-400 font-normal ml-1">v</span>
+                                  </span>
+                                  <span>
+                                    {player2Name}
+                                    {player2Allowance > 0 && ` (${player2Allowance})`}
+                                    {match.holeRange && match.holeRange !== "1-18" && (
+                                      <span className="ml-1.5 text-[8px] bg-slate-100 text-slate-500 px-1 py-0.2 rounded font-mono">({match.holeRange})</span>
+                                    )}
+                                  </span>
+                                </div>
+                              )}
                             </td>
                             <td className="px-5 py-4 text-center font-mono text-slate-600">
                               {holesPlayed}/{totalHoles}
@@ -3281,43 +3684,137 @@ export function CompetitionClientView({ competition, session, courses = [], user
                 const round = selectedMatchRoundForScorecard
                 const match = selectedMatchForScorecard
 
-                const p1 = competition.participants.find((p: any) => p.id === match.matchPlayers[0]?.participantId)
-                const p2 = competition.participants.find((p: any) => p.id === match.matchPlayers[1]?.participantId)
-                if (!p1 || !p2) return <p className="text-center text-slate-500 italic">Unknown Players</p>
+                const isTeamMatchplay = match.type === 'TEAM_MATCHPLAY'
 
-                const hcp1 = getPlayingHandicap(p1, round)
-                const hcp2 = getPlayingHandicap(p2, round)
+                const pIds = match.matchPlayers.map((mp: any) => mp.participantId)
+                const players = pIds.map((id: string) => competition.participants.find((x: any) => x.id === id)).filter(Boolean)
 
-                const allowance = getMatchAllowance(match, hcp1, hcp2)
+                if (players.length === 0) return <p className="text-center text-slate-500 italic">Unknown Players</p>
 
-                const p1Allowance = hcp1 > hcp2 ? allowance : 0
-                const p2Allowance = hcp2 > hcp1 ? allowance : 0
+                let p1 = players[0]
+                let p2 = players[1]
+                let p3 = players[2]
+                let p4 = players[3]
+
+                let team1Players: any[] = []
+                let team2Players: any[] = []
+                let p1Allowance = 0, p2Allowance = 0, p3Allowance = 0, p4Allowance = 0, allowance = 0
+                let strokesMap1: any = {}, strokesMap2: any = {}, strokesMap3: any = {}, strokesMap4: any = {}
+
+                const getInitials = (name: string) => {
+                  if (!name) return ""
+                  const parts = name.trim().split(/\s+/)
+                  if (parts.length >= 2) {
+                    return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase()
+                  }
+                  return name.substring(0, 2).toUpperCase()
+                }
 
                 const allNames = competition.participants.map((p: any) =>
                   p.userId ? p.user?.name : p.dummyName
                 ).filter((n: any): n is string => typeof n === 'string' && n.length > 0)
-
-                const name1 = getCompactName(p1.userId ? p1.user?.name : p1.dummyName || "", allNames)
-                const name2 = getCompactName(p2.userId ? p2.user?.name : p2.dummyName || "", allNames)
 
                 const roundHoles = round.holesPlayed && round.holesPlayed.length > 0
                   ? [...round.holesPlayed].sort((a: number, b: number) => a - b)
                   : Array.from({ length: 18 }, (_, i) => i + 1)
 
                 const matchHoles = parseHoleRange(match.holeRange, roundHoles)
-                const strokesMap = getMatchHoleStrokesMap(matchHoles, round, allowance)
 
-                const frontHoleNums = matchHoles.filter(num => num >= 1 && num <= 9)
-                const backHoleNums = matchHoles.filter(num => num >= 10 && num <= 18)
+                if (isTeamMatchplay && players.length === 4) {
+                  const teamIds = Array.from(new Set(players.map((x: any) => x.teamId))).filter(Boolean)
+                  let team1Id = teamIds[0]
+                  let team2Id = teamIds[1]
+
+                  const christoph = players.find((x: any) => (x.user?.name || x.dummyName || "").toLowerCase().includes("christoph"))
+                  if (christoph && christoph.teamId === team2Id) {
+                    const temp = team1Id
+                    team1Id = team2Id
+                    team2Id = temp
+                  }
+
+                  team1Players = players.filter((x: any) => x.teamId === team1Id)
+                  team2Players = players.filter((x: any) => x.teamId === team2Id)
+                  team1Players.sort((a: any, b: any) => getPlayingHandicap(a, round) - getPlayingHandicap(b, round))
+                  team2Players.sort((a: any, b: any) => getPlayingHandicap(a, round) - getPlayingHandicap(b, round))
+
+                  p1 = team1Players[0]
+                  p2 = team1Players[1]
+                  p3 = team2Players[0]
+                  p4 = team2Players[1]
+
+                  const hcp1 = getPlayingHandicap(p1, round)
+                  const hcp2 = getPlayingHandicap(p2, round)
+                  const hcp3 = getPlayingHandicap(p3, round)
+                  const hcp4 = getPlayingHandicap(p4, round)
+
+                  const minPH = Math.min(hcp1, hcp2, hcp3, hcp4)
+
+                  p1Allowance = hcp1 - minPH
+                  p2Allowance = hcp2 - minPH
+                  p3Allowance = hcp3 - minPH
+                  p4Allowance = hcp4 - minPH
+
+                  strokesMap1 = getMatchHoleStrokesMap(matchHoles, round, p1Allowance)
+                  strokesMap2 = getMatchHoleStrokesMap(matchHoles, round, p2Allowance)
+                  strokesMap3 = getMatchHoleStrokesMap(matchHoles, round, p3Allowance)
+                  strokesMap4 = getMatchHoleStrokesMap(matchHoles, round, p4Allowance)
+                } else {
+                  if (players.length >= 2) {
+                    p1 = players[0]
+                    p2 = players[1]
+                  }
+                  const hcp1 = getPlayingHandicap(p1, round)
+                  const hcp2 = getPlayingHandicap(p2, round)
+                  const allowance = getMatchAllowance(match, hcp1, hcp2)
+                  p1Allowance = hcp1 > hcp2 ? allowance : 0
+                  p2Allowance = hcp2 > hcp1 ? allowance : 0
+                  strokesMap1 = getMatchHoleStrokesMap(matchHoles, round, p1Allowance)
+                  strokesMap2 = getMatchHoleStrokesMap(matchHoles, round, p2Allowance)
+                }
+
+                const name1 = getCompactName(p1.userId ? p1.user?.name : p1.dummyName || "", allNames)
+                const name2 = p2 ? getCompactName(p2.userId ? p2.user?.name : p2.dummyName || "", allNames) : ""
+                const name3 = p3 ? getCompactName(p3.userId ? p3.user?.name : p3.dummyName || "", allNames) : ""
+                const name4 = p4 ? getCompactName(p4.userId ? p4.user?.name : p4.dummyName || "", allNames) : ""
+
+                const frontHoleNums = matchHoles
+                  .filter(num => num >= 1 && num <= 9)
+                  .filter(num => {
+                    const hole = round.course.holes.find((h: any) => h.number === num)
+                    if (!hole) return false
+                    const score1 = p1.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
+                    const score2 = p2 ? p2.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id) : null
+                    const score3 = p3 ? p3.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id) : null
+                    const score4 = p4 ? p4.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id) : null
+                    const scores = [score1, score2, score3, score4].filter(Boolean)
+                    return !(scores.length > 0 && scores.every((s: any) => s.status === 'NOT_PLAYED'))
+                  })
+
+                const backHoleNums = matchHoles
+                  .filter(num => num >= 10 && num <= 18)
+                  .filter(num => {
+                    const hole = round.course.holes.find((h: any) => h.number === num)
+                    if (!hole) return false
+                    const score1 = p1.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
+                    const score2 = p2 ? p2.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id) : null
+                    const score3 = p3 ? p3.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id) : null
+                    const score4 = p4 ? p4.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id) : null
+                    const scores = [score1, score2, score3, score4].filter(Boolean)
+                    return !(scores.length > 0 && scores.every((s: any) => s.status === 'NOT_PLAYED'))
+                  })
 
                 const renderMatchplayHoleTable = (holeNums: number[]) => {
-                  let sumPar = 0
-                  let sumStrokes1 = 0
-                  let sumStrokes2 = 0
+                  if (holeNums.length === 0) return null
+
+                  const sumPar = holeNums.reduce((sum, num) => {
+                    const hole = round.course.holes.find((h: any) => h.number === num)
+                    return sum + (hole?.par || 4)
+                  }, 0)
 
                   let runningLead = 0
                   const standingsAtHole: Record<number, string> = {}
                   const holeWinner: Record<number, '1' | '2' | 'halved' | null> = {}
+                  const netValuesAtHole: Record<number, Record<number, number>> = {}
 
                   const getMatchHoleStrokes = (score: any) => {
                     if (!score) return null
@@ -3330,20 +3827,41 @@ export function CompetitionClientView({ competition, session, courses = [], user
                     const hole = round.course.holes.find((h: any) => h.number === num)
                     if (!hole) continue
                     const score1 = p1.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
-                    const score2 = p2.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
+                    const score2 = p2 ? p2.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id) : null
+                    const score3 = p3 ? p3.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id) : null
+                    const score4 = p4 ? p4.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id) : null
 
                     const strokes1 = getMatchHoleStrokes(score1)
                     const strokes2 = getMatchHoleStrokes(score2)
+                    const strokes3 = isTeamMatchplay ? getMatchHoleStrokes(score3) : null
+                    const strokes4 = isTeamMatchplay ? getMatchHoleStrokes(score4) : null
 
-                    if (strokes1 !== null && strokes2 !== null) {
-                      const strokesGiven = strokesMap[num] || 0
-                      const net1Calculated = hcp1 > hcp2 ? (strokes1 === 99 ? 99 : strokes1 - strokesGiven) : strokes1
-                      const net2Calculated = hcp2 > hcp1 ? (strokes2 === 99 ? 99 : strokes2 - strokesGiven) : strokes2
+                    // Exclude hole if all unplayed
+                    if (strokes1 === null && strokes2 === null && strokes3 === null && strokes4 === null) {
+                      continue
+                    }
 
-                      if (net1Calculated < net2Calculated) {
+                    const getNet = (strokes: number | null, strokesGiven: number) => {
+                      if (strokes === null) return 999
+                      if (strokes === 99) return 99
+                      return strokes - strokesGiven
+                    }
+
+                    const net1 = getNet(strokes1, strokesMap1[num] || 0)
+                    const net2 = getNet(strokes2, strokesMap2[num] || 0)
+                    const net3 = getNet(strokes3, strokesMap3[num] || 0)
+                    const net4 = getNet(strokes4, strokesMap4[num] || 0)
+
+                    netValuesAtHole[num] = { 1: net1, 2: net2, 3: net3, 4: net4 }
+
+                    const teamNet1 = isTeamMatchplay ? Math.min(net1, net2) : net1
+                    const teamNet2 = isTeamMatchplay ? Math.min(net3, net4) : net2
+
+                    if (teamNet1 !== 999 && teamNet2 !== 999) {
+                      if (teamNet1 < teamNet2) {
                         runningLead++
                         holeWinner[num] = '1'
-                      } else if (net1Calculated > net2Calculated) {
+                      } else if (teamNet1 > teamNet2) {
                         runningLead--
                         holeWinner[num] = '2'
                       } else {
@@ -3403,6 +3921,83 @@ export function CompetitionClientView({ competition, session, courses = [], user
                     return null
                   }
 
+                  const renderPlayerRow = (p: any, displayName: string, allowance: number, strokesMap: any, pIdx: number) => {
+                    let totalStrokes = 0
+                    return (
+                      <tr className="border-b border-slate-200">
+                        <td className="px-3 py-2 text-left font-bold text-slate-700 border-r border-slate-200 text-[10px] bg-slate-50/50 truncate max-w-[110px]">
+                          {displayName}
+                          {allowance > 0 && ` (${allowance})`}
+                        </td>
+                        {holeNums.map(num => {
+                          const adjusted = getRoundHoleInfo(round, num)
+                          const hole = round.course.holes.find((h: any) => h.number === num)
+                          if (!hole) return <td key={num} className="border-r border-slate-200/80">-</td>
+
+                          const holePar = adjusted ? adjusted.par : hole.par
+                          const score = p.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
+
+                          let displayVal = "-"
+                          let diff = 0
+                          let isWiped = false
+
+                          if (score && (score.grossStrokes !== null || (score.status !== null && score.status !== 'NOT_PLAYED'))) {
+                            if (score.status === 'WIPED') {
+                              displayVal = "/"
+                              isWiped = true
+                              totalStrokes += holePar + 3
+                            } else if (score.grossStrokes !== null) {
+                              displayVal = String(score.grossStrokes)
+                              totalStrokes += score.grossStrokes
+                              diff = score.grossStrokes - holePar
+                            }
+                          }
+
+                          const wonTeam = holeWinner[num]
+                          const won = (pIdx === 1 && wonTeam === '1' && netValuesAtHole[num]?.[1] === Math.min(netValuesAtHole[num]?.[1], netValuesAtHole[num]?.[2])) ||
+                                      (pIdx === 2 && wonTeam === '1' && netValuesAtHole[num]?.[2] === Math.min(netValuesAtHole[num]?.[1], netValuesAtHole[num]?.[2])) ||
+                                      (pIdx === 3 && wonTeam === '2' && netValuesAtHole[num]?.[3] === Math.min(netValuesAtHole[num]?.[3], netValuesAtHole[num]?.[4])) ||
+                                      (pIdx === 4 && wonTeam === '2' && netValuesAtHole[num]?.[4] === Math.min(netValuesAtHole[num]?.[3], netValuesAtHole[num]?.[4])) ||
+                                      (!isTeamMatchplay && pIdx === 1 && wonTeam === '1') ||
+                                      (!isTeamMatchplay && pIdx === 2 && wonTeam === '2')
+
+                          let cellBg = "text-slate-800"
+                          if (won) {
+                            if (isTeamMatchplay) {
+                              if (pIdx === 1 || pIdx === 2) {
+                                const otherNet = pIdx === 1 ? netValuesAtHole[num]?.[2] : netValuesAtHole[num]?.[1]
+                                const myNet = netValuesAtHole[num]?.[pIdx]
+                                cellBg = myNet < otherNet ? "bg-emerald-100 text-emerald-950 font-black" : "bg-emerald-50 text-emerald-800"
+                              } else {
+                                const otherNet = pIdx === 3 ? netValuesAtHole[num]?.[4] : netValuesAtHole[num]?.[3]
+                                const myNet = netValuesAtHole[num]?.[pIdx]
+                                cellBg = myNet < otherNet ? "bg-emerald-100 text-emerald-950 font-black" : "bg-emerald-50 text-emerald-800"
+                              }
+                            } else {
+                              cellBg = "bg-emerald-50 text-emerald-800"
+                            }
+                          }
+
+                          const hasStroke = allowance > 0 && (strokesMap[num] || 0) > 0
+                          const markerMarkup = getMarkerMarkup(displayVal, diff, isWiped)
+
+                          return (
+                            <td key={num} className={`px-1 py-2 border-r border-slate-200/80 relative font-bold text-[11px] transition-colors duration-150 ${cellBg}`}>
+                              <div className="flex items-center justify-center h-7 relative w-full">
+                                <span className={isWiped ? 'text-red-650 font-black' : ''}>{displayVal}</span>
+                                {markerMarkup}
+                                {hasStroke && (
+                                  <div className="absolute top-1 right-1 w-[5px] h-[5px] bg-cyan-500 rounded-full" title="Allowance stroke given on this hole" />
+                                )}
+                              </div>
+                            </td>
+                          )
+                        })}
+                        <td className="px-1.5 py-2 font-extrabold text-slate-850 text-[10px] bg-slate-50/50">{totalStrokes}</td>
+                      </tr>
+                    )
+                  }
+
                   return (
                     <div className="overflow-x-auto border border-slate-200 rounded-xl w-full shadow-sm">
                       <table className="w-full text-[10px] text-center border-collapse">
@@ -3410,10 +4005,6 @@ export function CompetitionClientView({ competition, session, courses = [], user
                           <tr className="border-b border-slate-200">
                             <th className="px-3 py-2 text-left font-extrabold border-r border-slate-200 w-28 text-[10px] text-slate-800 bg-slate-100/50">Hole</th>
                             {holeNums.map(num => {
-                              const adjusted = getRoundHoleInfo(round, num)
-                              const hole = round.course.holes.find((h: any) => h.number === num)
-                              const holePar = adjusted ? adjusted.par : (hole?.par || 4)
-                              sumPar += holePar
                               return (
                                 <th key={num} className="px-1 py-1 border-r border-slate-200/80 font-black w-8 md:w-10 text-[10px] text-slate-700">
                                   {num}
@@ -3452,58 +4043,13 @@ export function CompetitionClientView({ competition, session, courses = [], user
                           </tr>
                         </thead>
                         <tbody className="bg-white text-slate-800">
-                          {/* Player 1 Row */}
-                          <tr className="border-b border-slate-200">
-                            <td className="px-3 py-2 text-left font-bold text-slate-700 border-r border-slate-200 text-[10px] bg-slate-50/50 truncate max-w-[110px]">
-                              {name1}
-                              {p1Allowance > 0 && ` (${p1Allowance})`}
-                            </td>
-                            {holeNums.map(num => {
-                              const adjusted = getRoundHoleInfo(round, num)
-                              const hole = round.course.holes.find((h: any) => h.number === num)
-                              if (!hole) return <td key={num} className="border-r border-slate-200/80">-</td>
+                          {renderPlayerRow(p1, name1, p1Allowance, strokesMap1, 1)}
 
-                              const holePar = adjusted ? adjusted.par : hole.par
-                              const score = p1.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
-
-                              let displayVal = "-"
-                              let diff = 0
-                              let isWiped = false
-
-                              if (score && (score.grossStrokes !== null || (score.status !== null && score.status !== 'NOT_PLAYED'))) {
-                                if (score.status === 'WIPED') {
-                                  displayVal = "/"
-                                  isWiped = true
-                                  sumStrokes1 += holePar + 3
-                                } else if (score.grossStrokes !== null) {
-                                  displayVal = String(score.grossStrokes)
-                                  sumStrokes1 += score.grossStrokes
-                                  diff = score.grossStrokes - holePar
-                                }
-                              }
-
-                              const won = holeWinner[num] === '1'
-                              const hasStroke = p1Allowance > 0 && (strokesMap[num] || 0) > 0
-                              const markerMarkup = getMarkerMarkup(displayVal, diff, isWiped)
-
-                              return (
-                                <td key={num} className={`px-1 py-2 border-r border-slate-200/80 relative font-bold text-[11px] transition-colors duration-150 ${won ? 'bg-emerald-50 text-emerald-800' : 'text-slate-800'}`}>
-                                  <div className="flex items-center justify-center h-7 relative w-full">
-                                    <span className={isWiped ? 'text-red-650 font-black' : ''}>{displayVal}</span>
-                                    {markerMarkup}
-                                    {hasStroke && (
-                                      <div className="absolute top-1 right-1 w-[5px] h-[5px] bg-cyan-500 rounded-full" title="Allowance stroke given on this hole" />
-                                    )}
-                                  </div>
-                                </td>
-                              )
-                            })}
-                            <td className="px-1.5 py-2 font-extrabold text-slate-850 text-[10px] bg-slate-50/50">{sumStrokes1}</td>
-                          </tr>
+                          {isTeamMatchplay && p2 && renderPlayerRow(p2, name2, p2Allowance, strokesMap2, 2)}
 
                           {/* Running Match Score Row */}
                           <tr className="border-b border-slate-200 bg-slate-50/40 text-[9px]">
-                            <td className="px-3 py-1.5 text-left font-bold text-slate-500 border-r border-slate-200 bg-slate-50/60">
+                            <td className="px-3 py-1.5 text-left font-bold text-slate-555 border-r border-slate-200 bg-slate-50/60">
                               Match Score
                             </td>
                             {holeNums.map(num => {
@@ -3524,54 +4070,14 @@ export function CompetitionClientView({ competition, session, courses = [], user
                             <td className="px-1.5 py-1.5 font-bold font-mono">-</td>
                           </tr>
 
-                          {/* Player 2 Row */}
-                          <tr className="border-b border-slate-200">
-                            <td className="px-3 py-2 text-left font-bold text-slate-700 border-r border-slate-200 text-[10px] bg-slate-50/50 truncate max-w-[110px]">
-                              {name2}
-                              {p2Allowance > 0 && ` (${p2Allowance})`}
-                            </td>
-                            {holeNums.map(num => {
-                              const adjusted = getRoundHoleInfo(round, num)
-                              const hole = round.course.holes.find((h: any) => h.number === num)
-                              if (!hole) return <td key={num} className="border-r border-slate-200/80">-</td>
-
-                              const holePar = adjusted ? adjusted.par : hole.par
-                              const score = p2.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
-
-                              let displayVal = "-"
-                              let diff = 0
-                              let isWiped = false
-
-                              if (score && (score.grossStrokes !== null || (score.status !== null && score.status !== 'NOT_PLAYED'))) {
-                                if (score.status === 'WIPED') {
-                                  displayVal = "/"
-                                  isWiped = true
-                                  sumStrokes2 += holePar + 3
-                                } else if (score.grossStrokes !== null) {
-                                  displayVal = String(score.grossStrokes)
-                                  sumStrokes2 += score.grossStrokes
-                                  diff = score.grossStrokes - holePar
-                                }
-                              }
-
-                              const won = holeWinner[num] === '2'
-                              const hasStroke = p2Allowance > 0 && (strokesMap[num] || 0) > 0
-                              const markerMarkup = getMarkerMarkup(displayVal, diff, isWiped)
-
-                              return (
-                                <td key={num} className={`px-1 py-2 border-r border-slate-200/80 relative font-bold text-[11px] transition-colors duration-150 ${won ? 'bg-emerald-50 text-emerald-800' : 'text-slate-800'}`}>
-                                  <div className="flex items-center justify-center h-7 relative w-full">
-                                    <span className={isWiped ? 'text-red-650 font-black' : ''}>{displayVal}</span>
-                                    {markerMarkup}
-                                    {hasStroke && (
-                                      <div className="absolute top-1 right-1 w-[5px] h-[5px] bg-cyan-500 rounded-full" title="Allowance stroke given on this hole" />
-                                    )}
-                                  </div>
-                                </td>
-                              )
-                            })}
-                            <td className="px-1.5 py-2 font-extrabold text-slate-850 text-[10px] bg-slate-50/50">{sumStrokes2}</td>
-                          </tr>
+                          {isTeamMatchplay ? (
+                            <>
+                              {p3 && renderPlayerRow(p3, name3, p3Allowance, strokesMap3, 3)}
+                              {p4 && renderPlayerRow(p4, name4, p4Allowance, strokesMap4, 4)}
+                            </>
+                          ) : (
+                            p2 && renderPlayerRow(p2, name2, p2Allowance, strokesMap2, 2)
+                          )}
                         </tbody>
                       </table>
                     </div>
@@ -3583,7 +4089,12 @@ export function CompetitionClientView({ competition, session, courses = [], user
                     <div className="flex justify-between items-center bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs">
                       <div>
                         <span className="font-bold text-slate-600 block">Allowance</span>
-                        <span className="text-sm font-black text-slate-900">{allowance} strokes</span>
+                        <span className="text-sm font-black text-slate-900">
+                          {isTeamMatchplay
+                            ? `${getInitials(name1)}:${p1Allowance}, ${p2 ? `${getInitials(name2)}:${p2Allowance}` : ""}, ${p3 ? `${getInitials(name3)}:${p3Allowance}` : ""}, ${p4 ? `${getInitials(name4)}:${p4Allowance}` : ""}`
+                            : `${allowance} strokes`
+                          }
+                        </span>
                       </div>
                       <div>
                         <span className="font-bold text-slate-600 block">Calculation Method</span>

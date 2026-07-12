@@ -430,10 +430,10 @@ export async function addMatch(roundId: string, compId: string, data: {
     data: {
       roundId,
       type: data.type,
-      allowanceType: data.type === "SINGLES" ? (data.allowanceType || "75%") : null,
+      allowanceType: (data.type === "SINGLES" || data.type === "TEAM_MATCHPLAY") ? (data.allowanceType || "75%") : null,
       handicapAllowance: computedAllowance,
-      playUntilEnd: data.type === "SINGLES" ? (data.playUntilEnd || false) : false,
-      holeRange: data.type === "SINGLES" ? (data.holeRange || "1-18") : null
+      playUntilEnd: (data.type === "SINGLES" || data.type === "TEAM_MATCHPLAY") ? (data.playUntilEnd || false) : false,
+      holeRange: (data.type === "SINGLES" || data.type === "TEAM_MATCHPLAY") ? (data.holeRange || "1-18") : null
     }
   })
 

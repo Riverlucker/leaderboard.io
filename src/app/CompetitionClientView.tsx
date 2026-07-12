@@ -58,9 +58,16 @@ const formatDateTimeInput = (dateVal: any) => {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
 
-const getTeamHue = (teamName: string | undefined | null): number | null => {
-  if (!teamName) return null
+const getTeamHue = (teamName: string | undefined | null, teams: any[] = []): number => {
+  if (!teamName) return 210 // Default blue-ish
   const lower = teamName.toLowerCase()
+  
+  if (teams && teams.length > 0) {
+    const idx = teams.findIndex(t => t.name.toLowerCase() === lower)
+    if (idx !== -1) {
+      return Math.round((idx * 360) / teams.length)
+    }
+  }
   
   if (lower.includes("blau") || lower.includes("blue")) {
     return 220 // Blue
@@ -84,9 +91,8 @@ const getTeamHue = (teamName: string | undefined | null): number | null => {
   }
 }
 
-const getTeamRowStyle = (teamName: string | undefined | null) => {
-  const hue = getTeamHue(teamName)
-  if (hue === null) return {}
+const getTeamRowStyle = (teamName: string | undefined | null, teams: any[] = []) => {
+  const hue = getTeamHue(teamName, teams)
   return {
     backgroundColor: `hsla(${hue}, 85%, 97%, 0.65)`,
     borderLeft: `4px solid hsl(${hue}, 75%, 55%)`
@@ -2255,7 +2261,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
                           const isStableford = selectedLeaderboardType === 'STABLEFORD_NETTO' || selectedLeaderboardType === 'STABLEFORD_BRUTTO' || (selectedLeaderboardType === 'MAIN' && competition.type === 'NETTO_STABLEFORD')
                           const team = entry.participant?.team
                           const rowStyle = (isTeamComp && isStableford && team)
-                            ? getTeamRowStyle(team.name)
+                            ? getTeamRowStyle(team.name, competition.teams)
                             : {}
 
                           return (
@@ -2264,11 +2270,8 @@ export function CompetitionClientView({ competition, session, courses = [], user
                                 {entry.rank}
                               </td>
                               <td className="px-3 py-2.5 md:px-5 md:py-4">
-                                <div className="text-[10px] text-red-500 font-mono font-bold">
-                                  DB_TEAM: {entry.participant?.team?.name || "MISSING"} (id: {entry.participant?.teamId || "NULL"})
-                                </div>
                                 <div 
-                                  style={isTeamComp && isStableford && team ? { color: `hsl(${getTeamHue(team.name)}, 75%, 25%)` } : {}}
+                                  style={isTeamComp && isStableford && team ? { color: `hsl(${getTeamHue(team.name, competition.teams)}, 75%, 25%)` } : {}}
                                   className="font-extrabold text-slate-900 text-sm md:text-base leading-tight"
                                 >
                                   {entry.name}
@@ -2277,9 +2280,9 @@ export function CompetitionClientView({ competition, session, courses = [], user
                                   isTeamComp && isStableford ? (
                                     <span 
                                       style={{
-                                        backgroundColor: `hsla(${getTeamHue(team.name)}, 80%, 92%, 0.85)`,
-                                        color: `hsl(${getTeamHue(team.name)}, 85%, 25%)`,
-                                        border: `1px solid hsla(${getTeamHue(team.name)}, 80%, 75%, 0.9)`
+                                        backgroundColor: `hsla(${getTeamHue(team.name, competition.teams)}, 80%, 92%, 0.85)`,
+                                        color: `hsl(${getTeamHue(team.name, competition.teams)}, 85%, 25%)`,
+                                        border: `1px solid hsla(${getTeamHue(team.name, competition.teams)}, 80%, 75%, 0.9)`
                                       }}
                                       className="inline-block text-[9px] font-extrabold px-1.5 py-0.5 rounded uppercase tracking-wider mt-1"
                                     >

@@ -467,34 +467,24 @@ export function CompetitionClientView({ competition, session, courses = [], user
   const computeMatchplayStatus = (match: any, round: any) => {
     const p1 = competition.participants.find((p: any) => p.id === match.matchPlayers[0]?.participantId)
     const p2 = competition.participants.find((p: any) => p.id === match.matchPlayers[1]?.participantId)
-    if (!p1 || !p2) return { statusText: "Unknown Players", holesPlayed: 0, totalHoles: 18, allowance: 0, playerAName: "Unknown", playerBName: "Unknown", isFinished: false }
+    if (!p1 || !p2) return { statusText: "Unknown Players", holesPlayed: 0, totalHoles: 18, allowance: 0, player1Name: "Unknown", player2Name: "Unknown", player1Allowance: 0, player2Allowance: 0, isFinished: false }
 
     const hcp1 = getPlayingHandicap(p1, round)
     const hcp2 = getPlayingHandicap(p2, round)
 
-    let pA = p1
-    let pB = p2
-    let hcpA = hcp1
-    let hcpB = hcp2
-
-    if (hcp1 > hcp2) {
-      pA = p2
-      pB = p1
-      hcpA = hcp2
-      hcpB = hcp1
-    }
-
-    const allowance = getMatchAllowance(match, hcpA, hcpB)
+    const allowance = getMatchAllowance(match, hcp1, hcp2)
+    const p1Allowance = hcp1 > hcp2 ? allowance : 0
+    const p2Allowance = hcp2 > hcp1 ? allowance : 0
 
     const allNames = competition.participants.map((p: any) =>
       p.userId ? p.user?.name : p.dummyName
     ).filter((n: any): n is string => typeof n === 'string' && n.length > 0)
 
-    const fullNameA = pA.userId ? pA.user?.name : pA.dummyName || ""
-    const fullNameB = pB.userId ? pB.user?.name : pB.dummyName || ""
+    const fullName1 = p1.userId ? p1.user?.name : p1.dummyName || ""
+    const fullName2 = p2.userId ? p2.user?.name : p2.dummyName || ""
 
-    const nameA = getCompactName(fullNameA, allNames)
-    const nameB = getCompactName(fullNameB, allNames)
+    const name1 = getCompactName(fullName1, allNames)
+    const name2 = getCompactName(fullName2, allNames)
 
     const roundHoles = round.holesPlayed && round.holesPlayed.length > 0
       ? [...round.holesPlayed].sort((a: number, b: number) => a - b)
@@ -519,28 +509,28 @@ export function CompetitionClientView({ competition, session, courses = [], user
       const hole = round.course.holes.find((h: any) => h.number === holeNum)
       if (!hole) continue
 
-      const scoreA = pA.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
-      const scoreB = pB.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
+      const score1 = p1.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
+      const score2 = p2.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
 
-      const strokesA = getMatchHoleStrokes(scoreA)
-      const strokesB = getMatchHoleStrokes(scoreB)
+      const strokes1 = getMatchHoleStrokes(score1)
+      const strokes2 = getMatchHoleStrokes(score2)
 
-      if (strokesA !== null && strokesB !== null) {
+      if (strokes1 !== null && strokes2 !== null) {
         holesPlayedCount++
-        const netA = strokesA
         const strokesGiven = strokesMap[holeNum] || 0
-        const netB = strokesB === 99 ? 99 : (strokesB - strokesGiven)
+        const net1Calculated = hcp1 > hcp2 ? (strokes1 === 99 ? 99 : strokes1 - strokesGiven) : strokes1
+        const net2Calculated = hcp2 > hcp1 ? (strokes2 === 99 ? 99 : strokes2 - strokesGiven) : strokes2
 
-        if (netA < netB) {
+        if (net1Calculated < net2Calculated) {
           lead++
-        } else if (netA > netB) {
+        } else if (net1Calculated > net2Calculated) {
           lead--
         }
 
         const remaining = matchHoles.length - holesPlayedCount
         if (!match.playUntilEnd && Math.abs(lead) > remaining && decidedInfo === null) {
           decidedInfo = {
-            winnerName: lead > 0 ? nameA : nameB,
+            winnerName: lead > 0 ? name1 : name2,
             lead: Math.abs(lead),
             remaining
           }
@@ -561,9 +551,9 @@ export function CompetitionClientView({ competition, session, courses = [], user
       } else if (lead === 0) {
         statusText = "All Square"
       } else if (lead > 0) {
-        statusText = `${nameA} ${lead}up`
+        statusText = `${name1} ${lead}up`
       } else {
-        statusText = `${nameB} ${Math.abs(lead)}up`
+        statusText = `${name2} ${Math.abs(lead)}up`
       }
     }
 
@@ -572,8 +562,10 @@ export function CompetitionClientView({ competition, session, courses = [], user
       holesPlayed: holesPlayedCount,
       totalHoles: matchHoles.length,
       allowance,
-      playerAName: nameA,
-      playerBName: nameB,
+      player1Name: name1,
+      player2Name: name2,
+      player1Allowance: p1Allowance,
+      player2Allowance: p2Allowance,
       isFinished: decidedInfo !== null || holesPlayedCount === matchHoles.length
     }
   }
@@ -1632,7 +1624,6 @@ export function CompetitionClientView({ competition, session, courses = [], user
                     <tr>
                       <th className="px-5 py-4">Round</th>
                       <th className="px-5 py-4">Match</th>
-                      <th className="px-5 py-4 text-center">Allowance</th>
                       <th className="px-5 py-4 text-center">Holes</th>
                       <th className="px-5 py-4 text-right">Standing</th>
                     </tr>
@@ -1692,7 +1683,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
                       })
 
                       return evaluated.map(({ round, match, status }) => {
-                        const { statusText, holesPlayed, totalHoles, allowance, playerAName, playerBName } = status
+                        const { statusText, holesPlayed, totalHoles, player1Name, player2Name, player1Allowance, player2Allowance } = status
                         return (
                           <tr key={match.id} className="hover:bg-slate-50/50 transition-colors cursor-pointer" onClick={() => {
                             setSelectedMatchForScorecard(match)
@@ -1700,18 +1691,21 @@ export function CompetitionClientView({ competition, session, courses = [], user
                           }}>
                             <td className="px-5 py-4 font-bold text-slate-900">{round.name}</td>
                             <td className="px-5 py-4">
-                              <div className="flex flex-col space-y-0.5 text-left">
-                                <span className="font-semibold text-slate-800 leading-tight">{playerAName}</span>
-                                <div className="flex items-center space-x-1.5">
-                                  <span className="text-[9px] text-slate-400 font-black uppercase tracking-wider">vs</span>
+                              <div className="flex flex-col space-y-0.5 text-left font-semibold text-slate-800 leading-tight">
+                                <span>
+                                  {player1Name}
+                                  {player1Allowance > 0 && ` (${player1Allowance})`}
+                                  <span className="text-slate-400 font-normal ml-1">v</span>
+                                </span>
+                                <span>
+                                  {player2Name}
+                                  {player2Allowance > 0 && ` (${player2Allowance})`}
                                   {match.holeRange && match.holeRange !== "1-18" && (
-                                    <span className="text-[8px] bg-slate-100 text-slate-500 px-1 py-0.2 rounded font-mono">({match.holeRange})</span>
+                                    <span className="ml-1.5 text-[8px] bg-slate-100 text-slate-500 px-1 py-0.2 rounded font-mono">({match.holeRange})</span>
                                   )}
-                                </div>
-                                <span className="font-semibold text-slate-800 leading-tight">{playerBName}</span>
+                                </span>
                               </div>
                             </td>
-                            <td className="px-5 py-4 text-center font-mono font-bold text-slate-800">{allowance}</td>
                             <td className="px-5 py-4 text-center font-mono text-slate-600">
                               {holesPlayed}/{totalHoles}
                             </td>
@@ -3294,21 +3288,17 @@ export function CompetitionClientView({ competition, session, courses = [], user
                 const hcp1 = getPlayingHandicap(p1, round)
                 const hcp2 = getPlayingHandicap(p2, round)
 
-                let pA = p1
-                let pB = p2
-                let hcpA = hcp1
-                let hcpB = hcp2
+                const allowance = getMatchAllowance(match, hcp1, hcp2)
 
-                if (hcp1 > hcp2) {
-                  pA = p2
-                  pB = p1
-                  hcpA = hcp2
-                  hcpB = hcp1
-                }
+                const p1Allowance = hcp1 > hcp2 ? allowance : 0
+                const p2Allowance = hcp2 > hcp1 ? allowance : 0
 
-                const nameA = pA.userId ? pA.user?.name : pA.dummyName
-                const nameB = pB.userId ? pB.user?.name : pB.dummyName
-                const allowance = getMatchAllowance(match, hcpA, hcpB)
+                const allNames = competition.participants.map((p: any) =>
+                  p.userId ? p.user?.name : p.dummyName
+                ).filter((n: any): n is string => typeof n === 'string' && n.length > 0)
+
+                const name1 = getCompactName(p1.userId ? p1.user?.name : p1.dummyName || "", allNames)
+                const name2 = getCompactName(p2.userId ? p2.user?.name : p2.dummyName || "", allNames)
 
                 const roundHoles = round.holesPlayed && round.holesPlayed.length > 0
                   ? [...round.holesPlayed].sort((a: number, b: number) => a - b)
@@ -3322,12 +3312,12 @@ export function CompetitionClientView({ competition, session, courses = [], user
 
                 const renderMatchplayHoleTable = (holeNums: number[]) => {
                   let sumPar = 0
-                  let sumStrokesA = 0
-                  let sumStrokesB = 0
+                  let sumStrokes1 = 0
+                  let sumStrokes2 = 0
 
                   let runningLead = 0
                   const standingsAtHole: Record<number, string> = {}
-                  const holeWinner: Record<number, 'A' | 'B' | 'halved' | null> = {}
+                  const holeWinner: Record<number, '1' | '2' | 'halved' | null> = {}
 
                   const getMatchHoleStrokes = (score: any) => {
                     if (!score) return null
@@ -3339,23 +3329,23 @@ export function CompetitionClientView({ competition, session, courses = [], user
                   for (const num of matchHoles) {
                     const hole = round.course.holes.find((h: any) => h.number === num)
                     if (!hole) continue
-                    const scoreA = pA.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
-                    const scoreB = pB.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
+                    const score1 = p1.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
+                    const score2 = p2.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
 
-                    const strokesA = getMatchHoleStrokes(scoreA)
-                    const strokesB = getMatchHoleStrokes(scoreB)
+                    const strokes1 = getMatchHoleStrokes(score1)
+                    const strokes2 = getMatchHoleStrokes(score2)
 
-                    if (strokesA !== null && strokesB !== null) {
-                      const netA = strokesA
+                    if (strokes1 !== null && strokes2 !== null) {
                       const strokesGiven = strokesMap[num] || 0
-                      const netB = strokesB === 99 ? 99 : (strokesB - strokesGiven)
+                      const net1Calculated = hcp1 > hcp2 ? (strokes1 === 99 ? 99 : strokes1 - strokesGiven) : strokes1
+                      const net2Calculated = hcp2 > hcp1 ? (strokes2 === 99 ? 99 : strokes2 - strokesGiven) : strokes2
 
-                      if (netA < netB) {
+                      if (net1Calculated < net2Calculated) {
                         runningLead++
-                        holeWinner[num] = 'A'
-                      } else if (netA > netB) {
+                        holeWinner[num] = '1'
+                      } else if (net1Calculated > net2Calculated) {
                         runningLead--
-                        holeWinner[num] = 'B'
+                        holeWinner[num] = '2'
                       } else {
                         holeWinner[num] = 'halved'
                       }
@@ -3462,10 +3452,11 @@ export function CompetitionClientView({ competition, session, courses = [], user
                           </tr>
                         </thead>
                         <tbody className="bg-white text-slate-800">
-                          {/* Player A Row */}
+                          {/* Player 1 Row */}
                           <tr className="border-b border-slate-200">
                             <td className="px-3 py-2 text-left font-bold text-slate-700 border-r border-slate-200 text-[10px] bg-slate-50/50 truncate max-w-[110px]">
-                              {nameA}
+                              {name1}
+                              {p1Allowance > 0 && ` (${p1Allowance})`}
                             </td>
                             {holeNums.map(num => {
                               const adjusted = getRoundHoleInfo(round, num)
@@ -3473,7 +3464,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
                               if (!hole) return <td key={num} className="border-r border-slate-200/80">-</td>
 
                               const holePar = adjusted ? adjusted.par : hole.par
-                              const score = pA.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
+                              const score = p1.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
 
                               let displayVal = "-"
                               let diff = 0
@@ -3483,15 +3474,16 @@ export function CompetitionClientView({ competition, session, courses = [], user
                                 if (score.status === 'WIPED') {
                                   displayVal = "/"
                                   isWiped = true
-                                  sumStrokesA += holePar + 3
+                                  sumStrokes1 += holePar + 3
                                 } else if (score.grossStrokes !== null) {
                                   displayVal = String(score.grossStrokes)
-                                  sumStrokesA += score.grossStrokes
+                                  sumStrokes1 += score.grossStrokes
                                   diff = score.grossStrokes - holePar
                                 }
                               }
 
-                              const won = holeWinner[num] === 'A'
+                              const won = holeWinner[num] === '1'
+                              const hasStroke = p1Allowance > 0 && (strokesMap[num] || 0) > 0
                               const markerMarkup = getMarkerMarkup(displayVal, diff, isWiped)
 
                               return (
@@ -3499,11 +3491,14 @@ export function CompetitionClientView({ competition, session, courses = [], user
                                   <div className="flex items-center justify-center h-7 relative w-full">
                                     <span className={isWiped ? 'text-red-650 font-black' : ''}>{displayVal}</span>
                                     {markerMarkup}
+                                    {hasStroke && (
+                                      <div className="absolute top-1 right-1 w-[5px] h-[5px] bg-cyan-500 rounded-full" title="Allowance stroke given on this hole" />
+                                    )}
                                   </div>
                                 </td>
                               )
                             })}
-                            <td className="px-1.5 py-2 font-extrabold text-slate-850 text-[10px] bg-slate-50/50">{sumStrokesA}</td>
+                            <td className="px-1.5 py-2 font-extrabold text-slate-850 text-[10px] bg-slate-50/50">{sumStrokes1}</td>
                           </tr>
 
                           {/* Running Match Score Row */}
@@ -3529,10 +3524,11 @@ export function CompetitionClientView({ competition, session, courses = [], user
                             <td className="px-1.5 py-1.5 font-bold font-mono">-</td>
                           </tr>
 
-                          {/* Player B Row */}
+                          {/* Player 2 Row */}
                           <tr className="border-b border-slate-200">
                             <td className="px-3 py-2 text-left font-bold text-slate-700 border-r border-slate-200 text-[10px] bg-slate-50/50 truncate max-w-[110px]">
-                              {nameB}
+                              {name2}
+                              {p2Allowance > 0 && ` (${p2Allowance})`}
                             </td>
                             {holeNums.map(num => {
                               const adjusted = getRoundHoleInfo(round, num)
@@ -3540,9 +3536,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
                               if (!hole) return <td key={num} className="border-r border-slate-200/80">-</td>
 
                               const holePar = adjusted ? adjusted.par : hole.par
-                              const holeStrokeIndex = adjusted ? adjusted.strokeIndex : hole.strokeIndex
-
-                              const score = pB.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
+                              const score = p2.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
 
                               let displayVal = "-"
                               let diff = 0
@@ -3552,16 +3546,16 @@ export function CompetitionClientView({ competition, session, courses = [], user
                                 if (score.status === 'WIPED') {
                                   displayVal = "/"
                                   isWiped = true
-                                  sumStrokesB += holePar + 3
+                                  sumStrokes2 += holePar + 3
                                 } else if (score.grossStrokes !== null) {
                                   displayVal = String(score.grossStrokes)
-                                  sumStrokesB += score.grossStrokes
+                                  sumStrokes2 += score.grossStrokes
                                   diff = score.grossStrokes - holePar
                                 }
                               }
 
-                              const won = holeWinner[num] === 'B'
-                              const hasStroke = (strokesMap[num] || 0) > 0
+                              const won = holeWinner[num] === '2'
+                              const hasStroke = p2Allowance > 0 && (strokesMap[num] || 0) > 0
                               const markerMarkup = getMarkerMarkup(displayVal, diff, isWiped)
 
                               return (
@@ -3576,7 +3570,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
                                 </td>
                               )
                             })}
-                            <td className="px-1.5 py-2 font-extrabold text-slate-850 text-[10px] bg-slate-50/50">{sumStrokesB}</td>
+                            <td className="px-1.5 py-2 font-extrabold text-slate-850 text-[10px] bg-slate-50/50">{sumStrokes2}</td>
                           </tr>
                         </tbody>
                       </table>
@@ -3588,7 +3582,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
                   <div className="space-y-6">
                     <div className="flex justify-between items-center bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs">
                       <div>
-                        <span className="font-bold text-slate-600 block">Vorgabe (Allowance)</span>
+                        <span className="font-bold text-slate-600 block">Allowance</span>
                         <span className="text-sm font-black text-slate-900">{allowance} strokes</span>
                       </div>
                       <div>

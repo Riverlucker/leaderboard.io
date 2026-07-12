@@ -146,6 +146,8 @@ model Match {
   round         Round  @relation(fields: [roundId], references: [id], onDelete: Cascade)
   
   type          String // e.g. "SINGLES", "4BALL", "CHAPMAN", "GROUP"
+  allowanceType String? // e.g. "75%", "50%", "100%", "0%"
+  handicapAllowance Int?
   
   matchPlayers  MatchPlayer[]
 }

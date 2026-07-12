@@ -353,20 +353,83 @@ export async function deleteParticipant(partId: string, compId: string) {
   return { success: true }
 }
 
+// Helper to determine round playing handicap for a participant
+async function getRoundPlayingHandicap(partId: string, roundId: string): Promise<number> {
+  const participant = await prisma.participant.findUnique({
+    where: { id: partId }
+  })
+  if (!participant) return 0
+
+  const manualRecord = await prisma.manualRoundHandicap.findUnique({
+    where: {
+      participantId_roundId: {
+        participantId: partId,
+        roundId
+      }
+    }
+  })
+  if (manualRecord) {
+    return manualRecord.handicapValue
+  }
+
+  if (participant.compHandicap === null || participant.compHandicap === undefined) {
+    return 0
+  }
+
+  const round = await prisma.round.findUnique({
+    where: { id: roundId },
+    include: {
+      course: {
+        include: { tees: true, holes: true }
+      },
+      tee: true
+    }
+  })
+  if (!round || !round.course) return 0
+
+  const tee = round.tee ||
+              round.course.tees.find(t => t.name.toLowerCase().includes('yellow')) ||
+              round.course.tees.find(t => t.name.toLowerCase().includes('white')) ||
+              round.course.tees[0]
+  if (!tee) return 0
+
+  const coursePar = round.course.holes.reduce((sum, h) => sum + h.par, 0)
+  return calculateCourseHandicap(participant.compHandicap, tee, coursePar)
+}
+
 // Pairings/Matches management
 export async function addMatch(roundId: string, compId: string, data: {
   type: string
   participantIds: string[]
+  allowanceType?: string | null
 }) {
   if (!data.type) throw new Error("Match type is required.")
   if (!data.participantIds || data.participantIds.length === 0) {
     throw new Error("At least one participant must be assigned to the match.")
   }
 
+  let computedAllowance: number | null = null
+
+  if (data.type === "SINGLES" && data.participantIds.length === 2) {
+    const allowanceType = data.allowanceType || "75%"
+    const hcpA = await getRoundPlayingHandicap(data.participantIds[0], roundId)
+    const hcpB = await getRoundPlayingHandicap(data.participantIds[1], roundId)
+    const diff = Math.abs(hcpA - hcpB)
+
+    let percentage = 0.75
+    if (allowanceType === "50%") percentage = 0.50
+    if (allowanceType === "100%") percentage = 1.00
+    if (allowanceType === "0%") percentage = 0.00
+
+    computedAllowance = Math.round(diff * percentage)
+  }
+
   const match = await prisma.match.create({
     data: {
       roundId,
-      type: data.type
+      type: data.type,
+      allowanceType: data.type === "SINGLES" ? (data.allowanceType || "75%") : null,
+      handicapAllowance: computedAllowance
     }
   })
 
@@ -381,6 +444,20 @@ export async function addMatch(roundId: string, compId: string, data: {
   }
 
   revalidatePath(`/admin/competitions/${compId}`)
+  revalidatePath('/')
+  return { success: true }
+}
+
+export async function updateMatchAllowance(matchId: string, compId: string, handicapAllowance: number | null) {
+  await prisma.match.update({
+    where: { id: matchId },
+    data: {
+      handicapAllowance
+    }
+  })
+
+  revalidatePath(`/admin/competitions/${compId}`)
+  revalidatePath('/')
   return { success: true }
 }
 

@@ -13,7 +13,7 @@ import {
   addRound, deleteRound, updateRoundHoles,
   addTeam, deleteTeam, 
   addParticipant, deleteParticipant, 
-  addMatch, deleteMatch 
+  addMatch, deleteMatch, updateMatchAllowance 
 } from "../actions"
 
 // Helper to format date for input type="date"
@@ -113,6 +113,9 @@ export function EditCompetitionClient({
   // Pairings / Matches Form state
   const [selectedRoundId, setSelectedRoundId] = useState(competition.rounds[0]?.id || "")
   const [matchType, setMatchType] = useState("SINGLES")
+  const [allowanceType, setAllowanceType] = useState("75%")
+  const [overrideAllowances, setOverrideAllowances] = useState<Record<string, string>>({})
+  const [savingAllowance, setSavingAllowance] = useState<Record<string, boolean>>({})
   const [selectedPartIds, setSelectedPartIds] = useState<string[]>([])
   const [pairingError, setPairingError] = useState("")
   const [isCreatingPairing, setIsCreatingPairing] = useState(false)
@@ -351,7 +354,8 @@ export function EditCompetitionClient({
 
       await addMatch(selectedRoundId, competition.id, {
         type: matchType,
-        participantIds: selectedPartIds
+        participantIds: selectedPartIds,
+        allowanceType: matchType === "SINGLES" ? allowanceType : null
       })
 
       setSelectedPartIds([])
@@ -360,6 +364,24 @@ export function EditCompetitionClient({
       setPairingError(err.message || "Failed to create match.")
     } finally {
       setIsCreatingPairing(false)
+    }
+  }
+
+  const handleSaveAllowance = async (matchId: string) => {
+    const val = overrideAllowances[matchId]
+    if (val === undefined) return
+    const parsed = parseInt(val)
+    if (isNaN(parsed)) return
+
+    setSavingAllowance(prev => ({ ...prev, [matchId]: true }))
+    try {
+      await updateMatchAllowance(matchId, competition.id, parsed)
+      router.refresh()
+    } catch (err) {
+      console.error(err)
+      alert("Failed to save allowance.")
+    } finally {
+      setSavingAllowance(prev => ({ ...prev, [matchId]: false }))
     }
   }
 
@@ -1328,6 +1350,27 @@ export function EditCompetitionClient({
                               )
                             })}
                           </div>
+
+                          {match.type === "SINGLES" && (
+                            <div className="flex items-center space-x-2 pt-3 border-t border-slate-850/60 mt-2">
+                              <label className="text-xs text-slate-400 font-semibold">Handicap Allowance (Vorgabe):</label>
+                              <input
+                                type="number"
+                                value={overrideAllowances[match.id] !== undefined ? overrideAllowances[match.id] : (match.handicapAllowance ?? "")}
+                                onChange={e => setOverrideAllowances(prev => ({ ...prev, [match.id]: e.target.value }))}
+                                className="w-14 bg-slate-950 border border-slate-700 rounded px-1.5 py-0.5 text-center text-xs text-slate-250 focus:ring-1 focus:ring-emerald-500 focus:outline-none"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleSaveAllowance(match.id)}
+                                disabled={savingAllowance[match.id]}
+                                className="px-2.5 py-1 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-slate-950 font-bold text-[10px] rounded transition-colors"
+                              >
+                                {savingAllowance[match.id] ? "Saving..." : "Save"}
+                              </button>
+                              <span className="text-[10px] text-slate-500 font-mono">({match.allowanceType || "75%"} base)</span>
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -1345,7 +1388,6 @@ export function EditCompetitionClient({
                     {pairingError}
                   </div>
                 )}
-
                 <div>
                   <label className="block text-xs font-semibold text-slate-400 mb-1">Match Format</label>
                   <select
@@ -1360,6 +1402,22 @@ export function EditCompetitionClient({
                     <option value="GROUP">STANDARD GROUP (Strokeplay / Stableford)</option>
                   </select>
                 </div>
+
+                {matchType === "SINGLES" && (
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-400 mb-1">Handicap Allowance Calculation</label>
+                    <select
+                      value={allowanceType}
+                      onChange={e => setAllowanceType(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-sm text-slate-200"
+                    >
+                      <option value="75%">75% Difference of Playing HCP (Default)</option>
+                      <option value="50%">50% Difference of Playing HCP</option>
+                      <option value="100%">100% Difference of Playing HCP</option>
+                      <option value="0%">Scratch / 0% Allowance</option>
+                    </select>
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-400 mb-2">

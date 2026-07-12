@@ -378,6 +378,130 @@ export function CompetitionClientView({ competition, session, courses = [], user
     return calculateCourseHandicap(p.compHandicap, tee, coursePar)
   }
 
+  const getMatchAllowance = (match: any, hcpA: number, hcpB: number) => {
+    if (match.handicapAllowance !== null && match.handicapAllowance !== undefined) {
+      return match.handicapAllowance
+    }
+    const diff = Math.abs(hcpA - hcpB)
+    const allowanceType = match.allowanceType || "75%"
+    let percentage = 0.75
+    if (allowanceType === "50%") percentage = 0.50
+    if (allowanceType === "100%") percentage = 1.00
+    if (allowanceType === "0%") percentage = 0.00
+    return Math.round(diff * percentage)
+  }
+
+  const getMatchHandicapStrokesOnHole = (allowance: number, strokeIndex: number) => {
+    const base = Math.floor(allowance / 18)
+    const remainder = allowance % 18
+    return base + (strokeIndex <= remainder ? 1 : 0)
+  }
+
+  const computeMatchplayStatus = (match: any, round: any) => {
+    const p1 = competition.participants.find((p: any) => p.id === match.matchPlayers[0]?.participantId)
+    const p2 = competition.participants.find((p: any) => p.id === match.matchPlayers[1]?.participantId)
+    if (!p1 || !p2) return { statusText: "Unknown Players", holesPlayed: 0, totalHoles: 18, allowance: 0, playerAName: "Unknown", playerBName: "Unknown" }
+
+    const hcp1 = getPlayingHandicap(p1, round)
+    const hcp2 = getPlayingHandicap(p2, round)
+
+    let pA = p1
+    let pB = p2
+    let hcpA = hcp1
+    let hcpB = hcp2
+
+    if (hcp1 > hcp2) {
+      pA = p2
+      pB = p1
+      hcpA = hcp2
+      hcpB = hcp1
+    }
+
+    const allowance = getMatchAllowance(match, hcpA, hcpB)
+
+    const roundHoles = round.holesPlayed && round.holesPlayed.length > 0
+      ? [...round.holesPlayed].sort((a: number, b: number) => a - b)
+      : Array.from({ length: 18 }, (_, i) => i + 1)
+
+    let lead = 0
+    let holesPlayedCount = 0
+    let decidedInfo: { winnerName: string; lead: number; remaining: number } | null = null
+
+    const getMatchHoleStrokes = (score: any) => {
+      if (!score) return null
+      if (score.status === 'WIPED') return 99
+      if (score.status === 'NOT_PLAYED') return null
+      return score.grossStrokes
+    }
+
+    for (let i = 0; i < roundHoles.length; i++) {
+      const holeNum = roundHoles[i]
+      const hole = round.course.holes.find((h: any) => h.number === holeNum)
+      if (!hole) continue
+
+      const adjusted = getRoundHoleInfo(round, holeNum)
+      const holeStrokeIndex = adjusted ? adjusted.strokeIndex : hole.strokeIndex
+
+      const scoreA = pA.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
+      const scoreB = pB.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
+
+      const strokesA = getMatchHoleStrokes(scoreA)
+      const strokesB = getMatchHoleStrokes(scoreB)
+
+      if (strokesA !== null && strokesB !== null) {
+        holesPlayedCount++
+        const netA = strokesA
+        const netB = strokesB === 99 ? 99 : (strokesB - getMatchHandicapStrokesOnHole(allowance, holeStrokeIndex))
+
+        if (netA < netB) {
+          lead++
+        } else if (netA > netB) {
+          lead--
+        }
+
+        const remaining = roundHoles.length - holesPlayedCount
+        if (Math.abs(lead) > remaining && decidedInfo === null) {
+          decidedInfo = {
+            winnerName: lead > 0 ? (pA.userId ? pA.user?.name : pA.dummyName) : (pB.userId ? pB.user?.name : pB.dummyName),
+            lead: Math.abs(lead),
+            remaining
+          }
+        }
+      }
+    }
+
+    const nameA = pA.userId ? pA.user?.name : pA.dummyName
+    const nameB = pB.userId ? pB.user?.name : pB.dummyName
+
+    let statusText = ""
+    if (decidedInfo !== null) {
+      if (decidedInfo.remaining === 0) {
+        statusText = `${decidedInfo.winnerName} ${decidedInfo.lead}up`
+      } else {
+        statusText = `${decidedInfo.winnerName} ${decidedInfo.lead}&${decidedInfo.remaining}`
+      }
+    } else {
+      if (holesPlayedCount === 0) {
+        statusText = "All Square"
+      } else if (lead === 0) {
+        statusText = "All Square"
+      } else if (lead > 0) {
+        statusText = `${nameA} ${lead} up`
+      } else {
+        statusText = `${nameB} ${Math.abs(lead)} up`
+      }
+    }
+
+    return {
+      statusText,
+      holesPlayed: holesPlayedCount,
+      totalHoles: roundHoles.length,
+      allowance,
+      playerAName: nameA,
+      playerBName: nameB
+    }
+  }
+
   // Helper: Find the first hole index where any player's score is missing
   const findFirstIncompleteHoleIndex = (scoringRound: any, scoringPlayers: any[]) => {
     if (!scoringRound || !scoringPlayers || scoringPlayers.length === 0) return 0
@@ -1417,12 +1541,75 @@ export function CompetitionClientView({ competition, session, courses = [], user
                   {isTeamComp && selectedExtraLeaderboards.includes('TEAM_STABLEFORD_BRUTTO') && (
                     <option value="TEAM_STABLEFORD_BRUTTO">Team Stableford Brutto</option>
                   )}
+                  {competition.rounds.some((r: any) => r.matches?.some((m: any) => m.type === "SINGLES")) && (
+                    <option value="MATCHPLAY">Matchplays</option>
+                  )}
                 </select>
               </div>
             </div>
 
-            {/* Standings Table (Individual) */}
-            {!selectedLeaderboardType.startsWith('TEAM_') ? (
+            {/* Standings Table (Matchplay) */}
+            {selectedLeaderboardType === 'MATCHPLAY' ? (
+              <div className="bg-white/60 backdrop-blur-sm border border-slate-200 rounded-2xl overflow-x-auto shadow-sm">
+                <table className="w-full text-sm text-left border-collapse">
+                  <thead className="bg-slate-100/50 text-slate-550 uppercase tracking-wider text-xs border-b border-slate-200">
+                    <tr>
+                      <th className="px-5 py-4">Round</th>
+                      <th className="px-5 py-4">Match</th>
+                      <th className="px-5 py-4 text-center">Vorgabe (Allowance)</th>
+                      <th className="px-5 py-4 text-center">Holes Played</th>
+                      <th className="px-5 py-4 text-right">Standing</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 bg-white/30 text-slate-700">
+                    {(() => {
+                      const matchplayList: any[] = []
+                      const roundsToUse = selectedRoundFilter === 'TOTAL'
+                        ? competition.rounds
+                        : competition.rounds.filter((r: any) => r.id === selectedRoundFilter)
+
+                      for (const r of roundsToUse) {
+                        const singlesMatches = (r.matches || []).filter((m: any) => m.type === 'SINGLES')
+                        for (const m of singlesMatches) {
+                          matchplayList.push({ round: r, match: m })
+                        }
+                      }
+
+                      if (matchplayList.length === 0) {
+                        return (
+                          <tr>
+                            <td colSpan={5} className="px-5 py-8 text-center text-slate-500 italic">
+                              No matchplay pairings found for the selected filter.
+                            </td>
+                          </tr>
+                        )
+                      }
+
+                      return matchplayList.map(({ round, match }) => {
+                        const { statusText, holesPlayed, totalHoles, allowance, playerAName, playerBName } = computeMatchplayStatus(match, round)
+                        return (
+                          <tr key={match.id} className="hover:bg-slate-50/50 transition-colors">
+                            <td className="px-5 py-4 font-bold text-slate-900">{round.name}</td>
+                            <td className="px-5 py-4">
+                              <span className="font-semibold text-slate-800">{playerAName}</span>
+                              <span className="mx-2 text-slate-400 text-xs">vs</span>
+                              <span className="font-semibold text-slate-800">{playerBName}</span>
+                            </td>
+                            <td className="px-5 py-4 text-center font-mono font-bold text-slate-800">{allowance}</td>
+                            <td className="px-5 py-4 text-center font-mono text-slate-600">
+                              {holesPlayed} / {totalHoles}
+                            </td>
+                            <td className="px-5 py-4 text-right font-black text-emerald-600 text-sm md:text-base">
+                              {statusText}
+                            </td>
+                          </tr>
+                        )
+                      })
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+            ) : !selectedLeaderboardType.startsWith('TEAM_') ? (
               <div className="bg-white/60 backdrop-blur-sm border border-slate-200 rounded-2xl overflow-x-auto shadow-sm">
                 <table className="w-full text-sm text-left border-collapse">
                   <thead className="bg-slate-100/50 text-slate-550 uppercase tracking-wider text-xs border-b border-slate-200">

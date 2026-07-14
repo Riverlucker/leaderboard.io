@@ -44,13 +44,13 @@ export function LiveScoreEntry({
   const saveTimeoutRef = useRef<any>(null)
   const dirtyKeysRef = useRef<Record<string, boolean>>({})
 
-  // Helper to extract scores for a specific hole from participants, merging pending changes
-  const getScoresForHole = (holeId: string) => {
+  // Helper to extract scores for a specific hole from participants, merging pending changes and preserving dirty values
+  const getScoresForHole = (holeId: string, currentLocal: Record<string, string>) => {
     const scoresMap: Record<string, string> = {}
     for (const p of selectedParticipants) {
       const cellKey = `${p.id}-${holeId}`
-      if (pendingChangesRef.current[cellKey]) {
-        scoresMap[p.id] = pendingChangesRef.current[cellKey].value
+      if (dirtyKeysRef.current[cellKey]) {
+        scoresMap[p.id] = currentLocal[p.id] || ''
         continue
       }
 
@@ -79,7 +79,7 @@ export function LiveScoreEntry({
       const targetHoleNum = activeHoles[initialHoleIndex]
       const targetHole = course.holes.find((h: any) => h.number === targetHoleNum)
       if (targetHole) {
-        setLocalScores(getScoresForHole(targetHole.id))
+        setLocalScores(prev => getScoresForHole(targetHole.id, prev))
       }
     }
   }, [initialHoleIndex, activeHoles.length])
@@ -87,7 +87,7 @@ export function LiveScoreEntry({
   // Sync local scores whenever current hole changes or props change, preserving dirty states
   useEffect(() => {
     if (!currentHole) return
-    setLocalScores(getScoresForHole(currentHole.id))
+    setLocalScores(prev => getScoresForHole(currentHole.id, prev))
   }, [selectedParticipants, round.id, currentHole?.id])
 
   // Navigation handlers
@@ -99,7 +99,7 @@ export function LiveScoreEntry({
       const nextHoleNum = activeHoles[nextIndex]
       const nextHole = course.holes.find((h: any) => h.number === nextHoleNum)
       if (nextHole) {
-        setLocalScores(getScoresForHole(nextHole.id))
+        setLocalScores(prev => getScoresForHole(nextHole.id, prev))
       }
     }
   }
@@ -112,7 +112,7 @@ export function LiveScoreEntry({
       const nextHoleNum = activeHoles[nextIndex]
       const nextHole = course.holes.find((h: any) => h.number === nextHoleNum)
       if (nextHole) {
-        setLocalScores(getScoresForHole(nextHole.id))
+        setLocalScores(prev => getScoresForHole(nextHole.id, prev))
       }
     }
   }

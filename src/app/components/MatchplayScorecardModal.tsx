@@ -290,9 +290,10 @@ export function MatchplayScorecardModal({
     const renderPlayerRow = (p: any, displayName: string, allowanceVal: number, strokesMap: any, pIdx: number) => {
       let totalStrokes = 0
       let nameBg = "bg-slate-50/50 text-slate-700 font-bold"
-      if (pIdx === 1 || pIdx === 2) {
+      const isGreen = isTeamMatchplay ? (pIdx === 1 || pIdx === 2) : (pIdx === 1)
+      if (isGreen) {
         nameBg = "bg-emerald-50 text-emerald-950 font-extrabold border-l-2 border-emerald-500"
-      } else if (pIdx === 3 || pIdx === 4 || (!isTeamMatchplay && pIdx === 2)) {
+      } else {
         nameBg = "bg-red-50 text-red-950 font-extrabold border-l-2 border-red-500"
       }
 

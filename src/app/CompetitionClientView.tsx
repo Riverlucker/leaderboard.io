@@ -254,7 +254,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
   const [isLoggingIn, setIsLoggingIn] = useState(false)
   
   // Score Entry setup state (persisted in localStorage)
-  const [selectedRoundId, setSelectedRoundId] = useState("")
+  const [selectedRoundId, setSelectedRoundId] = useState(competition.rounds[0]?.id || "")
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([])
   const [entryMode, setEntryMode] = useState<'LIVE' | 'BULK'>('LIVE')
   const [setupConfirmed, setSetupConfirmed] = useState(false)
@@ -451,6 +451,10 @@ export function CompetitionClientView({ competition, session, courses = [], user
       const savedConfirmed = localStorage.getItem(`setup-confirmed-${competition.id}`)
       const savedHoleIdx = localStorage.getItem(`setup-hole-${competition.id}`)
 
+      const savedTab = localStorage.getItem(`active-tab-${competition.id}`)
+      const savedLeaderboard = localStorage.getItem(`leaderboard-type-${competition.id}`)
+      const savedRoundFilter = localStorage.getItem(`round-filter-${competition.id}`)
+
       // Determine initial round ID (must exist in this competition)
       const isValidSavedRound = competition.rounds.some((r: any) => r.id === savedRoundId)
       const initialRoundId = isValidSavedRound 
@@ -498,6 +502,20 @@ export function CompetitionClientView({ competition, session, courses = [], user
       } else {
         setSetupConfirmed(false)
       }
+
+      // Restore view filters & tabs
+      if (savedTab) {
+        setActiveTab(savedTab as any)
+      } else if (savedConfirmed === 'true') {
+        setActiveTab('scores')
+      }
+
+      if (savedLeaderboard) {
+        setSelectedLeaderboardType(savedLeaderboard)
+      }
+      if (savedRoundFilter) {
+        setSelectedRoundFilter(savedRoundFilter)
+      }
     }
   }, [competition.id, competition.rounds, competition.participants])
 
@@ -510,12 +528,24 @@ export function CompetitionClientView({ competition, session, courses = [], user
     }
   }
 
-  // Pre-select first round if none selected
+  // Save filters & tab state when they change
   useEffect(() => {
-    if (!selectedRoundId && competition.rounds.length > 0) {
-      setSelectedRoundId(competition.rounds[0].id)
+    if (typeof window !== "undefined" && activeTab) {
+      localStorage.setItem(`active-tab-${competition.id}`, activeTab)
     }
-  }, [competition.rounds, selectedRoundId])
+  }, [activeTab, competition.id])
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && selectedLeaderboardType) {
+      localStorage.setItem(`leaderboard-type-${competition.id}`, selectedLeaderboardType)
+    }
+  }, [selectedLeaderboardType, competition.id])
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && selectedRoundFilter) {
+      localStorage.setItem(`round-filter-${competition.id}`, selectedRoundFilter)
+    }
+  }, [selectedRoundFilter, competition.id])
 
   // Auto-fill logged in player in scoring flight list
   useEffect(() => {

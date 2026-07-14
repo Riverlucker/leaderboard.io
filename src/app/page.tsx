@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma"
 import { CompetitionClientView } from "./CompetitionClientView"
 import { calculateCourseHandicap } from "@/lib/scoring"
 import { cookies } from "next/headers"
+import { redirect } from "next/navigation"
 
 interface HomeProps {
   searchParams: Promise<{ comp?: string }>
@@ -22,6 +23,10 @@ export default async function Home({ searchParams }: HomeProps) {
     lastCompetition = await prisma.competition.findUnique({
       where: { uniqueSlug: lastCompSlug }
     })
+  }
+
+  if (!compSlug && lastCompSlug && lastCompetition) {
+    return redirect(`/?comp=${lastCompSlug}`)
   }
 
   // Load all competitions to list on the landing page

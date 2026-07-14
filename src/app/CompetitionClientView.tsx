@@ -1991,28 +1991,29 @@ export function CompetitionClientView({ competition, session, courses = [], user
             <span className="text-[9px] bg-slate-100 border border-slate-200 text-slate-600 px-1.5 py-0.2 rounded font-mono uppercase tracking-wider landscape:hidden">
               {competition.type}
             </span>
-            <button 
-              onClick={() => {
-                if (typeof window !== "undefined") {
-                  document.cookie = "last-comp-slug=; path=/; max-age=0; SameSite=Lax";
-                  window.location.href = "/";
-                }
-              }}
-              className="p-1 bg-slate-50 hover:bg-emerald-50 text-slate-500 hover:text-emerald-655 rounded-lg border border-slate-200 transition-colors shadow-sm inline-flex items-center justify-center cursor-pointer"
-              title="Switch Competition"
-            >
-              <Home size={12} />
-            </button>
           </h1>
         </div>
 
         <div className="flex items-center space-x-2 md:space-x-3">
+          <button 
+            onClick={() => {
+              if (typeof window !== "undefined") {
+                document.cookie = "last-comp-slug=; path=/; max-age=0; SameSite=Lax";
+                window.location.href = "/";
+              }
+            }}
+            className="p-1 md:p-1.5 bg-slate-50 hover:bg-emerald-50 text-slate-500 hover:text-emerald-655 rounded-lg border border-slate-200 transition-colors shadow-sm inline-flex items-center justify-center cursor-pointer"
+            title="Switch Competition"
+          >
+            <Home size={16} className="landscape:w-3.5 landscape:h-3.5" />
+          </button>
+
           {session ? (
             <div className="flex items-center space-x-1.5 md:space-x-2">
               <span className="text-xs text-slate-655 font-medium hidden md:inline landscape:hidden">Logged in as {session.user.name || session.user.email}</span>
               <button 
                 onClick={() => signOut({ callbackUrl: `/?comp=${competition.uniqueSlug}` })}
-                className="p-1 md:p-1.5 bg-slate-50 hover:bg-red-50 text-slate-500 hover:text-red-655 rounded-lg border border-slate-200 transition-colors shadow-sm"
+                className="p-1 md:p-1.5 bg-slate-50 hover:bg-red-50 text-slate-500 hover:text-red-655 rounded-lg border border-slate-200 transition-colors shadow-sm cursor-pointer"
                 title="Log Out"
               >
                 <LogOut size={16} className="landscape:w-3.5 landscape:h-3.5" />
@@ -2021,7 +2022,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
           ) : (
             <button 
               onClick={() => setActiveTab('scores')}
-              className="flex items-center space-x-1.5 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-255 text-xs font-semibold rounded-lg transition-all shadow-sm landscape:py-0.5 landscape:px-2"
+              className="flex items-center space-x-1.5 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-255 text-xs font-semibold rounded-lg transition-all shadow-sm landscape:py-0.5 landscape:px-2 cursor-pointer"
             >
               <Key size={14} className="landscape:w-3 landscape:h-3" />
               <span>Login to Score</span>

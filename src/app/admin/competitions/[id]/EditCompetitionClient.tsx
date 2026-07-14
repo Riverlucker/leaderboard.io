@@ -17,7 +17,7 @@ import {
   updateMatchPlayerAllowance
 } from "../actions"
 import { TEAM_COLOR_LIST, getTeamColorConfig } from "@/lib/teamColors"
-import { getPlayingHandicap, getMatchAllowance, getPlayerCalculatedAllowance } from "@/app/CompetitionClientView"
+import { getPlayingHandicap, getMatchAllowance, getPlayerCalculatedAllowance, parseHoleRangeString } from "@/app/CompetitionClientView"
 
 // Helper to format date for input type="date"
 const formatDateInput = (dateVal: any) => {
@@ -89,12 +89,14 @@ export function EditCompetitionClient({
   const [roundEnd, setRoundEnd] = useState("")
   const [roundError, setRoundError] = useState("")
   const [isAddingRound, setIsAddingRound] = useState(false)
-  const [holesPreset, setHolesPreset] = useState<'ALL' | 'FRONT' | 'BACK' | 'FRONT_TWICE' | 'BACK_TWICE' | 'CUSTOM'>('ALL')
+  const [holesPreset, setHolesPreset] = useState<'ALL' | 'FRONT' | 'BACK' | 'FRONT_TWICE' | 'BACK_TWICE' | 'RANGE' | 'CUSTOM'>('ALL')
+  const [roundHoleRange, setRoundHoleRange] = useState("")
   const [customHoles, setCustomHoles] = useState<number[]>(Array.from({ length: 18 }, (_, i) => i + 1))
 
   // Edit Round state
   const [editingRoundId, setEditingRoundId] = useState<string | null>(null)
-  const [editingHolesPreset, setEditingHolesPreset] = useState<'ALL' | 'FRONT' | 'BACK' | 'FRONT_TWICE' | 'BACK_TWICE' | 'CUSTOM'>('ALL')
+  const [editingHolesPreset, setEditingHolesPreset] = useState<'ALL' | 'FRONT' | 'BACK' | 'FRONT_TWICE' | 'BACK_TWICE' | 'RANGE' | 'CUSTOM'>('ALL')
+  const [editingHoleRange, setEditingHoleRange] = useState("")
   const [editingCustomHoles, setEditingCustomHoles] = useState<number[]>([])
   const [isUpdatingRoundHoles, setIsUpdatingRoundHoles] = useState(false)
   const [editingRoundError, setEditingRoundError] = useState("")
@@ -178,8 +180,10 @@ export function EditCompetitionClient({
       } else if (holesPreset === 'BACK_TWICE') {
         holesPlayed = Array.from({ length: 18 }, (_, i) => i + 1)
         ninePreset = 'BACK_9_TWICE'
+      } else if (holesPreset === 'RANGE') {
+        holesPlayed = parseHoleRangeString(roundHoleRange)
       } else if (holesPreset === 'CUSTOM') {
-        holesPlayed = [...customHoles].sort((a, b) => a - b)
+        holesPlayed = [...customHoles]
       }
 
       if (holesPlayed.length === 0) {
@@ -198,6 +202,7 @@ export function EditCompetitionClient({
       setRoundStart("")
       setRoundEnd("")
       setHolesPreset('ALL')
+      setRoundHoleRange("")
       setCustomHoles(Array.from({ length: 18 }, (_, i) => i + 1))
       router.refresh()
     } catch (err: any) {
@@ -225,20 +230,27 @@ export function EditCompetitionClient({
     
     const holes = round.holesPlayed || []
     setEditingCustomHoles(holes)
+    setEditingHoleRange(holes.join(","))
     
     // Set preset based on current holes and round preset
     if (round.ninePreset === 'FRONT_9_TWICE') {
       setEditingHolesPreset('FRONT_TWICE')
     } else if (round.ninePreset === 'BACK_9_TWICE') {
       setEditingHolesPreset('BACK_TWICE')
-    } else if (holes.length === 18) {
+    } else if (holes.length === 18 && holes.every((h: number, idx: number) => h === idx + 1)) {
       setEditingHolesPreset('ALL')
     } else if (holes.length === 9 && holes[0] === 1 && holes[8] === 9) {
       setEditingHolesPreset('FRONT')
     } else if (holes.length === 9 && holes[0] === 10 && holes[8] === 18) {
       setEditingHolesPreset('BACK')
     } else {
-      setEditingHolesPreset('CUSTOM')
+      const hasDuplicates = new Set(holes).size !== holes.length
+      const isSorted = holes.every((val: number, i: number, arr: number[]) => !i || val >= arr[i - 1])
+      if (hasDuplicates || !isSorted) {
+        setEditingHolesPreset('RANGE')
+      } else {
+        setEditingHolesPreset('CUSTOM')
+      }
     }
   }
 
@@ -260,8 +272,10 @@ export function EditCompetitionClient({
       } else if (editingHolesPreset === 'BACK_TWICE') {
         holes = Array.from({ length: 18 }, (_, i) => i + 1)
         ninePreset = 'BACK_9_TWICE'
+      } else if (editingHolesPreset === 'RANGE') {
+        holes = parseHoleRangeString(editingHoleRange)
       } else if (editingHolesPreset === 'CUSTOM') {
-        holes = [...editingCustomHoles].sort((a, b) => a - b)
+        holes = [...editingCustomHoles]
       }
 
       if (holes.length === 0) {
@@ -838,9 +852,24 @@ export function EditCompetitionClient({
                                 <option value="BACK">Back Nine (Holes 10-18)</option>
                                 <option value="FRONT_TWICE">Front Nine Twice (18 holes)</option>
                                 <option value="BACK_TWICE">Back Nine Twice (18 holes)</option>
+                                <option value="RANGE">Hole Range Expression</option>
                                 <option value="CUSTOM">Custom Hole Selection</option>
                               </select>
                             </div>
+
+                            {editingHolesPreset === 'RANGE' && (
+                              <div>
+                                <label className="block text-xs font-semibold text-slate-400 mb-1">Hole Range Expression</label>
+                                <input
+                                  type="text"
+                                  value={editingHoleRange}
+                                  onChange={e => setEditingHoleRange(e.target.value)}
+                                  placeholder="e.g. 1-10,12,14 or 1-9,1-3"
+                                  className="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-sm text-slate-200"
+                                  required
+                                />
+                              </div>
+                            )}
 
                             {editingHolesPreset === 'CUSTOM' && (
                               <div className="bg-slate-950 border border-slate-800 rounded p-3 space-y-2">
@@ -1007,9 +1036,24 @@ export function EditCompetitionClient({
                     <option value="BACK">Back Nine (Holes 10-18)</option>
                     <option value="FRONT_TWICE">Front Nine Twice (18 holes)</option>
                     <option value="BACK_TWICE">Back Nine Twice (18 holes)</option>
+                    <option value="RANGE">Hole Range Expression</option>
                     <option value="CUSTOM">Custom Hole Selection</option>
                   </select>
                 </div>
+
+                {holesPreset === 'RANGE' && (
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-400 mb-1">Hole Range Expression</label>
+                    <input
+                      type="text"
+                      value={roundHoleRange}
+                      onChange={e => setRoundHoleRange(e.target.value)}
+                      placeholder="e.g. 1-10,12,14 or 1-9,1-3"
+                      className="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-sm text-slate-200"
+                      required
+                    />
+                  </div>
+                )}
 
                 {holesPreset === 'CUSTOM' && (
                   <div className="bg-slate-950 border border-slate-800 rounded p-3 space-y-2">

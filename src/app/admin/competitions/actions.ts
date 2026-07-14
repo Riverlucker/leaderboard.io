@@ -216,7 +216,7 @@ export async function updateRoundHoles(
   await prisma.round.update({
     where: { id: roundId },
     data: {
-      holesPlayed: holesPlayed.sort((a, b) => a - b),
+      holesPlayed: holesPlayed,
       teeId: teeId || null,
       ninePreset: ninePreset || null
     }

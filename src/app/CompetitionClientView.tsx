@@ -193,6 +193,42 @@ export function parseHoleRange(rangeStr: string | null | undefined, roundHoles: 
   return roundHoles.length > 0 ? roundHoles : Array.from({ length: 18 }, (_, i) => i + 1)
 }
 
+export function parseHoleRangeString(rangeStr: string): number[] {
+  const result: number[] = []
+  if (!rangeStr) return result
+
+  const parts = rangeStr.split(',')
+  for (const part of parts) {
+    const trimmed = part.trim()
+    if (!trimmed) continue
+
+    if (trimmed.includes('-')) {
+      const bounds = trimmed.split('-')
+      if (bounds.length === 2) {
+        const start = parseInt(bounds[0].trim(), 10)
+        const end = parseInt(bounds[1].trim(), 10)
+        if (!isNaN(start) && !isNaN(end)) {
+          if (start <= end) {
+            for (let i = start; i <= end; i++) {
+              result.push(i)
+            }
+          } else {
+            for (let i = start; i >= end; i--) {
+              result.push(i)
+            }
+          }
+        }
+      }
+    } else {
+      const num = parseInt(trimmed, 10)
+      if (!isNaN(num)) {
+        result.push(num)
+      }
+    }
+  }
+  return result
+}
+
 export function getMatchHoleStrokesMap(matchHoles: number[], round: any, allowance: number) {
   const holeInfos = matchHoles.map(num => {
     const hole = round.course.holes.find((h: any) => h.number === num)
@@ -331,14 +367,16 @@ export function CompetitionClientView({ competition, session, courses = [], user
   const [newRoundTeeId, setNewRoundTeeId] = useState("")
   const [newRoundStart, setNewRoundStart] = useState("")
   const [newRoundEnd, setNewRoundEnd] = useState("")
-  const [newRoundHolesPreset, setNewRoundHolesPreset] = useState<'ALL' | 'FRONT' | 'BACK' | 'CUSTOM'>('ALL')
+  const [newRoundHolesPreset, setNewRoundHolesPreset] = useState<'ALL' | 'FRONT' | 'BACK' | 'FRONT_TWICE' | 'BACK_TWICE' | 'RANGE' | 'CUSTOM'>('ALL')
+  const [newRoundHoleRange, setNewRoundHoleRange] = useState("")
   const [newRoundCustomHoles, setNewRoundCustomHoles] = useState<number[]>(Array.from({ length: 18 }, (_, i) => i + 1))
   const [isAddingRound, setIsAddingRound] = useState(false)
   const [roundError, setRoundError] = useState("")
 
   // Edit Round inline state
   const [editingRoundId, setEditingRoundId] = useState<string | null>(null)
-  const [editingHolesPreset, setEditingHolesPreset] = useState<'ALL' | 'FRONT' | 'BACK' | 'CUSTOM'>('ALL')
+  const [editingHolesPreset, setEditingHolesPreset] = useState<'ALL' | 'FRONT' | 'BACK' | 'FRONT_TWICE' | 'BACK_TWICE' | 'RANGE' | 'CUSTOM'>('ALL')
+  const [editingHoleRange, setEditingHoleRange] = useState("")
   const [editingCustomHoles, setEditingCustomHoles] = useState<number[]>([])
   const [editingRoundTeeId, setEditingRoundTeeId] = useState("")
   const [isUpdatingRound, setIsUpdatingRound] = useState(false)
@@ -1858,14 +1896,23 @@ export function CompetitionClientView({ competition, session, courses = [], user
     setRoundError("")
     try {
       let holes: number[] = []
+      let ninePreset: string | null = null
       if (newRoundHolesPreset === 'ALL') {
         holes = Array.from({ length: 18 }, (_, i) => i + 1)
       } else if (newRoundHolesPreset === 'FRONT') {
         holes = Array.from({ length: 9 }, (_, i) => i + 1)
       } else if (newRoundHolesPreset === 'BACK') {
         holes = Array.from({ length: 9 }, (_, i) => i + 10)
+      } else if (newRoundHolesPreset === 'FRONT_TWICE') {
+        holes = Array.from({ length: 18 }, (_, i) => i + 1)
+        ninePreset = 'FRONT_9_TWICE'
+      } else if (newRoundHolesPreset === 'BACK_TWICE') {
+        holes = Array.from({ length: 18 }, (_, i) => i + 1)
+        ninePreset = 'BACK_9_TWICE'
+      } else if (newRoundHolesPreset === 'RANGE') {
+        holes = parseHoleRangeString(newRoundHoleRange)
       } else {
-        holes = [...newRoundCustomHoles].sort((a, b) => a - b)
+        holes = [...newRoundCustomHoles]
       }
 
       if (holes.length === 0) throw new Error("Please select at least one hole.")
@@ -1876,13 +1923,15 @@ export function CompetitionClientView({ competition, session, courses = [], user
         startDate: newRoundStart || null,
         endDate: newRoundEnd || null,
         holesPlayed: holes,
-        teeId: newRoundTeeId || null
+        teeId: newRoundTeeId || null,
+        ninePreset: ninePreset
       })
 
       setNewRoundName("")
       setNewRoundStart("")
       setNewRoundEnd("")
       setNewRoundHolesPreset('ALL')
+      setNewRoundHoleRange("")
       router.refresh()
     } catch (err: any) {
       setRoundError(err.message || "Failed to create round.")
@@ -1903,15 +1952,26 @@ export function CompetitionClientView({ competition, session, courses = [], user
     setEditingRoundTeeId(round.teeId || "")
     const holes = round.holesPlayed || []
     setEditingCustomHoles(holes)
+    setEditingHoleRange(holes.join(","))
 
-    if (holes.length === 18) {
+    if (round.ninePreset === 'FRONT_9_TWICE') {
+      setEditingHolesPreset('FRONT_TWICE')
+    } else if (round.ninePreset === 'BACK_9_TWICE') {
+      setEditingHolesPreset('BACK_TWICE')
+    } else if (holes.length === 18 && holes.every((h: number, idx: number) => h === idx + 1)) {
       setEditingHolesPreset('ALL')
     } else if (holes.length === 9 && holes[0] === 1) {
       setEditingHolesPreset('FRONT')
     } else if (holes.length === 9 && holes[0] === 10) {
       setEditingHolesPreset('BACK')
     } else {
-      setEditingHolesPreset('CUSTOM')
+      const hasDuplicates = new Set(holes).size !== holes.length
+      const isSorted = holes.every((val: number, i: number, arr: number[]) => !i || val >= arr[i - 1])
+      if (hasDuplicates || !isSorted) {
+        setEditingHolesPreset('RANGE')
+      } else {
+        setEditingHolesPreset('CUSTOM')
+      }
     }
   }
 
@@ -1920,17 +1980,26 @@ export function CompetitionClientView({ competition, session, courses = [], user
     setEditingRoundError("")
     try {
       let holes: number[] = []
+      let ninePreset: string | null = null
       if (editingHolesPreset === 'ALL') {
         holes = Array.from({ length: 18 }, (_, i) => i + 1)
       } else if (editingHolesPreset === 'FRONT') {
         holes = Array.from({ length: 9 }, (_, i) => i + 1)
       } else if (editingHolesPreset === 'BACK') {
         holes = Array.from({ length: 9 }, (_, i) => i + 10)
+      } else if (editingHolesPreset === 'FRONT_TWICE') {
+        holes = Array.from({ length: 18 }, (_, i) => i + 1)
+        ninePreset = 'FRONT_9_TWICE'
+      } else if (editingHolesPreset === 'BACK_TWICE') {
+        holes = Array.from({ length: 18 }, (_, i) => i + 1)
+        ninePreset = 'BACK_9_TWICE'
+      } else if (editingHolesPreset === 'RANGE') {
+        holes = parseHoleRangeString(editingHoleRange)
       } else {
-        holes = [...editingCustomHoles].sort((a, b) => a - b)
+        holes = [...editingCustomHoles]
       }
 
-      await updateRoundHoles(roundId, competition.id, holes, editingRoundTeeId)
+      await updateRoundHoles(roundId, competition.id, holes, editingRoundTeeId, ninePreset)
       setEditingRoundId(null)
       router.refresh()
     } catch (err: any) {
@@ -3467,7 +3536,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
 
                           <div className="col-span-2">
                             <label className="block font-semibold text-slate-550 mb-1">HOLES PLAYED</label>
-                            <div className="flex gap-4 mb-2.5">
+                            <div className="flex gap-4 mb-2.5 flex-wrap">
                               <label className="flex items-center space-x-1.5 cursor-pointer">
                                 <input
                                   type="radio"
@@ -3499,6 +3568,33 @@ export function CompetitionClientView({ competition, session, courses = [], user
                                 <input
                                   type="radio"
                                   name="holesPreset"
+                                  checked={newRoundHolesPreset === 'FRONT_TWICE'}
+                                  onChange={() => setNewRoundHolesPreset('FRONT_TWICE')}
+                                />
+                                <span>Front 9 Twice</span>
+                              </label>
+                              <label className="flex items-center space-x-1.5 cursor-pointer">
+                                <input
+                                  type="radio"
+                                  name="holesPreset"
+                                  checked={newRoundHolesPreset === 'BACK_TWICE'}
+                                  onChange={() => setNewRoundHolesPreset('BACK_TWICE')}
+                                />
+                                <span>Back 9 Twice</span>
+                              </label>
+                              <label className="flex items-center space-x-1.5 cursor-pointer">
+                                <input
+                                  type="radio"
+                                  name="holesPreset"
+                                  checked={newRoundHolesPreset === 'RANGE'}
+                                  onChange={() => setNewRoundHolesPreset('RANGE')}
+                                />
+                                <span>Hole Range</span>
+                              </label>
+                              <label className="flex items-center space-x-1.5 cursor-pointer">
+                                <input
+                                  type="radio"
+                                  name="holesPreset"
                                   checked={newRoundHolesPreset === 'CUSTOM'}
                                   onChange={() => {
                                     setNewRoundHolesPreset('CUSTOM')
@@ -3508,6 +3604,20 @@ export function CompetitionClientView({ competition, session, courses = [], user
                                 <span>Custom</span>
                               </label>
                             </div>
+
+                            {newRoundHolesPreset === 'RANGE' && (
+                              <div className="mt-2 space-y-1">
+                                <label className="block text-[11px] font-bold text-slate-500 uppercase">Hole Range Expression</label>
+                                <input
+                                  type="text"
+                                  value={newRoundHoleRange}
+                                  onChange={e => setNewRoundHoleRange(e.target.value)}
+                                  placeholder="e.g. 1-10,12,14 or 1-9,1-3"
+                                  className="w-full px-3 py-1.5 border border-slate-300 rounded bg-white text-sm"
+                                  required
+                                />
+                              </div>
+                            )}
 
                             {newRoundHolesPreset === 'CUSTOM' && (
                               <div className="grid grid-cols-6 gap-2 bg-white border border-slate-200 p-3 rounded">
@@ -3603,7 +3713,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
 
                                   <div className="text-xs space-y-1">
                                     <label className="block font-semibold text-slate-550">Holes Played</label>
-                                    <div className="flex gap-4">
+                                    <div className="flex gap-4 flex-wrap">
                                       <label className="flex items-center space-x-1 cursor-pointer">
                                         <input
                                           type="radio"
@@ -3631,6 +3741,30 @@ export function CompetitionClientView({ competition, session, courses = [], user
                                       <label className="flex items-center space-x-1 cursor-pointer">
                                         <input
                                           type="radio"
+                                          checked={editingHolesPreset === 'FRONT_TWICE'}
+                                          onChange={() => setEditingHolesPreset('FRONT_TWICE')}
+                                        />
+                                        <span>Front 9 Twice</span>
+                                      </label>
+                                      <label className="flex items-center space-x-1 cursor-pointer">
+                                        <input
+                                          type="radio"
+                                          checked={editingHolesPreset === 'BACK_TWICE'}
+                                          onChange={() => setEditingHolesPreset('BACK_TWICE')}
+                                        />
+                                        <span>Back 9 Twice</span>
+                                      </label>
+                                      <label className="flex items-center space-x-1 cursor-pointer">
+                                        <input
+                                          type="radio"
+                                          checked={editingHolesPreset === 'RANGE'}
+                                          onChange={() => setEditingHolesPreset('RANGE')}
+                                        />
+                                        <span>Hole Range</span>
+                                      </label>
+                                      <label className="flex items-center space-x-1 cursor-pointer">
+                                        <input
+                                          type="radio"
                                           checked={editingHolesPreset === 'CUSTOM'}
                                           onChange={() => {
                                             setEditingHolesPreset('CUSTOM')
@@ -3640,6 +3774,20 @@ export function CompetitionClientView({ competition, session, courses = [], user
                                         <span>Custom</span>
                                       </label>
                                     </div>
+
+                                    {editingHolesPreset === 'RANGE' && (
+                                      <div className="mt-2 space-y-1">
+                                        <label className="block text-[11px] font-bold text-slate-500 uppercase">Hole Range Expression</label>
+                                        <input
+                                          type="text"
+                                          value={editingHoleRange}
+                                          onChange={e => setEditingHoleRange(e.target.value)}
+                                          placeholder="e.g. 1-10,12,14 or 1-9,1-3"
+                                          className="w-full px-3 py-1.5 border border-slate-300 rounded bg-white text-sm"
+                                          required
+                                        />
+                                      </div>
+                                    )}
 
                                     {editingHolesPreset === 'CUSTOM' && (
                                       <div className="grid grid-cols-6 gap-2 bg-white border border-slate-200 p-3 rounded mt-2">

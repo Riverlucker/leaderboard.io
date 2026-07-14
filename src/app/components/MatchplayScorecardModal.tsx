@@ -226,6 +226,14 @@ export function MatchplayScorecardModal({
           holeWinner[num] = 'halved'
         }
 
+        if (competition.shortTrackLimit !== null && competition.shortTrackLimit !== undefined) {
+          if (runningLead > competition.shortTrackLimit) {
+            runningLead = competition.shortTrackLimit
+          } else if (runningLead < -competition.shortTrackLimit) {
+            runningLead = -competition.shortTrackLimit
+          }
+        }
+
         if (runningLead === 0) {
           standingsAtHole[num] = "AS"
         } else if (runningLead > 0) {

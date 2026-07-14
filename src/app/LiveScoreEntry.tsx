@@ -13,6 +13,7 @@ interface LiveScoreEntryProps {
   initialHoleIndex?: number
   onToggleMode: (mode: 'LIVE' | 'BULK') => void
   onHoleChange: (index: number) => void
+  holesToPlay?: number[]
 }
 
 export function LiveScoreEntry({
@@ -22,11 +23,14 @@ export function LiveScoreEntry({
   onScoreSaved,
   initialHoleIndex,
   onToggleMode,
-  onHoleChange
+  onHoleChange,
+  holesToPlay
 }: LiveScoreEntryProps) {
-  const activeHoles = round.holesPlayed && round.holesPlayed.length > 0
-    ? round.holesPlayed.sort((a: number, b: number) => a - b)
-    : Array.from({ length: 18 }, (_, i) => i + 1)
+  const activeHoles = holesToPlay && holesToPlay.length > 0
+    ? holesToPlay
+    : (round.holesPlayed && round.holesPlayed.length > 0
+        ? round.holesPlayed.sort((a: number, b: number) => a - b)
+        : Array.from({ length: 18 }, (_, i) => i + 1))
 
   const course = round.course
   const [currentHoleIndex, setCurrentHoleIndex] = useState(initialHoleIndex || 0)

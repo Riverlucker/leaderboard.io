@@ -87,6 +87,7 @@ model Competition {
   participants   Participant[]
   auditLogs      AuditLog[]
   extraLeaderboards String[]
+  shortTrackLimit   Int?
 }
 
 model Team {

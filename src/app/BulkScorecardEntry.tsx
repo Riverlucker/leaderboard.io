@@ -12,6 +12,7 @@ interface BulkScorecardEntryProps {
   onScoreSaved: () => void
   initialFocusId?: string
   onToggleMode: (mode: 'LIVE' | 'BULK') => void
+  holesToPlay?: number[]
 }
 
 export function BulkScorecardEntry({
@@ -20,11 +21,14 @@ export function BulkScorecardEntry({
   session,
   onScoreSaved,
   initialFocusId,
-  onToggleMode
+  onToggleMode,
+  holesToPlay
 }: BulkScorecardEntryProps) {
-  const activeHoles = round.holesPlayed && round.holesPlayed.length > 0
-    ? round.holesPlayed.sort((a: number, b: number) => a - b)
-    : Array.from({ length: 18 }, (_, i) => i + 1)
+  const activeHoles = holesToPlay && holesToPlay.length > 0
+    ? holesToPlay
+    : (round.holesPlayed && round.holesPlayed.length > 0
+        ? round.holesPlayed.sort((a: number, b: number) => a - b)
+        : Array.from({ length: 18 }, (_, i) => i + 1))
 
   const course = round.course
   const [savingCells, setSavingCells] = useState<Record<string, boolean>>({})

@@ -352,17 +352,33 @@ export function CompetitionClientView({ competition, session, courses = [], user
   const selectedScoringRound = competition.rounds.find((r: any) => r.id === selectedRoundId) || competition.rounds[0]
   const selectedScoringPlayers = competition.participants.filter((p: any) => selectedPlayerIds.includes(p.id))
 
+  const scoringMatch = selectedScoringRound?.matches?.find((m: any) => 
+    m.matchPlayers.some((mp: any) => selectedPlayerIds.includes(mp.participantId))
+  )
+  const roundHoles = selectedScoringRound?.holesPlayed && selectedScoringRound.holesPlayed.length > 0
+    ? [...selectedScoringRound.holesPlayed].sort((a: number, b: number) => a - b)
+    : Array.from({ length: 18 }, (_, i) => i + 1)
+  const scoringHoles = scoringMatch 
+    ? parseHoleRange(scoringMatch.holeRange, roundHoles)
+    : roundHoles
+
   const handleToggleEntryMode = (newMode: 'LIVE' | 'BULK') => {
     const rounds = competition.rounds || []
     const scoringRound = rounds.find((r: any) => r.id === selectedRoundId) || rounds[0]
     const scoringPlayers = competition.participants.filter((p: any) => selectedPlayerIds.includes(p.id))
 
-    const activeHoles = scoringRound?.holesPlayed && scoringRound.holesPlayed.length > 0
+    const match = scoringRound?.matches?.find((m: any) => 
+      m.matchPlayers.some((mp: any) => selectedPlayerIds.includes(mp.participantId))
+    )
+    const roundHoles = scoringRound?.holesPlayed && scoringRound.holesPlayed.length > 0
       ? [...scoringRound.holesPlayed].sort((a: number, b: number) => a - b)
       : Array.from({ length: 18 }, (_, i) => i + 1)
+    const activeHoles = match 
+      ? parseHoleRange(match.holeRange, roundHoles)
+      : roundHoles
 
     if (newMode === 'LIVE') {
-      const firstIncompleteIdx = findFirstIncompleteHoleIndex(scoringRound, scoringPlayers)
+      const firstIncompleteIdx = findFirstIncompleteHoleIndex(scoringRound, scoringPlayers, activeHoles)
       setLiveHoleIndex(firstIncompleteIdx)
       setEntryMode('LIVE')
       setSetupConfirmed(true)
@@ -461,11 +477,21 @@ export function CompetitionClientView({ competition, session, courses = [], user
         const r = competition.rounds.find((round: any) => round.id === initialRoundId) || competition.rounds[0]
         const pl = competition.participants.filter((p: any) => activePlayerIds.includes(p.id))
         
+        const match = r?.matches?.find((m: any) => 
+          m.matchPlayers.some((mp: any) => activePlayerIds.includes(mp.participantId))
+        )
+        const roundHoles = r?.holesPlayed && r.holesPlayed.length > 0
+          ? [...r.holesPlayed].sort((a: number, b: number) => a - b)
+          : Array.from({ length: 18 }, (_, i) => i + 1)
+        const activeHoles = match 
+          ? parseHoleRange(match.holeRange, roundHoles)
+          : roundHoles
+
         let holeIndex = 0
         if (savedHoleIdx !== null) {
           holeIndex = parseInt(savedHoleIdx)
         } else {
-          holeIndex = findFirstIncompleteHoleIndex(r, pl)
+          holeIndex = findFirstIncompleteHoleIndex(r, pl, activeHoles)
         }
         setLiveHoleIndex(holeIndex)
         setSetupConfirmed(true)
@@ -641,6 +667,14 @@ export function CompetitionClientView({ competition, session, courses = [], user
             lead--
           }
 
+          if (competition.shortTrackLimit !== null && competition.shortTrackLimit !== undefined) {
+            if (lead > competition.shortTrackLimit) {
+              lead = competition.shortTrackLimit
+            } else if (lead < -competition.shortTrackLimit) {
+              lead = -competition.shortTrackLimit
+            }
+          }
+
           const remaining = matchHoles.length - (holesPlayedCount + excludedHolesCount)
           if (!match.playUntilEnd && Math.abs(lead) > remaining && decidedInfo === null) {
             decidedInfo = {
@@ -765,6 +799,14 @@ export function CompetitionClientView({ competition, session, courses = [], user
             lead--
           }
 
+          if (competition.shortTrackLimit !== null && competition.shortTrackLimit !== undefined) {
+            if (lead > competition.shortTrackLimit) {
+              lead = competition.shortTrackLimit
+            } else if (lead < -competition.shortTrackLimit) {
+              lead = -competition.shortTrackLimit
+            }
+          }
+
           const remaining = matchHoles.length - (holesPlayedCount + excludedHolesCount)
           if (!match.playUntilEnd && Math.abs(lead) > remaining && decidedInfo === null) {
             decidedInfo = {
@@ -816,11 +858,13 @@ export function CompetitionClientView({ competition, session, courses = [], user
   }
 
   // Helper: Find the first hole index where any player's score is missing
-  const findFirstIncompleteHoleIndex = (scoringRound: any, scoringPlayers: any[]) => {
+  const findFirstIncompleteHoleIndex = (scoringRound: any, scoringPlayers: any[], activeHolesOverride?: number[]) => {
     if (!scoringRound || !scoringPlayers || scoringPlayers.length === 0) return 0
-    const activeHoles = scoringRound.holesPlayed && scoringRound.holesPlayed.length > 0
-      ? [...scoringRound.holesPlayed].sort((a: number, b: number) => a - b)
-      : Array.from({ length: 18 }, (_, i) => i + 1)
+    const activeHoles = activeHolesOverride && activeHolesOverride.length > 0
+      ? activeHolesOverride
+      : (scoringRound.holesPlayed && scoringRound.holesPlayed.length > 0
+          ? [...scoringRound.holesPlayed].sort((a: number, b: number) => a - b)
+          : Array.from({ length: 18 }, (_, i) => i + 1))
 
     for (let i = 0; i < activeHoles.length; i++) {
       const holeNum = activeHoles[i]
@@ -2759,7 +2803,17 @@ export function CompetitionClientView({ competition, session, courses = [], user
                       onClick={() => {
                         const r = competition.rounds.find((round: any) => round.id === selectedRoundId) || competition.rounds[0]
                         const pl = competition.participants.filter((p: any) => selectedPlayerIds.includes(p.id))
-                        const idx = findFirstIncompleteHoleIndex(r, pl)
+                        const match = r?.matches?.find((m: any) => 
+                          m.matchPlayers.some((mp: any) => selectedPlayerIds.includes(mp.participantId))
+                        )
+                        const roundHoles = r?.holesPlayed && r.holesPlayed.length > 0
+                          ? [...r.holesPlayed].sort((a: number, b: number) => a - b)
+                          : Array.from({ length: 18 }, (_, i) => i + 1)
+                        const activeHoles = match 
+                          ? parseHoleRange(match.holeRange, roundHoles)
+                          : roundHoles
+
+                        const idx = findFirstIncompleteHoleIndex(r, pl, activeHoles)
                         setLiveHoleIndex(idx)
                         setSetupConfirmed(true)
                         saveSetupToStorage(selectedRoundId, selectedPlayerIds, entryMode, true)
@@ -2825,6 +2879,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
                         initialHoleIndex={liveHoleIndex}
                         onToggleMode={handleToggleEntryMode}
                         onHoleChange={handleLiveHoleChange}
+                        holesToPlay={scoringHoles}
                       />
                     ) : (
                       <BulkScorecardEntry
@@ -2834,6 +2889,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
                         onScoreSaved={() => router.refresh()}
                         initialFocusId={focusInputId}
                         onToggleMode={handleToggleEntryMode}
+                        holesToPlay={scoringHoles}
                       />
                     )}
                   </div>

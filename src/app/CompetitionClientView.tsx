@@ -2039,7 +2039,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
             className={`flex-1 py-2 md:py-4 text-center text-xs md:text-sm font-bold border-b-2 transition-all flex items-center justify-center space-x-1.5 md:space-x-2 landscape:py-1 ${
               activeTab === 'leaderboard'
                 ? 'text-emerald-600 bg-white/20 font-extrabold'
-                : 'border-transparent text-slate-500 hover:text-slate-700'
+                : 'border-transparent text-slate-700 hover:text-slate-950 font-black'
             }`}
             style={{ borderBottomColor: activeTab === 'leaderboard' ? primaryColor : 'transparent' }}
           >
@@ -2052,7 +2052,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
             className={`flex-1 py-2 md:py-4 text-center text-xs md:text-sm font-bold border-b-2 transition-all flex items-center justify-center space-x-1.5 md:space-x-2 landscape:py-1 ${
               activeTab === 'scores'
                 ? 'text-emerald-600 bg-white/20 font-extrabold'
-                : 'border-transparent text-slate-500 hover:text-slate-700'
+                : 'border-transparent text-slate-700 hover:text-slate-950 font-black'
             }`}
             style={{ borderBottomColor: activeTab === 'scores' ? primaryColor : 'transparent' }}
           >
@@ -2065,7 +2065,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
             className={`flex-1 py-2 md:py-4 text-center text-xs md:text-sm font-bold border-b-2 transition-all flex items-center justify-center space-x-1.5 md:space-x-2 landscape:py-1 ${
               activeTab === 'details'
                 ? 'text-emerald-600 bg-white/20 font-extrabold'
-                : 'border-transparent text-slate-500 hover:text-slate-700'
+                : 'border-transparent text-slate-700 hover:text-slate-950 font-black'
             }`}
             style={{ borderBottomColor: activeTab === 'details' ? primaryColor : 'transparent' }}
           >
@@ -2079,7 +2079,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
               className={`flex-1 py-2 md:py-4 text-center text-xs md:text-sm font-bold border-b-2 transition-all flex items-center justify-center space-x-1.5 md:space-x-2 landscape:py-1 ${
                 activeTab === 'admin'
                   ? 'text-emerald-600 bg-white/20 font-extrabold'
-                  : 'border-transparent text-slate-500 hover:text-slate-700'
+                  : 'border-transparent text-slate-700 hover:text-slate-950 font-black'
               }`}
               style={{ borderBottomColor: activeTab === 'admin' ? primaryColor : 'transparent' }}
             >
@@ -2100,7 +2100,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
             {/* Filter controls */}
             <div className="flex flex-col sm:flex-row gap-4 sm:justify-between sm:items-center bg-white/35 backdrop-blur-sm border border-slate-200 p-4 rounded-2xl shadow-sm">
               <div className="flex items-center space-x-3">
-                <span className="text-xs font-bold text-slate-500 uppercase">View Round</span>
+                <span className="text-xs font-black text-slate-800 uppercase">View Round</span>
                 <select
                   value={selectedRoundFilter}
                   onChange={e => setSelectedRoundFilter(e.target.value)}
@@ -2115,7 +2115,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
 
               {/* Extra Leaderboard Dropdown */}
               <div className="flex items-center space-x-3">
-                <span className="text-xs font-bold text-slate-500 uppercase">Leaderboard</span>
+                <span className="text-xs font-black text-slate-800 uppercase">Leaderboard</span>
                 <select
                   value={selectedLeaderboardType}
                   onChange={e => setSelectedLeaderboardType(e.target.value)}

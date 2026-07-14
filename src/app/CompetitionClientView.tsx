@@ -19,6 +19,7 @@ import {
   assignLeaderboardRanks,
   getRoundHoleInfo
 } from "@/lib/scoring"
+import { getTeamColorConfig } from "@/lib/teamColors"
 
 import { 
   saveManualRoundHandicap, 
@@ -58,41 +59,29 @@ const formatDateTimeInput = (dateVal: any) => {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
 
-const getTeamHue = (teamName: string | undefined | null, teams: any[] = []): number => {
-  if (!teamName) return 210 // Default blue-ish
-  const lower = teamName.toLowerCase()
+const getTeamHue = (team: any, teams: any[] = []): number => {
+  if (!team) return 210 // Default blue-ish
   
-  if (teams && teams.length > 0) {
-    const idx = teams.findIndex(t => t.name.toLowerCase() === lower)
-    if (idx !== -1) {
-      return Math.round((idx * 360) / teams.length)
+  if (typeof team === 'string') {
+    const matchedTeam = teams.find(t => t.name.toLowerCase() === team.toLowerCase())
+    if (matchedTeam) {
+      return getTeamHue(matchedTeam, teams)
     }
-  }
-  
-  if (lower.includes("blau") || lower.includes("blue")) {
-    return 220 // Blue
-  } else if (lower.includes("rot") || lower.includes("red")) {
-    return 0 // Red
-  } else if (lower.includes("grün") || lower.includes("green")) {
-    return 142 // Green
-  } else if (lower.includes("gelb") || lower.includes("yellow")) {
-    return 47 // Yellow
-  } else if (lower.includes("orange")) {
-    return 24 // Orange
-  } else if (lower.includes("lila") || lower.includes("violett") || lower.includes("purple")) {
-    return 271 // Purple
-  } else {
-    // Generate hue deterministically from name
+    // Fallback: generate hue deterministically from name
     let hash = 0
-    for (let i = 0; i < teamName.length; i++) {
-      hash = teamName.charCodeAt(i) + ((hash << 5) - hash)
+    for (let i = 0; i < team.length; i++) {
+      hash = team.charCodeAt(i) + ((hash << 5) - hash)
     }
     return Math.abs(hash % 360)
   }
+
+  const idx = teams.findIndex(t => t.id === team.id)
+  const config = getTeamColorConfig(team.color, idx === -1 ? 0 : idx)
+  return config.hue
 }
 
-const getTeamRowStyle = (teamName: string | undefined | null, teams: any[] = []) => {
-  const hue = getTeamHue(teamName, teams)
+const getTeamRowStyle = (team: any, teams: any[] = []) => {
+  const hue = getTeamHue(team, teams)
   return {
     backgroundColor: `hsla(${hue}, 85%, 97%, 0.65)`,
     borderLeft: `4px solid hsl(${hue}, 75%, 55%)`
@@ -2038,7 +2027,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
             onClick={() => setActiveTab('leaderboard')}
             className={`flex-1 py-2 md:py-4 text-center text-xs md:text-sm font-bold border-b-2 transition-all flex items-center justify-center space-x-1.5 md:space-x-2 landscape:py-1 ${
               activeTab === 'leaderboard'
-                ? 'text-emerald-600 bg-white/20 font-extrabold'
+                ? 'text-emerald-500 bg-emerald-500/20 font-black'
                 : 'border-transparent text-slate-700 hover:text-slate-950 font-black'
             }`}
             style={{ borderBottomColor: activeTab === 'leaderboard' ? primaryColor : 'transparent' }}
@@ -2051,7 +2040,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
             onClick={() => setActiveTab('scores')}
             className={`flex-1 py-2 md:py-4 text-center text-xs md:text-sm font-bold border-b-2 transition-all flex items-center justify-center space-x-1.5 md:space-x-2 landscape:py-1 ${
               activeTab === 'scores'
-                ? 'text-emerald-600 bg-white/20 font-extrabold'
+                ? 'text-emerald-500 bg-emerald-500/20 font-black'
                 : 'border-transparent text-slate-700 hover:text-slate-950 font-black'
             }`}
             style={{ borderBottomColor: activeTab === 'scores' ? primaryColor : 'transparent' }}
@@ -2064,7 +2053,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
             onClick={() => setActiveTab('details')}
             className={`flex-1 py-2 md:py-4 text-center text-xs md:text-sm font-bold border-b-2 transition-all flex items-center justify-center space-x-1.5 md:space-x-2 landscape:py-1 ${
               activeTab === 'details'
-                ? 'text-emerald-600 bg-white/20 font-extrabold'
+                ? 'text-emerald-500 bg-emerald-500/20 font-black'
                 : 'border-transparent text-slate-700 hover:text-slate-950 font-black'
             }`}
             style={{ borderBottomColor: activeTab === 'details' ? primaryColor : 'transparent' }}
@@ -2078,7 +2067,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
               onClick={() => setActiveTab('admin')}
               className={`flex-1 py-2 md:py-4 text-center text-xs md:text-sm font-bold border-b-2 transition-all flex items-center justify-center space-x-1.5 md:space-x-2 landscape:py-1 ${
                 activeTab === 'admin'
-                  ? 'text-emerald-600 bg-white/20 font-extrabold'
+                  ? 'text-emerald-500 bg-emerald-500/20 font-black'
                   : 'border-transparent text-slate-700 hover:text-slate-950 font-black'
               }`}
               style={{ borderBottomColor: activeTab === 'admin' ? primaryColor : 'transparent' }}
@@ -2360,7 +2349,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
                           const highlightTeam = isStableford || isMvp
                           const team = entry.participant?.team
                           const rowStyle = (isTeamComp && highlightTeam && team)
-                            ? getTeamRowStyle(team.name, competition.teams)
+                            ? getTeamRowStyle(team, competition.teams)
                             : {}
 
                           return (
@@ -2370,7 +2359,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
                               </td>
                               <td className="px-3 py-2.5 md:px-5 md:py-4">
                                 <div 
-                                  style={isTeamComp && highlightTeam && team ? { color: `hsl(${getTeamHue(team.name, competition.teams)}, 75%, 25%)` } : {}}
+                                  style={isTeamComp && highlightTeam && team ? { color: `hsl(${getTeamHue(team, competition.teams)}, 75%, 25%)` } : {}}
                                   className="font-extrabold text-slate-900 text-sm md:text-base leading-tight"
                                 >
                                   {entry.name}
@@ -2379,9 +2368,9 @@ export function CompetitionClientView({ competition, session, courses = [], user
                                   isTeamComp && highlightTeam ? (
                                     <span 
                                       style={{
-                                        backgroundColor: `hsla(${getTeamHue(team.name, competition.teams)}, 80%, 92%, 0.85)`,
-                                        color: `hsl(${getTeamHue(team.name, competition.teams)}, 85%, 25%)`,
-                                        border: `1px solid hsla(${getTeamHue(team.name, competition.teams)}, 80%, 75%, 0.9)`
+                                        backgroundColor: `hsla(${getTeamHue(team, competition.teams)}, 80%, 92%, 0.85)`,
+                                        color: `hsl(${getTeamHue(team, competition.teams)}, 85%, 25%)`,
+                                        border: `1px solid hsla(${getTeamHue(team, competition.teams)}, 80%, 75%, 0.9)`
                                       }}
                                       className="inline-block text-[9px] font-extrabold px-1.5 py-0.5 rounded uppercase tracking-wider mt-1"
                                     >
@@ -2923,6 +2912,8 @@ export function CompetitionClientView({ competition, session, courses = [], user
                         onToggleMode={handleToggleEntryMode}
                         onHoleChange={handleLiveHoleChange}
                         holesToPlay={scoringHoles}
+                        isTeamComp={isTeamComp}
+                        competition={competition}
                       />
                     ) : (
                       <BulkScorecardEntry
@@ -2933,6 +2924,8 @@ export function CompetitionClientView({ competition, session, courses = [], user
                         initialFocusId={focusInputId}
                         onToggleMode={handleToggleEntryMode}
                         holesToPlay={scoringHoles}
+                        isTeamComp={isTeamComp}
+                        competition={competition}
                       />
                     )}
                   </div>

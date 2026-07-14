@@ -96,6 +96,7 @@ model Team {
   competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
   
   name          String
+  color         String?   // e.g., 'emerald', 'red', etc.
   participants  Participant[]
 }
 

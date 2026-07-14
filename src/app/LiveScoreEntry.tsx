@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react"
 import { saveBatchScores } from "@/app/actions/scores"
 import { ArrowLeft, ArrowRight, Loader2 } from "lucide-react"
 import { calculateCourseHandicap, getRoundHoleInfo } from "@/lib/scoring"
+import { getTeamColorConfig } from "@/lib/teamColors"
 
 interface LiveScoreEntryProps {
   round: any
@@ -14,6 +15,8 @@ interface LiveScoreEntryProps {
   onToggleMode: (mode: 'LIVE' | 'BULK') => void
   onHoleChange: (index: number) => void
   holesToPlay?: number[]
+  isTeamComp?: boolean
+  competition?: any
 }
 
 export function LiveScoreEntry({
@@ -24,7 +27,9 @@ export function LiveScoreEntry({
   initialHoleIndex,
   onToggleMode,
   onHoleChange,
-  holesToPlay
+  holesToPlay,
+  isTeamComp = false,
+  competition
 }: LiveScoreEntryProps) {
   const activeHoles = holesToPlay && holesToPlay.length > 0
     ? holesToPlay
@@ -294,7 +299,7 @@ export function LiveScoreEntry({
 
       {/* Players Scoring Rows - Tighter vertical/horizontal stack */}
       <div className="space-y-3">
-        {selectedParticipants.map((p) => {
+        {selectedParticipants.map((p, pIdx) => {
           const playerName = p.userId ? (p.user?.name || p.user?.email) : p.dummyName
           const activeVal = localScores[p.id] || ""
           const cellKey = `${p.id}-${currentHole.id}`
@@ -315,15 +320,22 @@ export function LiveScoreEntry({
             courseHandicap = calculateCourseHandicap(p.compHandicap, tee, coursePar)
           }
 
+          const teamIdx = competition?.teams?.findIndex((t: any) => t.id === p.teamId) ?? -1
+          const teamConfig = (isTeamComp && p.team) ? getTeamColorConfig(p.team.color, teamIdx === -1 ? pIdx : teamIdx) : null
+
           return (
-            <div key={p.id} className="bg-white/40 backdrop-blur-sm border border-slate-200/60 p-3 rounded-xl flex items-center justify-center gap-4 md:gap-8 shadow-sm text-slate-800">
+            <div key={p.id} className={`backdrop-blur-sm border p-3 rounded-xl flex items-center justify-center gap-4 md:gap-8 shadow-sm ${
+              teamConfig 
+                ? `${teamConfig.bg} ${teamConfig.text} border-slate-200/60 border-l-4 ${teamConfig.border}` 
+                : "bg-white/40 border-slate-200/60 text-slate-800"
+            }`}>
               
               {/* Left Column: Player Info */}
               <div className="w-24 md:w-36 flex-shrink-0">
-                <h4 className="font-extrabold text-slate-850 text-sm truncate leading-tight">
+                <h4 className={`font-extrabold text-sm truncate leading-tight ${teamConfig ? teamConfig.text : 'text-slate-850'}`}>
                   {playerName}
                 </h4>
-                <div className="text-[10px] text-slate-500 font-mono mt-0.5">
+                <div className={`text-[10px] font-mono mt-0.5 ${teamConfig ? teamConfig.textLight : 'text-slate-500'}`}>
                   HC {p.compHandicap !== null ? p.compHandicap.toFixed(1) : "-"} ({courseHandicap})
                 </div>
                 {isSaving && (

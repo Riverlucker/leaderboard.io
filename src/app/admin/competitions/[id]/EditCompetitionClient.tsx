@@ -11,10 +11,11 @@ import {
 import { 
   updateCompetitionGeneral, 
   addRound, deleteRound, updateRoundHoles,
-  addTeam, deleteTeam, 
+  addTeam, deleteTeam, updateTeamColor,
   addParticipant, deleteParticipant, 
   addMatch, deleteMatch, updateMatchAllowance, updateMatchPlayUntilEnd, updateMatchHoleRange 
 } from "../actions"
+import { TEAM_COLOR_LIST, getTeamColorConfig } from "@/lib/teamColors"
 
 // Helper to format date for input type="date"
 const formatDateInput = (dateVal: any) => {
@@ -298,6 +299,16 @@ export function EditCompetitionClient({
         console.error(e)
         alert("Failed to delete team.")
       }
+    }
+  }
+
+  const handleUpdateTeamColor = async (teamId: string, color: string) => {
+    try {
+      await updateTeamColor(teamId, competition.id, color)
+      router.refresh()
+    } catch (err) {
+      console.error("Failed to update team color:", err)
+      alert("Failed to update team color.")
     }
   }
 
@@ -1037,18 +1048,48 @@ export function EditCompetitionClient({
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {competition.teams.map((team: any) => {
+                  {competition.teams.map((team: any, tIdx: number) => {
                     const membersCount = competition.participants.filter((p: any) => p.teamId === team.id).length
+                    const teamConfig = getTeamColorConfig(team.color, tIdx)
+                    const defaultAssignedColorKey = TEAM_COLOR_LIST[tIdx % TEAM_COLOR_LIST.length]
 
                     return (
-                      <div key={team.id} className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm flex items-center justify-between">
+                      <div key={team.id} className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm flex items-center justify-between gap-4">
                         <div>
-                          <h4 className="font-bold text-slate-200 text-base">{team.name}</h4>
+                          <div className="flex items-center space-x-2">
+                            <span className={`w-3.5 h-3.5 rounded-full ${teamConfig.badge} border border-slate-950 shadow-sm`} />
+                            <h4 className="font-bold text-slate-200 text-base">{team.name}</h4>
+                          </div>
                           <p className="text-xs text-slate-500 mt-1">{membersCount} Assigned Players</p>
                         </div>
+
+                        {/* 3x3 grid color picker */}
+                        <div className="flex flex-col space-y-1 bg-slate-950 p-2 rounded-lg border border-slate-800/80 w-fit">
+                          <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block text-center mb-0.5">Team Color</span>
+                          <div className="grid grid-cols-3 gap-1">
+                            {TEAM_COLOR_LIST.map((colorKey) => {
+                              const config = getTeamColorConfig(colorKey, 0)
+                              const isSelected = (team.color || "") === colorKey || (!team.color && colorKey === defaultAssignedColorKey)
+                              return (
+                                <button
+                                  key={colorKey}
+                                  type="button"
+                                  onClick={() => handleUpdateTeamColor(team.id, colorKey)}
+                                  className={`w-3.5 h-3.5 rounded-full ${config.badge} transition-all cursor-pointer ${
+                                    isSelected 
+                                      ? 'ring-2 ring-white scale-125 border border-slate-900 shadow' 
+                                      : 'opacity-40 hover:opacity-100 hover:scale-110'
+                                  }`}
+                                  title={config.name}
+                                />
+                              )
+                            })}
+                          </div>
+                        </div>
+
                         <button
                           onClick={() => handleDeleteTeam(team.id)}
-                          className="p-2 bg-slate-950 border border-slate-800 hover:bg-red-950/40 text-slate-400 hover:text-red-400 rounded-lg transition-colors"
+                          className="p-2 bg-slate-950 border border-slate-800 hover:bg-red-950/40 text-slate-400 hover:text-red-400 rounded-lg transition-colors h-fit self-center"
                           title="Delete Team"
                         >
                           <Trash2 size={16} />

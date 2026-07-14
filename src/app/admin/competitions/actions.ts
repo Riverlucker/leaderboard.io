@@ -3,6 +3,7 @@
 import prisma from "@/lib/prisma"
 import { revalidatePath } from "next/cache"
 import { calculateCourseHandicap } from "@/lib/scoring"
+import { TEAM_COLOR_LIST } from "@/lib/teamColors"
 
 // Generates a short random slug (e.g. comp-3a5f9)
 function generateSlug() {
@@ -230,11 +231,27 @@ export async function addTeam(compId: string, name: string) {
   const nameVal = name?.trim()
   if (!nameVal) throw new Error("Team name is required.")
 
+  const existingTeamsCount = await prisma.team.count({
+    where: { competitionId: compId }
+  })
+  const defaultColor = TEAM_COLOR_LIST[existingTeamsCount % TEAM_COLOR_LIST.length]
+
   await prisma.team.create({
     data: {
       competitionId: compId,
-      name: nameVal
+      name: nameVal,
+      color: defaultColor
     }
+  })
+
+  revalidatePath(`/admin/competitions/${compId}`)
+  return { success: true }
+}
+
+export async function updateTeamColor(teamId: string, compId: string, color: string) {
+  await prisma.team.update({
+    where: { id: teamId },
+    data: { color }
   })
 
   revalidatePath(`/admin/competitions/${compId}`)

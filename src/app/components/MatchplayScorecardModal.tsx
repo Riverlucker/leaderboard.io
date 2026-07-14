@@ -10,6 +10,7 @@ import {
   getCompactName,
   parseHoleRange
 } from "../CompetitionClientView"
+import { getTeamColorConfig } from "@/lib/teamColors"
 
 interface MatchplayScorecardModalProps {
   selectedMatchForScorecard: any
@@ -32,6 +33,20 @@ export function MatchplayScorecardModal({
   const isTeamMatchplay = match.type === 'TEAM_MATCHPLAY'
   const pIds = match.matchPlayers.map((mp: any) => mp.participantId)
   const players = pIds.map((id: string) => competition.participants.find((x: any) => x.id === id)).filter(Boolean)
+
+  const team1 = isTeamMatchplay ? competition.teams.find((t: any) => t.id === players[0]?.teamId) : null
+  const team2 = isTeamMatchplay ? competition.teams.find((t: any) => t.id === players[2]?.teamId) : null
+
+  const team1Idx = isTeamMatchplay ? competition.teams.findIndex((t: any) => t.id === players[0]?.teamId) : 0
+  const team2Idx = isTeamMatchplay ? competition.teams.findIndex((t: any) => t.id === players[2]?.teamId) : 1
+
+  const team1Color = isTeamMatchplay && team1 
+    ? getTeamColorConfig(team1.color, team1Idx === -1 ? 0 : team1Idx) 
+    : getTeamColorConfig(null, 0) // default emerald
+
+  const team2Color = isTeamMatchplay && team2 
+    ? getTeamColorConfig(team2.color, team2Idx === -1 ? 1 : team2Idx) 
+    : getTeamColorConfig(null, 1) // default red
 
   if (players.length === 0) {
     return (
@@ -292,9 +307,9 @@ export function MatchplayScorecardModal({
       let nameBg = "bg-slate-50/50 text-slate-700 font-bold"
       const isGreen = isTeamMatchplay ? (pIdx === 1 || pIdx === 2) : (pIdx === 1)
       if (isGreen) {
-        nameBg = "bg-emerald-50 text-emerald-950 font-extrabold border-l-2 border-emerald-500"
+        nameBg = `${team1Color.bg} ${team1Color.text} font-extrabold border-l-2 ${team1Color.border}`
       } else {
-        nameBg = "bg-red-50 text-red-950 font-extrabold border-l-2 border-red-500"
+        nameBg = `${team2Color.bg} ${team2Color.text} font-extrabold border-l-2 ${team2Color.border}`
       }
 
       return (
@@ -341,17 +356,17 @@ export function MatchplayScorecardModal({
                 if (pIdx === 1 || pIdx === 2) {
                   const otherNet = pIdx === 1 ? netValuesAtHole[num]?.[2] : netValuesAtHole[num]?.[1]
                   const myNet = netValuesAtHole[num]?.[pIdx]
-                  cellBg = myNet < otherNet ? "bg-emerald-100 text-emerald-950 font-black" : "bg-emerald-50 text-emerald-800"
+                  cellBg = myNet < otherNet ? `${team1Color.bg} ${team1Color.text} font-black` : `${team1Color.bg} ${team1Color.text}`
                 } else {
                   const otherNet = pIdx === 3 ? netValuesAtHole[num]?.[4] : netValuesAtHole[num]?.[3]
                   const myNet = netValuesAtHole[num]?.[pIdx]
-                  cellBg = myNet < otherNet ? "bg-red-100 text-red-950 font-black" : "bg-red-50 text-red-800"
+                  cellBg = myNet < otherNet ? `${team2Color.bg} ${team2Color.text} font-black` : `${team2Color.bg} ${team2Color.text}`
                 }
               } else {
                 if (pIdx === 1) {
-                  cellBg = "bg-emerald-50 text-emerald-800 font-extrabold"
+                  cellBg = `${team1Color.bg} ${team1Color.text} font-extrabold`
                 } else {
-                  cellBg = "bg-red-50 text-red-800 font-extrabold"
+                  cellBg = `${team2Color.bg} ${team2Color.text} font-extrabold`
                 }
               }
             }

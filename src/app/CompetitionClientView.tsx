@@ -2259,8 +2259,10 @@ export function CompetitionClientView({ competition, session, courses = [], user
                             : (competition.rounds.find((r: any) => r.id === selectedRoundFilter)?.holesPlayed?.length || 18)
 
                           const isStableford = selectedLeaderboardType === 'STABLEFORD_NETTO' || selectedLeaderboardType === 'STABLEFORD_BRUTTO' || (selectedLeaderboardType === 'MAIN' && competition.type === 'NETTO_STABLEFORD')
+                          const isMvp = selectedLeaderboardType === 'MVP'
+                          const highlightTeam = isStableford || isMvp
                           const team = entry.participant?.team
-                          const rowStyle = (isTeamComp && isStableford && team)
+                          const rowStyle = (isTeamComp && highlightTeam && team)
                             ? getTeamRowStyle(team.name, competition.teams)
                             : {}
 
@@ -2271,13 +2273,13 @@ export function CompetitionClientView({ competition, session, courses = [], user
                               </td>
                               <td className="px-3 py-2.5 md:px-5 md:py-4">
                                 <div 
-                                  style={isTeamComp && isStableford && team ? { color: `hsl(${getTeamHue(team.name, competition.teams)}, 75%, 25%)` } : {}}
+                                  style={isTeamComp && highlightTeam && team ? { color: `hsl(${getTeamHue(team.name, competition.teams)}, 75%, 25%)` } : {}}
                                   className="font-extrabold text-slate-900 text-sm md:text-base leading-tight"
                                 >
                                   {entry.name}
                                 </div>
                                 {team && (
-                                  isTeamComp && isStableford ? (
+                                  isTeamComp && highlightTeam ? (
                                     <span 
                                       style={{
                                         backgroundColor: `hsla(${getTeamHue(team.name, competition.teams)}, 80%, 92%, 0.85)`,

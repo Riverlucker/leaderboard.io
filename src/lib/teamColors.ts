@@ -46,25 +46,25 @@ export const TEAM_COLORS: Record<string, TeamColorConfig> = {
   },
   amber: {
     key: "amber",
-    name: "Amber",
-    bg: "bg-amber-50",
-    text: "text-amber-955",
-    border: "border-amber-500",
-    hover: "hover:bg-amber-100",
-    badge: "bg-amber-500",
-    textLight: "text-amber-800",
-    hue: 45
+    name: "Yellow",
+    bg: "bg-yellow-50",
+    text: "text-yellow-950",
+    border: "border-yellow-500",
+    hover: "hover:bg-yellow-100",
+    badge: "bg-yellow-500",
+    textLight: "text-yellow-800",
+    hue: 54
   },
   purple: {
     key: "purple",
     name: "Purple",
-    bg: "bg-purple-50",
-    text: "text-purple-955",
-    border: "border-purple-500",
-    hover: "hover:bg-purple-100",
-    badge: "bg-purple-500",
-    textLight: "text-purple-800",
-    hue: 270
+    bg: "bg-fuchsia-50",
+    text: "text-fuchsia-950",
+    border: "border-fuchsia-500",
+    hover: "hover:bg-fuchsia-100",
+    badge: "bg-fuchsia-500",
+    textLight: "text-fuchsia-800",
+    hue: 295
   },
   indigo: {
     key: "indigo",

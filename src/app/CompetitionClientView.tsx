@@ -3943,9 +3943,9 @@ export function CompetitionClientView({ competition, session, courses = [], user
                               </div>
 
                               <div className="flex items-center space-x-4">
-                                {/* 3x3 grid color picker */}
+                                {/* 9x1 color picker */}
                                 <div className="flex flex-col space-y-1 bg-white p-1.5 rounded-lg border border-slate-200 shadow-sm w-fit">
-                                  <div className="grid grid-cols-3 gap-1">
+                                  <div className="grid grid-cols-9 gap-1">
                                     {TEAM_COLOR_LIST.map((colorKey) => {
                                       const config = getTeamColorConfig(colorKey, 0)
                                       const isSelected = (t.color || "") === colorKey || (!t.color && colorKey === defaultAssignedColorKey)

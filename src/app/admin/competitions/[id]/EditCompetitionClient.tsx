@@ -1135,10 +1135,10 @@ export function EditCompetitionClient({
                           <p className="text-xs text-slate-500 mt-1">{membersCount} Assigned Players</p>
                         </div>
 
-                        {/* 3x3 grid color picker */}
+                        {/* 9x1 color picker */}
                         <div className="flex flex-col space-y-1 bg-slate-950 p-2 rounded-lg border border-slate-800/80 w-fit">
                           <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block text-center mb-0.5">Team Color</span>
-                          <div className="grid grid-cols-3 gap-1">
+                          <div className="grid grid-cols-9 gap-1">
                             {TEAM_COLOR_LIST.map((colorKey) => {
                               const config = getTeamColorConfig(colorKey, 0)
                               const isSelected = (team.color || "") === colorKey || (!team.color && colorKey === defaultAssignedColorKey)

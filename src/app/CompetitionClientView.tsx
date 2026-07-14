@@ -2580,18 +2580,18 @@ export function CompetitionClientView({ competition, session, courses = [], user
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                   <div>
-                    <span className="text-slate-500 block font-medium">Format Modus</span>
+                    <span className="text-slate-700 block font-extrabold">Format Modus</span>
                     <span className="text-slate-800 font-bold uppercase">{competition.type}</span>
                   </div>
                   <div>
-                    <span className="text-slate-500 block font-medium">Type</span>
+                    <span className="text-slate-700 block font-extrabold">Type</span>
                     <span className="text-slate-800 font-bold">
                       {competition.isTeamComp ? "Team Competition" : "Individual Competition"}
                     </span>
                   </div>
                   {competition.startDate && (
                     <div>
-                      <span className="text-slate-500 block font-medium">Start Date</span>
+                      <span className="text-slate-700 block font-extrabold">Start Date</span>
                       <span className="text-slate-800 font-bold">
                         {new Date(competition.startDate).toLocaleDateString()}
                       </span>
@@ -2599,7 +2599,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
                   )}
                   {competition.endDate && (
                     <div>
-                      <span className="text-slate-500 block font-medium">End Date</span>
+                      <span className="text-slate-700 block font-extrabold">End Date</span>
                       <span className="text-slate-800 font-bold">
                         {new Date(competition.endDate).toLocaleDateString()}
                       </span>
@@ -2620,15 +2620,15 @@ export function CompetitionClientView({ competition, session, courses = [], user
                       <div key={round.id} className="bg-white/20 backdrop-blur-sm border border-slate-200/60 p-4 rounded-xl flex justify-between items-center">
                         <div className="space-y-1">
                           <h4 className="font-extrabold text-slate-800">{round.name}</h4>
-                          <p className="text-xs text-emerald-650 font-bold">
+                          <p className="text-xs text-emerald-655 font-black">
                             {round.course.name}{teeLabel}
                           </p>
-                          <p className="text-[10px] text-slate-500 font-mono">
+                          <p className="text-[10px] text-slate-700 font-mono font-bold">
                             Holes played: {holeCount} holes
                           </p>
                         </div>
                         {round.startDate && (
-                          <div className="text-right text-xs text-slate-600 font-mono font-bold">
+                          <div className="text-right text-xs text-slate-800 font-mono font-black">
                             {new Date(round.startDate).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
                           </div>
                         )}
@@ -2655,12 +2655,12 @@ export function CompetitionClientView({ competition, session, courses = [], user
                       <div>
                         <div className="font-semibold text-sm text-slate-850 truncate max-w-[150px]">{name}</div>
                         {isTeamComp && p.team && (
-                          <div className="text-[10px] font-extrabold text-slate-450 uppercase mt-0.5">
+                          <div className="text-[10px] font-black text-slate-655 uppercase mt-0.5">
                             Team: {p.team.name}
                           </div>
                         )}
                       </div>
-                      <div className="text-xs font-mono font-bold text-cyan-600">
+                      <div className="text-xs font-mono font-black text-cyan-750">
                         {p.compHandicap !== null ? p.compHandicap.toFixed(1) : "-"}
                       </div>
                     </div>

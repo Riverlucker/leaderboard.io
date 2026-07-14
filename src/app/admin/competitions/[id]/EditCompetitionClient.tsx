@@ -13,9 +13,11 @@ import {
   addRound, deleteRound, updateRoundHoles,
   addTeam, deleteTeam, updateTeamColor,
   addParticipant, deleteParticipant, 
-  addMatch, deleteMatch, updateMatchAllowance, updateMatchPlayUntilEnd, updateMatchHoleRange 
+  addMatch, deleteMatch, updateMatchAllowance, updateMatchPlayUntilEnd, updateMatchHoleRange,
+  updateMatchPlayerAllowance
 } from "../actions"
 import { TEAM_COLOR_LIST, getTeamColorConfig } from "@/lib/teamColors"
+import { getPlayingHandicap, getMatchAllowance, getPlayerCalculatedAllowance } from "@/app/CompetitionClientView"
 
 // Helper to format date for input type="date"
 const formatDateInput = (dateVal: any) => {
@@ -119,6 +121,8 @@ export function EditCompetitionClient({
   const [holeRange, setHoleRange] = useState("1-18")
   const [overrideAllowances, setOverrideAllowances] = useState<Record<string, string>>({})
   const [savingAllowance, setSavingAllowance] = useState<Record<string, boolean>>({})
+  const [overrideMatchPlayerAllowances, setOverrideMatchPlayerAllowances] = useState<Record<string, string>>({})
+  const [savingMatchPlayerAllowance, setSavingMatchPlayerAllowance] = useState<Record<string, boolean>>({})
   const [overrideHoleRanges, setOverrideHoleRanges] = useState<Record<string, string>>({})
   const [savingHoleRange, setSavingHoleRange] = useState<Record<string, boolean>>({})
   const [selectedPartIds, setSelectedPartIds] = useState<string[]>([])
@@ -401,6 +405,22 @@ export function EditCompetitionClient({
       alert("Failed to save allowance.")
     } finally {
       setSavingAllowance(prev => ({ ...prev, [matchId]: false }))
+    }
+  }
+
+  const handleSaveMatchPlayerAllowance = async (matchPlayerId: string) => {
+    const val = overrideMatchPlayerAllowances[matchPlayerId]
+    if (val === undefined) return
+    setSavingMatchPlayerAllowance(prev => ({ ...prev, [matchPlayerId]: true }))
+    try {
+      const parsed = val === "" ? null : parseInt(val)
+      await updateMatchPlayerAllowance(matchPlayerId, competition.id, parsed)
+      router.refresh()
+    } catch (err) {
+      console.error(err)
+      alert("Failed to update player allowance")
+    } finally {
+      setSavingMatchPlayerAllowance(prev => ({ ...prev, [matchPlayerId]: false }))
     }
   }
 
@@ -1409,42 +1429,88 @@ export function EditCompetitionClient({
                               // Find this participant in our competition.participants list to get handicap and team
                               const part = competition.participants.find((p: any) => p.id === mp.participantId)
                               const name = part?.userId ? part.user?.name : part?.dummyName
+                              const calculated = getPlayerCalculatedAllowance(mp, match, selectedRound, competition.participants)
+                              const isOverridden = mp.handicapAllowance !== null && mp.handicapAllowance !== undefined
+
+                              const inputVal = overrideMatchPlayerAllowances[mp.id] !== undefined
+                                ? overrideMatchPlayerAllowances[mp.id]
+                                : (mp.handicapAllowance !== null ? String(mp.handicapAllowance) : String(calculated))
+
+                              const isDirty = overrideMatchPlayerAllowances[mp.id] !== undefined && overrideMatchPlayerAllowances[mp.id] !== (mp.handicapAllowance !== null ? String(mp.handicapAllowance) : String(calculated))
 
                               return (
-                                <div key={mp.id} className="bg-slate-950 border border-slate-850 rounded-lg p-2.5 flex justify-between items-center text-xs">
+                                <div key={mp.id} className="bg-slate-950 border border-slate-850 rounded-xl p-3 flex justify-between items-center text-xs gap-3">
                                   <div>
-                                    <span className="font-semibold text-slate-300">{name || "Unknown Player"}</span>
+                                    <span className="font-bold text-slate-200">{name || "Unknown Player"}</span>
                                     {part?.team && (
-                                      <span className="ml-2 text-[10px] text-cyan-400">({part.team.name})</span>
+                                      <span className="ml-1.5 text-[10px] text-cyan-400 font-bold">[{part.team.name}]</span>
                                     )}
+                                    <div className="flex items-center space-x-2 mt-0.5 text-[10px] text-slate-500 font-mono">
+                                      <span>HC: {part?.compHandicap !== null && part?.compHandicap !== undefined ? part.compHandicap.toFixed(1) : "-"}</span>
+                                      <span>(PH: {part ? getPlayingHandicap(part, selectedRound) : "-"})</span>
+                                    </div>
                                   </div>
-                                  <span className="font-bold text-cyan-500 font-mono">
-                                    HC: {part?.compHandicap !== null && part?.compHandicap !== undefined ? part.compHandicap.toFixed(1) : "-"}
-                                  </span>
+
+                                  {(match.type === "SINGLES" || match.type === "TEAM_MATCHPLAY") && (
+                                    <div className="flex items-center space-x-1.5 flex-shrink-0">
+                                      <label className="text-[10px] font-bold text-slate-500 uppercase">Vorgabe:</label>
+                                      <input
+                                        type="number"
+                                        value={inputVal}
+                                        onChange={e => setOverrideMatchPlayerAllowances(prev => ({ ...prev, [mp.id]: e.target.value }))}
+                                        className={`w-11 bg-slate-900 border rounded px-1.5 py-0.5 text-center text-xs font-bold focus:ring-1 focus:ring-emerald-500 focus:outline-none ${
+                                          isOverridden 
+                                            ? 'border-cyan-500 text-cyan-400 bg-cyan-950/40' 
+                                            : 'border-slate-700 text-slate-300'
+                                        }`}
+                                      />
+                                      {isDirty && (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleSaveMatchPlayerAllowance(mp.id)}
+                                          disabled={savingMatchPlayerAllowance[mp.id]}
+                                          className="px-2 py-0.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-[10px] rounded transition-colors disabled:opacity-50"
+                                        >
+                                          {savingMatchPlayerAllowance[mp.id] ? "..." : "Save"}
+                                        </button>
+                                      )}
+                                      {isOverridden && (
+                                        <button
+                                          type="button"
+                                          onClick={async () => {
+                                            setSavingMatchPlayerAllowance(prev => ({ ...prev, [mp.id]: true }))
+                                            try {
+                                              await updateMatchPlayerAllowance(mp.id, competition.id, null)
+                                              setOverrideMatchPlayerAllowances(prev => {
+                                                const next = { ...prev }
+                                                delete next[mp.id]
+                                                return next
+                                              })
+                                              router.refresh()
+                                            } catch (err) {
+                                              console.error(err)
+                                              alert("Failed to reset allowance")
+                                            } finally {
+                                              setSavingMatchPlayerAllowance(prev => ({ ...prev, [mp.id]: false }))
+                                            }
+                                          }}
+                                          className="text-[9px] font-bold text-red-400 hover:text-red-500"
+                                          title="Reset to default calculated Vorgabe"
+                                        >
+                                          Reset
+                                        </button>
+                                      )}
+                                    </div>
+                                  )}
                                 </div>
                               )
                             })}
                           </div>
 
                           {(match.type === "SINGLES" || match.type === "TEAM_MATCHPLAY") && (
-                            <div className="flex flex-col space-y-2 pt-3 border-t border-slate-850/60 mt-2">
-                              <div className="flex items-center space-x-2">
-                                <label className="text-xs text-slate-450 font-semibold">Handicap Allowance (Vorgabe):</label>
-                                <input
-                                  type="number"
-                                  value={overrideAllowances[match.id] !== undefined ? overrideAllowances[match.id] : (match.handicapAllowance ?? "")}
-                                  onChange={e => setOverrideAllowances(prev => ({ ...prev, [match.id]: e.target.value }))}
-                                  className="w-14 bg-slate-950 border border-slate-700 rounded px-1.5 py-0.5 text-center text-xs text-slate-250 focus:ring-1 focus:ring-emerald-500 focus:outline-none"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => handleSaveAllowance(match.id)}
-                                  disabled={savingAllowance[match.id]}
-                                  className="px-2.5 py-1 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-slate-950 font-bold text-[10px] rounded transition-colors"
-                                >
-                                  {savingAllowance[match.id] ? "Saving..." : "Save"}
-                                </button>
-                                <span className="text-[10px] text-slate-500 font-mono">({match.allowanceType || "75%"} base)</span>
+                            <div className="flex flex-col space-y-2 pt-3 border-t border-slate-850/60 mt-2 text-xs">
+                              <div className="text-[10px] text-slate-500 font-semibold italic">
+                                Calculated using {match.allowanceType || "75%"} handicap allowance base difference.
                               </div>
                               <div className="flex items-center space-x-2">
                                 <input

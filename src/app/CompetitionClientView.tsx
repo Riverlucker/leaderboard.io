@@ -46,7 +46,8 @@ import {
   deleteMatch,
   updateMatchAllowance,
   updateMatchPlayUntilEnd,
-  updateMatchHoleRange
+  updateMatchHoleRange,
+  updateMatchPlayerAllowance
 } from "@/app/admin/competitions/actions"
 
 import { BulkScorecardEntry } from "./BulkScorecardEntry"
@@ -130,6 +131,41 @@ export function getMatchAllowance(match: any, hcpA: number, hcpB: number) {
   if (allowanceType === "100%") percentage = 1.00
   if (allowanceType === "0%") percentage = 0.00
   return Math.round(diff * percentage)
+}
+
+export function getPlayerCalculatedAllowance(mp: any, match: any, round: any, participants: any[]) {
+  if (mp.handicapAllowance !== null && mp.handicapAllowance !== undefined) {
+    return mp.handicapAllowance
+  }
+  const p = participants.find((x: any) => x.id === mp.participantId)
+  if (!p) return 0
+
+  const pHcp = getPlayingHandicap(p, round)
+
+  const matchPlayersList = match.matchPlayers.map((x: any) => participants.find((y: any) => y.id === x.participantId)).filter(Boolean)
+  const hcps = matchPlayersList.map((x: any) => getPlayingHandicap(x, round))
+
+  if (match.type === "TEAM_MATCHPLAY") {
+    if (hcps.length === 0) return 0
+    const minPH = Math.min(...hcps)
+    return pHcp - minPH
+  } else if (match.type === "SINGLES" && matchPlayersList.length === 2) {
+    const p1 = matchPlayersList[0]
+    const p2 = matchPlayersList[1]
+    const hcp1 = getPlayingHandicap(p1, round)
+    const hcp2 = getPlayingHandicap(p2, round)
+    const allowanceVal = getMatchAllowance(match, hcp1, hcp2)
+
+    if (p.id === p1.id) {
+      return hcp1 > hcp2 ? allowanceVal : 0
+    } else {
+      return hcp2 > hcp1 ? allowanceVal : 0
+    }
+  } else {
+    if (hcps.length === 0) return 0
+    const minPH = Math.min(...hcps)
+    return pHcp - minPH
+  }
 }
 
 export function getMatchHandicapStrokesOnHole(allowance: number, strokeIndex: number) {
@@ -329,6 +365,8 @@ export function CompetitionClientView({ competition, session, courses = [], user
   const [selectedPartIds, setSelectedPartIds] = useState<string[]>([])
   const [overrideAllowances, setOverrideAllowances] = useState<Record<string, string>>({})
   const [savingAllowance, setSavingAllowance] = useState<Record<string, boolean>>({})
+  const [overrideMatchPlayerAllowances, setOverrideMatchPlayerAllowances] = useState<Record<string, string>>({})
+  const [savingMatchPlayerAllowance, setSavingMatchPlayerAllowance] = useState<Record<string, boolean>>({})
   const [overrideHoleRanges, setOverrideHoleRanges] = useState<Record<string, string>>({})
   const [savingHoleRange, setSavingHoleRange] = useState<Record<string, boolean>>({})
   const [pairingError, setPairingError] = useState("")
@@ -586,6 +624,14 @@ export function CompetitionClientView({ competition, session, courses = [], user
   const computeMatchplayStatus = (match: any, round: any) => {
     const isTeamMatchplay = match.type === 'TEAM_MATCHPLAY'
 
+    const getPlayerMPAllowance = (pId: string, defVal: number) => {
+      const mp = match.matchPlayers.find((x: any) => x.participantId === pId)
+      if (mp && mp.handicapAllowance !== null && mp.handicapAllowance !== undefined) {
+        return mp.handicapAllowance
+      }
+      return defVal
+    }
+
     if (isTeamMatchplay) {
       const pIds = match.matchPlayers.map((mp: any) => mp.participantId)
       const players = pIds.map((id: string) => competition.participants.find((p: any) => p.id === id)).filter(Boolean)
@@ -626,10 +672,10 @@ export function CompetitionClientView({ competition, session, courses = [], user
 
       const minPH = Math.min(hcp1_1, hcp1_2, hcp2_1, hcp2_2)
 
-      const allowance1_1 = hcp1_1 - minPH
-      const allowance1_2 = hcp1_2 - minPH
-      const allowance2_1 = hcp2_1 - minPH
-      const allowance2_2 = hcp2_2 - minPH
+      const allowance1_1 = getPlayerMPAllowance(team1Players[0].id, hcp1_1 - minPH)
+      const allowance1_2 = getPlayerMPAllowance(team1Players[1].id, hcp1_2 - minPH)
+      const allowance2_1 = getPlayerMPAllowance(team2Players[0].id, hcp2_1 - minPH)
+      const allowance2_2 = getPlayerMPAllowance(team2Players[1].id, hcp2_2 - minPH)
 
       const name1_1 = getCompactName(team1Players[0].userId ? team1Players[0].user?.name : team1Players[0].dummyName || "", allNames)
       const name1_2 = getCompactName(team1Players[1].userId ? team1Players[1].user?.name : team1Players[1].dummyName || "", allNames)
@@ -776,8 +822,8 @@ export function CompetitionClientView({ competition, session, courses = [], user
       const hcp2 = getPlayingHandicap(p2, round)
 
       const allowance = getMatchAllowance(match, hcp1, hcp2)
-      const p1Allowance = hcp1 > hcp2 ? allowance : 0
-      const p2Allowance = hcp2 > hcp1 ? allowance : 0
+      const p1Allowance = getPlayerMPAllowance(p1.id, hcp1 > hcp2 ? allowance : 0)
+      const p2Allowance = getPlayerMPAllowance(p2.id, hcp2 > hcp1 ? allowance : 0)
 
       const allNames = competition.participants.map((p: any) =>
         p.userId ? p.user?.name : p.dummyName
@@ -1964,6 +2010,22 @@ export function CompetitionClientView({ competition, session, courses = [], user
       alert("Failed to update allowance")
     } finally {
       setSavingAllowance(prev => ({ ...prev, [matchId]: false }))
+    }
+  }
+
+  const handleSaveMatchPlayerAllowance = async (matchPlayerId: string) => {
+    const val = overrideMatchPlayerAllowances[matchPlayerId]
+    if (val === undefined) return
+    setSavingMatchPlayerAllowance(prev => ({ ...prev, [matchPlayerId]: true }))
+    try {
+      const parsed = val === "" ? null : parseInt(val)
+      await updateMatchPlayerAllowance(matchPlayerId, competition.id, parsed)
+      router.refresh()
+    } catch (err) {
+      console.error(err)
+      alert("Failed to update player allowance")
+    } finally {
+      setSavingMatchPlayerAllowance(prev => ({ ...prev, [matchPlayerId]: false }))
     }
   }
 
@@ -4004,18 +4066,79 @@ export function CompetitionClientView({ competition, session, courses = [], user
                                         {match.matchPlayers.map((mp: any) => {
                                           const part = competition.participants.find((p: any) => p.id === mp.participantId)
                                           const name = part?.userId ? part.user?.name : part?.dummyName
+                                          const calculated = getPlayerCalculatedAllowance(mp, match, selectedRound, competition.participants)
+                                          const isOverridden = mp.handicapAllowance !== null && mp.handicapAllowance !== undefined
+
+                                          const inputVal = overrideMatchPlayerAllowances[mp.id] !== undefined
+                                            ? overrideMatchPlayerAllowances[mp.id]
+                                            : (mp.handicapAllowance !== null ? String(mp.handicapAllowance) : String(calculated))
+
+                                          const isDirty = overrideMatchPlayerAllowances[mp.id] !== undefined && overrideMatchPlayerAllowances[mp.id] !== (mp.handicapAllowance !== null ? String(mp.handicapAllowance) : String(calculated))
 
                                           return (
-                                            <div key={mp.id} className="bg-slate-50 border border-slate-200/80 rounded-lg p-2.5 flex justify-between items-center text-xs">
+                                            <div key={mp.id} className="bg-slate-50 border border-slate-200/80 rounded-xl p-3 flex justify-between items-center text-xs gap-3">
                                               <div>
-                                                <span className="font-semibold text-slate-700">{name || "Unknown Player"}</span>
+                                                <span className="font-extrabold text-slate-700">{name || "Unknown Player"}</span>
                                                 {part?.team && (
-                                                  <span className="ml-2 text-[10px] text-cyan-600 font-bold">({part.team.name})</span>
+                                                  <span className="ml-1.5 text-[10px] text-cyan-600 font-bold">[{part.team.name}]</span>
                                                 )}
+                                                <div className="flex items-center space-x-2 mt-0.5 text-[10px] text-slate-450 font-mono">
+                                                  <span>HC: {part?.compHandicap !== null && part?.compHandicap !== undefined ? part.compHandicap.toFixed(1) : "-"}</span>
+                                                  <span>(PH: {part ? getPlayingHandicap(part, selectedRound) : "-"})</span>
+                                                </div>
                                               </div>
-                                              <span className="font-bold text-cyan-700 font-mono">
-                                                HC: {part?.compHandicap !== null && part?.compHandicap !== undefined ? part.compHandicap.toFixed(1) : "-"}
-                                              </span>
+
+                                              {(match.type === "SINGLES" || match.type === "TEAM_MATCHPLAY") && (
+                                                <div className="flex items-center space-x-1.5 flex-shrink-0">
+                                                  <label className="text-[10px] font-bold text-slate-500 uppercase">Vorgabe:</label>
+                                                  <input
+                                                    type="number"
+                                                    value={inputVal}
+                                                    onChange={e => setOverrideMatchPlayerAllowances(prev => ({ ...prev, [mp.id]: e.target.value }))}
+                                                    className={`w-11 bg-white border rounded px-1.5 py-0.5 text-center text-xs font-bold focus:ring-1 focus:ring-emerald-500 focus:outline-none ${
+                                                      isOverridden 
+                                                        ? 'border-cyan-400 text-cyan-700 bg-cyan-50/50' 
+                                                        : 'border-slate-300 text-slate-700'
+                                                    }`}
+                                                  />
+                                                  {isDirty && (
+                                                    <button
+                                                      type="button"
+                                                      onClick={() => handleSaveMatchPlayerAllowance(mp.id)}
+                                                      disabled={savingMatchPlayerAllowance[mp.id]}
+                                                      className="px-2 py-0.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[10px] rounded transition-colors disabled:opacity-50"
+                                                    >
+                                                      {savingMatchPlayerAllowance[mp.id] ? "..." : "Save"}
+                                                    </button>
+                                                  )}
+                                                  {isOverridden && (
+                                                    <button
+                                                      type="button"
+                                                      onClick={async () => {
+                                                        setSavingMatchPlayerAllowance(prev => ({ ...prev, [mp.id]: true }))
+                                                        try {
+                                                          await updateMatchPlayerAllowance(mp.id, competition.id, null)
+                                                          setOverrideMatchPlayerAllowances(prev => {
+                                                            const next = { ...prev }
+                                                            delete next[mp.id]
+                                                            return next
+                                                          })
+                                                          router.refresh()
+                                                        } catch (err) {
+                                                          console.error(err)
+                                                          alert("Failed to reset allowance")
+                                                        } finally {
+                                                          setSavingMatchPlayerAllowance(prev => ({ ...prev, [mp.id]: false }))
+                                                        }
+                                                      }}
+                                                      className="text-[9px] font-bold text-red-500 hover:text-red-700"
+                                                      title="Reset to default calculated Vorgabe"
+                                                    >
+                                                      Reset
+                                                    </button>
+                                                  )}
+                                                </div>
+                                              )}
                                             </div>
                                           )
                                         })}
@@ -4023,23 +4146,8 @@ export function CompetitionClientView({ competition, session, courses = [], user
 
                                       {(match.type === "SINGLES" || match.type === "TEAM_MATCHPLAY") && (
                                         <div className="flex flex-col space-y-2 pt-3 border-t border-slate-100 mt-2 text-xs">
-                                          <div className="flex items-center space-x-2">
-                                            <label className="text-slate-500 font-semibold">Handicap Allowance (Vorgabe):</label>
-                                            <input
-                                              type="number"
-                                              value={overrideAllowances[match.id] !== undefined ? overrideAllowances[match.id] : (match.handicapAllowance ?? "")}
-                                              onChange={e => setOverrideAllowances(prev => ({ ...prev, [match.id]: e.target.value }))}
-                                              className="w-14 bg-slate-50 border border-slate-300 rounded px-1.5 py-0.5 text-center text-xs focus:ring-1 focus:ring-emerald-500 focus:outline-none"
-                                            />
-                                            <button
-                                              type="button"
-                                              onClick={() => handleSaveAllowance(match.id)}
-                                              disabled={savingAllowance[match.id]}
-                                              className="px-2.5 py-1 bg-emerald-655 hover:bg-emerald-500 text-slate-800 hover:text-emerald-950 font-bold text-[10px] rounded transition-colors disabled:opacity-50"
-                                            >
-                                              {savingAllowance[match.id] ? "Saving..." : "Save"}
-                                            </button>
-                                            <span className="text-[10px] text-slate-400 font-mono">({match.allowanceType || "75%"} base)</span>
+                                          <div className="text-[10px] text-slate-450 font-semibold italic">
+                                            Calculated using {match.allowanceType || "75%"} handicap allowance base difference.
                                           </div>
                                           <div className="flex items-center space-x-2">
                                             <input

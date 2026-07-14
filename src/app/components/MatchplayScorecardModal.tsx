@@ -121,10 +121,18 @@ export function MatchplayScorecardModal({
 
     const minPH = Math.min(hcp1, hcp2, hcp3, hcp4)
 
-    p1Allowance = hcp1 - minPH
-    p2Allowance = hcp2 - minPH
-    p3Allowance = hcp3 - minPH
-    p4Allowance = hcp4 - minPH
+    const getPlayerMPAllowance = (pId: string, defVal: number) => {
+      const mp = match.matchPlayers.find((x: any) => x.participantId === pId)
+      if (mp && mp.handicapAllowance !== null && mp.handicapAllowance !== undefined) {
+        return mp.handicapAllowance
+      }
+      return defVal
+    }
+
+    p1Allowance = getPlayerMPAllowance(p1.id, hcp1 - minPH)
+    p2Allowance = getPlayerMPAllowance(p2.id, hcp2 - minPH)
+    p3Allowance = getPlayerMPAllowance(p3.id, hcp3 - minPH)
+    p4Allowance = getPlayerMPAllowance(p4.id, hcp4 - minPH)
 
     strokesMap1 = getMatchHoleStrokesMap(matchHoles, round, p1Allowance)
     strokesMap2 = getMatchHoleStrokesMap(matchHoles, round, p2Allowance)
@@ -139,8 +147,17 @@ export function MatchplayScorecardModal({
     const hcp2 = getPlayingHandicap(p2, round)
     const allowanceVal = getMatchAllowance(match, hcp1, hcp2)
     allowance = allowanceVal
-    p1Allowance = hcp1 > hcp2 ? allowanceVal : 0
-    p2Allowance = hcp2 > hcp1 ? allowanceVal : 0
+
+    const getPlayerMPAllowance = (pId: string, defVal: number) => {
+      const mp = match.matchPlayers.find((x: any) => x.participantId === pId)
+      if (mp && mp.handicapAllowance !== null && mp.handicapAllowance !== undefined) {
+        return mp.handicapAllowance
+      }
+      return defVal
+    }
+
+    p1Allowance = getPlayerMPAllowance(p1.id, hcp1 > hcp2 ? allowanceVal : 0)
+    p2Allowance = getPlayerMPAllowance(p2 ? p2.id : "", hcp2 > hcp1 ? allowanceVal : 0)
     strokesMap1 = getMatchHoleStrokesMap(matchHoles, round, p1Allowance)
     strokesMap2 = getMatchHoleStrokesMap(matchHoles, round, p2Allowance)
   }

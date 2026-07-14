@@ -163,6 +163,8 @@ model MatchPlayer {
   
   participantId String
   participant   Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+
+  handicapAllowance Int?
 }
 
 model Score {

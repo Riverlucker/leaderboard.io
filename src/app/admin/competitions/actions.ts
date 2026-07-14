@@ -482,6 +482,19 @@ export async function updateMatchAllowance(matchId: string, compId: string, hand
   return { success: true }
 }
 
+export async function updateMatchPlayerAllowance(matchPlayerId: string, compId: string, handicapAllowance: number | null) {
+  await prisma.matchPlayer.update({
+    where: { id: matchPlayerId },
+    data: {
+      handicapAllowance
+    }
+  })
+
+  revalidatePath(`/admin/competitions/${compId}`)
+  revalidatePath('/')
+  return { success: true }
+}
+
 export async function updateMatchPlayUntilEnd(matchId: string, compId: string, playUntilEnd: boolean) {
   await prisma.match.update({
     where: { id: matchId },

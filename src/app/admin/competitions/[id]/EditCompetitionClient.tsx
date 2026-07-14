@@ -130,6 +130,7 @@ export function EditCompetitionClient({
   const [selectedPartIds, setSelectedPartIds] = useState<string[]>([])
   const [pairingError, setPairingError] = useState("")
   const [isCreatingPairing, setIsCreatingPairing] = useState(false)
+  const [localTeamColors, setLocalTeamColors] = useState<Record<string, string>>({})
 
   // Pre-populate match holeRange state from round holesPlayed
   useEffect(() => {
@@ -329,12 +330,18 @@ export function EditCompetitionClient({
   }
 
   const handleUpdateTeamColor = async (teamId: string, color: string) => {
+    setLocalTeamColors(prev => ({ ...prev, [teamId]: color }))
     try {
       await updateTeamColor(teamId, competition.id, color)
       router.refresh()
     } catch (err) {
       console.error("Failed to update team color:", err)
       alert("Failed to update team color.")
+      setLocalTeamColors(prev => {
+        const next = { ...prev }
+        delete next[teamId]
+        return next
+      })
     }
   }
 
@@ -1122,7 +1129,8 @@ export function EditCompetitionClient({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {competition.teams.map((team: any, tIdx: number) => {
                     const membersCount = competition.participants.filter((p: any) => p.teamId === team.id).length
-                    const teamConfig = getTeamColorConfig(team.color, tIdx)
+                    const selectedColor = localTeamColors[team.id] !== undefined ? localTeamColors[team.id] : (team.color || "")
+                    const teamConfig = getTeamColorConfig(selectedColor, tIdx)
                     const defaultAssignedColorKey = TEAM_COLOR_LIST[tIdx % TEAM_COLOR_LIST.length]
 
                     return (
@@ -1141,7 +1149,7 @@ export function EditCompetitionClient({
                           <div className="grid grid-cols-9 gap-1">
                             {TEAM_COLOR_LIST.map((colorKey) => {
                               const config = getTeamColorConfig(colorKey, 0)
-                              const isSelected = (team.color || "") === colorKey || (!team.color && colorKey === defaultAssignedColorKey)
+                              const isSelected = selectedColor === colorKey || (!selectedColor && colorKey === defaultAssignedColorKey)
                               return (
                                 <button
                                   key={colorKey}

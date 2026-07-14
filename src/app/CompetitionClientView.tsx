@@ -432,6 +432,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
   const [newTeamName, setNewTeamName] = useState("")
   const [isAddingTeam, setIsAddingTeam] = useState(false)
   const [teamError, setTeamError] = useState("")
+  const [localTeamColors, setLocalTeamColors] = useState<Record<string, string>>({})
 
   // Admin participants state
   const [participantMode, setParticipantMode] = useState<'registered' | 'dummy'>('registered')
@@ -2086,12 +2087,18 @@ export function CompetitionClientView({ competition, session, courses = [], user
   }
 
   const handleUpdateTeamColor = async (teamId: string, color: string) => {
+    setLocalTeamColors(prev => ({ ...prev, [teamId]: color }))
     try {
       await updateTeamColor(teamId, competition.id, color)
       router.refresh()
     } catch (err) {
       console.error("Failed to update team color:", err)
       alert("Failed to update team color.")
+      setLocalTeamColors(prev => {
+        const next = { ...prev }
+        delete next[teamId]
+        return next
+      })
     }
   }
 
@@ -3927,7 +3934,8 @@ export function CompetitionClientView({ competition, session, courses = [], user
                       <div className="divide-y divide-slate-150">
                         {competition.teams.map((t: any, tIdx: number) => {
                           const membersCount = competition.participants.filter((p: any) => p.teamId === t.id).length
-                          const teamConfig = getTeamColorConfig(t.color, tIdx)
+                          const selectedColor = localTeamColors[t.id] !== undefined ? localTeamColors[t.id] : (t.color || "")
+                          const teamConfig = getTeamColorConfig(selectedColor, tIdx)
                           const defaultAssignedColorKey = TEAM_COLOR_LIST[tIdx % TEAM_COLOR_LIST.length]
 
                           return (
@@ -3948,7 +3956,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
                                   <div className="grid grid-cols-9 gap-1">
                                     {TEAM_COLOR_LIST.map((colorKey) => {
                                       const config = getTeamColorConfig(colorKey, 0)
-                                      const isSelected = (t.color || "") === colorKey || (!t.color && colorKey === defaultAssignedColorKey)
+                                      const isSelected = selectedColor === colorKey || (!selectedColor && colorKey === defaultAssignedColorKey)
                                       return (
                                         <button
                                           key={colorKey}

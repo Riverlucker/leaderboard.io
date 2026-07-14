@@ -135,7 +135,7 @@ export function EditCompetitionClient({
   useEffect(() => {
     const r = competition.rounds.find((x: any) => x.id === selectedRoundId)
     if (r) {
-      setHoleRange(getHoleRangeString(r.holesPlayed))
+      setHoleRange(getHoleRangeString(r))
     }
   }, [selectedRoundId, competition.rounds])
 

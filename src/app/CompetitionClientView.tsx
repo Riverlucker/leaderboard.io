@@ -221,8 +221,15 @@ export function parseHoleRangeString(rangeStr: string): number[] {
   return result
 }
 
-export function getHoleRangeString(holes: number[]): string {
-  if (!holes || holes.length === 0) return "1-18"
+export function getHoleRangeString(round: any): string {
+  if (!round) return "1-18"
+  
+  if (round.ninePreset === 'FRONT_9_TWICE' || round.ninePreset === 'BACK_9_TWICE') {
+    return "1-9,1-9"
+  }
+  
+  const holes = round.holesPlayed || []
+  if (holes.length === 0) return "1-18"
   
   // Check if it's consecutive ascending
   let isConsecutive = true
@@ -236,10 +243,10 @@ export function getHoleRangeString(holes: number[]): string {
     return `${holes[0]}-${holes[holes.length - 1]}`
   }
   
-  const isFrontTwice = holes.length === 18 && holes.slice(0, 9).every((h, idx) => h === idx + 1) && holes.slice(9, 18).every((h, idx) => h === idx + 1)
+  const isFrontTwice = holes.length === 18 && holes.slice(0, 9).every((h: number, idx: number) => h === idx + 1) && holes.slice(9, 18).every((h: number, idx: number) => h === idx + 1)
   if (isFrontTwice) return "1-9,1-9"
 
-  const isBackTwice = holes.length === 18 && holes.slice(0, 9).every((h, idx) => h === idx + 10) && holes.slice(9, 18).every((h, idx) => h === idx + 10)
+  const isBackTwice = holes.length === 18 && holes.slice(0, 9).every((h: number, idx: number) => h === idx + 10) && holes.slice(9, 18).every((h: number, idx: number) => h === idx + 10)
   if (isBackTwice) return "10-18,10-18"
 
   const parts: string[] = []
@@ -574,7 +581,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
   useEffect(() => {
     const r = competition.rounds.find((x: any) => x.id === selectedRoundId)
     if (r) {
-      setHoleRange(getHoleRangeString(r.holesPlayed))
+      setHoleRange(getHoleRangeString(r))
     }
   }, [selectedRoundId, competition.rounds])
 

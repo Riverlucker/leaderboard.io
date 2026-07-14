@@ -9,7 +9,7 @@ import { useRouter } from "next/navigation"
 import { 
   Trophy, BookOpen, Key, LogOut, CheckCircle, 
   Settings, ChevronRight, Users, Play, Edit, 
-  HelpCircle, Eye, RefreshCw, X, Loader2, Save, Trash2, ShieldAlert
+  HelpCircle, Eye, RefreshCw, X, Loader2, Save, Trash2, ShieldAlert, Home
 } from "lucide-react"
 
 import { 
@@ -1983,7 +1983,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
       }}
     >
       {/* Top Header */}
-      <header className="border-b border-slate-250 bg-white/70 backdrop-blur-md sticky top-0 z-40 px-4 py-2 md:py-4 shadow-sm flex justify-between items-center h-12 md:h-16 landscape:h-10">
+      <header className="border-b border-slate-250 bg-white/45 backdrop-blur-md sticky top-0 z-40 px-4 py-2 md:py-4 shadow-sm flex justify-between items-center h-12 md:h-16 landscape:h-10">
         <div className="space-y-0 md:space-y-0.5">
           <div className="text-[9px] md:text-[10px] uppercase font-bold tracking-widest text-slate-500 landscape:hidden">leaderboard.io</div>
           <h1 className="text-sm md:text-xl font-black text-slate-900 flex items-center gap-1.5">
@@ -1991,6 +1991,18 @@ export function CompetitionClientView({ competition, session, courses = [], user
             <span className="text-[9px] bg-slate-100 border border-slate-200 text-slate-600 px-1.5 py-0.2 rounded font-mono uppercase tracking-wider landscape:hidden">
               {competition.type}
             </span>
+            <button 
+              onClick={() => {
+                if (typeof window !== "undefined") {
+                  document.cookie = "last-comp-slug=; path=/; max-age=0; SameSite=Lax";
+                  window.location.href = "/";
+                }
+              }}
+              className="p-1 bg-slate-50 hover:bg-emerald-50 text-slate-500 hover:text-emerald-655 rounded-lg border border-slate-200 transition-colors shadow-sm inline-flex items-center justify-center cursor-pointer"
+              title="Switch Competition"
+            >
+              <Home size={12} />
+            </button>
           </h1>
         </div>
 
@@ -2019,13 +2031,13 @@ export function CompetitionClientView({ competition, session, courses = [], user
       </header>
 
       {/* Tabs */}
-      <div className="bg-white/60 backdrop-blur-md border-b border-slate-200 sticky top-12 md:top-16 landscape:top-10 z-30 flex justify-center shadow-sm h-10 md:h-14 landscape:h-8.5">
+      <div className="bg-white/35 backdrop-blur-md border-b border-slate-200 sticky top-12 md:top-16 landscape:top-10 z-30 flex justify-center shadow-sm h-10 md:h-14 landscape:h-8.5">
         <div className="flex w-full max-w-7xl px-4 h-full">
           <button
             onClick={() => setActiveTab('leaderboard')}
             className={`flex-1 py-2 md:py-4 text-center text-xs md:text-sm font-bold border-b-2 transition-all flex items-center justify-center space-x-1.5 md:space-x-2 landscape:py-1 ${
               activeTab === 'leaderboard'
-                ? 'text-emerald-600 bg-white/40 font-extrabold'
+                ? 'text-emerald-600 bg-white/20 font-extrabold'
                 : 'border-transparent text-slate-500 hover:text-slate-700'
             }`}
             style={{ borderBottomColor: activeTab === 'leaderboard' ? primaryColor : 'transparent' }}
@@ -2038,7 +2050,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
             onClick={() => setActiveTab('scores')}
             className={`flex-1 py-2 md:py-4 text-center text-xs md:text-sm font-bold border-b-2 transition-all flex items-center justify-center space-x-1.5 md:space-x-2 landscape:py-1 ${
               activeTab === 'scores'
-                ? 'text-emerald-600 bg-white/40 font-extrabold'
+                ? 'text-emerald-600 bg-white/20 font-extrabold'
                 : 'border-transparent text-slate-500 hover:text-slate-700'
             }`}
             style={{ borderBottomColor: activeTab === 'scores' ? primaryColor : 'transparent' }}
@@ -2051,7 +2063,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
             onClick={() => setActiveTab('details')}
             className={`flex-1 py-2 md:py-4 text-center text-xs md:text-sm font-bold border-b-2 transition-all flex items-center justify-center space-x-1.5 md:space-x-2 landscape:py-1 ${
               activeTab === 'details'
-                ? 'text-emerald-600 bg-white/40 font-extrabold'
+                ? 'text-emerald-600 bg-white/20 font-extrabold'
                 : 'border-transparent text-slate-500 hover:text-slate-700'
             }`}
             style={{ borderBottomColor: activeTab === 'details' ? primaryColor : 'transparent' }}
@@ -2065,7 +2077,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
               onClick={() => setActiveTab('admin')}
               className={`flex-1 py-2 md:py-4 text-center text-xs md:text-sm font-bold border-b-2 transition-all flex items-center justify-center space-x-1.5 md:space-x-2 landscape:py-1 ${
                 activeTab === 'admin'
-                  ? 'text-emerald-600 bg-white/40 font-extrabold'
+                  ? 'text-emerald-600 bg-white/20 font-extrabold'
                   : 'border-transparent text-slate-500 hover:text-slate-700'
               }`}
               style={{ borderBottomColor: activeTab === 'admin' ? primaryColor : 'transparent' }}
@@ -2085,7 +2097,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
           <div className="space-y-6">
             
             {/* Filter controls */}
-            <div className="flex flex-col sm:flex-row gap-4 sm:justify-between sm:items-center bg-white/60 backdrop-blur-sm border border-slate-200 p-4 rounded-2xl shadow-sm">
+            <div className="flex flex-col sm:flex-row gap-4 sm:justify-between sm:items-center bg-white/35 backdrop-blur-sm border border-slate-200 p-4 rounded-2xl shadow-sm">
               <div className="flex items-center space-x-3">
                 <span className="text-xs font-bold text-slate-500 uppercase">View Round</span>
                 <select
@@ -2162,7 +2174,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
 
               if (isViewingTeamMatchplay || isViewingSinglesMatchplay) {
                 return (
-                  <div className="bg-white/60 backdrop-blur-sm border border-slate-200 rounded-2xl overflow-x-auto shadow-sm">
+                  <div className="bg-white/35 backdrop-blur-sm border border-slate-200 rounded-2xl overflow-x-auto shadow-sm">
                     <table className="w-full text-sm text-left border-collapse">
                       <thead className="bg-slate-100/50 text-slate-550 uppercase tracking-wider text-xs border-b border-slate-200">
                         <tr>
@@ -2172,7 +2184,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
                           <th className="px-5 py-4 text-right">Standing</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-100 bg-white/30 text-slate-700">
+                      <tbody className="divide-y divide-slate-100 bg-white/15 text-slate-700">
                         {(() => {
                           const matchplayList: any[] = []
                           const roundsToUse = selectedRoundFilter === 'TOTAL'
@@ -2308,7 +2320,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
 
               if (!selectedLeaderboardType.startsWith('TEAM_')) {
                 return (
-                  <div className="bg-white/60 backdrop-blur-sm border border-slate-200 rounded-2xl overflow-x-auto shadow-sm">
+                  <div className="bg-white/35 backdrop-blur-sm border border-slate-200 rounded-2xl overflow-x-auto shadow-sm">
                     <table className="w-full text-sm text-left border-collapse">
                       <thead className="bg-slate-100/50 text-slate-550 uppercase tracking-wider text-xs border-b border-slate-200">
                         <tr>
@@ -2336,7 +2348,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
                           <th className="px-2 py-2.5 md:px-5 md:py-4 text-right w-12 md:w-16">Cards</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-100 bg-white/30 text-slate-700">
+                      <tbody className="divide-y divide-slate-100 bg-white/15 text-slate-700">
                         {leaderboardList.map((entry) => {
                           const totalHolesForFilter = selectedRoundFilter === 'TOTAL'
                             ? totalCompHoles
@@ -2453,7 +2465,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
               }
 
               return (
-                <div className="bg-white/60 backdrop-blur-sm border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+                <div className="bg-white/35 backdrop-blur-sm border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
                   <table className="w-full text-sm text-left border-collapse">
                     <thead className="bg-slate-100/50 text-slate-550 uppercase tracking-wider text-xs border-b border-slate-200">
                       <tr>
@@ -2481,7 +2493,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
                         <th className="px-2 py-2.5 md:px-5 md:py-4 text-right w-12 md:w-16">Cards</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 bg-white/30 text-slate-700">
+                    <tbody className="divide-y divide-slate-100 bg-white/15 text-slate-700">
                       {leaderboardList.map((entry) => {
                         const totalHolesForFilter = selectedRoundFilter === 'TOTAL'
                           ? totalCompHoles
@@ -2561,7 +2573,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="md:col-span-2 space-y-6">
               {/* Settings */}
-              <div className="bg-white/60 backdrop-blur-sm border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
+              <div className="bg-white/35 backdrop-blur-sm border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
                 <h3 className="text-xl font-bold border-b border-slate-150 pb-3" style={{ color: primaryColor }}>
                   Competition Settings
                 </h3>
@@ -2596,7 +2608,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
               </div>
 
               {/* Rounds List */}
-              <div className="bg-white/60 backdrop-blur-sm border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
+              <div className="bg-white/35 backdrop-blur-sm border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
                 <h3 className="text-xl font-bold border-b border-slate-150 pb-3">Rounds Schedule</h3>
                 <div className="space-y-4">
                   {competition.rounds.map((round: any) => {
@@ -2604,7 +2616,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
                     const teeLabel = round.tee ? ` (${round.tee.name})` : ""
 
                     return (
-                      <div key={round.id} className="bg-white/40 backdrop-blur-sm border border-slate-200/60 p-4 rounded-xl flex justify-between items-center">
+                      <div key={round.id} className="bg-white/20 backdrop-blur-sm border border-slate-200/60 p-4 rounded-xl flex justify-between items-center">
                         <div className="space-y-1">
                           <h4 className="font-extrabold text-slate-800">{round.name}</h4>
                           <p className="text-xs text-emerald-650 font-bold">
@@ -2627,7 +2639,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
             </div>
 
             {/* Side Column: Participants List */}
-            <div className="bg-white/60 backdrop-blur-sm border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4 h-fit">
+            <div className="bg-white/35 backdrop-blur-sm border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4 h-fit">
               <h3 className="text-lg font-bold border-b border-slate-150 pb-3 flex items-center justify-between">
                 <span>Participants</span>
                 <span className="text-xs font-bold bg-slate-100 border border-slate-200 px-2 py-0.5 rounded text-slate-600">
@@ -2721,7 +2733,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
               <div className="space-y-6">
                 {!setupConfirmed ? (
                   /* Setup Phase */
-                  <div className="bg-white/60 backdrop-blur-sm border border-slate-200 rounded-2xl p-6 shadow-sm space-y-6">
+                  <div className="bg-white/35 backdrop-blur-sm border border-slate-200 rounded-2xl p-6 shadow-sm space-y-6">
                     <div>
                       <h3 className="text-xl font-bold text-slate-800">Setup Scoring Flight</h3>
                       <p className="text-xs text-slate-550">Select the playing round and up to 4 players (including yourself) to enter scores for.</p>
@@ -2861,7 +2873,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
                   /* Entry Active Phase */
                   <div className="space-y-4 w-full">
                     {/* Setup Bar */}
-                    <div className="flex justify-between items-center bg-white/60 backdrop-blur-sm border border-slate-200 p-4 rounded-xl shadow-sm text-slate-800 w-full">
+                    <div className="flex justify-between items-center bg-white/35 backdrop-blur-sm border border-slate-200 p-4 rounded-xl shadow-sm text-slate-800 w-full">
                       <div className="text-xs font-medium">
                         Round: <span className="font-bold text-emerald-650">{selectedScoringRound?.name}</span> | Players:{" "}
                         <span className="font-bold text-slate-800">

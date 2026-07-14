@@ -1,8 +1,8 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { saveHoleScore } from "@/app/actions/scores"
-import { ArrowLeft, ArrowRight, Loader2, BookOpen } from "lucide-react"
+import { useState, useEffect, useRef } from "react"
+import { saveBatchScores } from "@/app/actions/scores"
+import { ArrowLeft, ArrowRight, Loader2 } from "lucide-react"
 import { calculateCourseHandicap, getRoundHoleInfo } from "@/lib/scoring"
 
 interface LiveScoreEntryProps {
@@ -39,10 +39,21 @@ export function LiveScoreEntry({
   const [savingCells, setSavingCells] = useState<Record<string, boolean>>({})
   const [localScores, setLocalScores] = useState<Record<string, string>>({}) // key: partId -> string
 
-  // Helper to extract scores for a specific hole from participants
+  // Debounce and queue refs
+  const pendingChangesRef = useRef<Record<string, { partId: string; holeId: string; value: string }>>({})
+  const saveTimeoutRef = useRef<any>(null)
+  const dirtyKeysRef = useRef<Record<string, boolean>>({})
+
+  // Helper to extract scores for a specific hole from participants, merging pending changes
   const getScoresForHole = (holeId: string) => {
     const scoresMap: Record<string, string> = {}
     for (const p of selectedParticipants) {
+      const cellKey = `${p.id}-${holeId}`
+      if (pendingChangesRef.current[cellKey]) {
+        scoresMap[p.id] = pendingChangesRef.current[cellKey].value
+        continue
+      }
+
       const score = p.scores.find((s: any) => s.roundId === round.id && s.holeId === holeId)
       if (score) {
         if (score.status === 'WIPED') {
@@ -73,7 +84,7 @@ export function LiveScoreEntry({
     }
   }, [initialHoleIndex, activeHoles.length])
 
-  // Sync local scores whenever current hole changes or props change
+  // Sync local scores whenever current hole changes or props change, preserving dirty states
   useEffect(() => {
     if (!currentHole) return
     setLocalScores(getScoresForHole(currentHole.id))
@@ -106,7 +117,107 @@ export function LiveScoreEntry({
     }
   }
 
-  const handleScoreClick = async (partId: string, holeId: string, value: string) => {
+  // Perform the batch save
+  const performBatchSave = async () => {
+    const queue = pendingChangesRef.current
+    if (Object.keys(queue).length === 0) return
+
+    const batchToSave = { ...queue }
+    pendingChangesRef.current = {}
+
+    // Show indicator on saving cells
+    setSavingCells(prev => {
+      const next = { ...prev }
+      for (const key of Object.keys(batchToSave)) {
+        next[key] = true
+      }
+      return next
+    })
+
+    try {
+      const updates = Object.values(batchToSave).map(item => {
+        let grossStrokes: number | null = null
+        let status: string | null = null
+        if (item.value === '/') {
+          status = 'WIPED'
+        } else if (item.value === '-' || item.value === '') {
+          status = 'NOT_PLAYED'
+        } else {
+          grossStrokes = parseInt(item.value)
+        }
+        return {
+          participantId: item.partId,
+          roundId: round.id,
+          holeId: item.holeId,
+          grossStrokes,
+          status
+        }
+      })
+
+      await saveBatchScores(
+        round.competitionId,
+        updates,
+        session.user.id,
+        session.user.name || session.user.email
+      )
+
+      // Clear from dirty list after successful save
+      for (const key of Object.keys(batchToSave)) {
+        delete dirtyKeysRef.current[key]
+      }
+
+      onScoreSaved()
+    } catch (err) {
+      console.error("Failed to save batch scores:", err)
+      pendingChangesRef.current = { ...batchToSave, ...pendingChangesRef.current }
+    } finally {
+      setSavingCells(prev => {
+        const next = { ...prev }
+        for (const key of Object.keys(batchToSave)) {
+          next[key] = false
+        }
+        return next
+      })
+    }
+  }
+
+  // Force save on unmount if any pending changes exist
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current)
+      }
+      const queue = pendingChangesRef.current
+      if (Object.keys(queue).length > 0) {
+        const updates = Object.values(queue).map(item => {
+          let grossStrokes: number | null = null
+          let status: string | null = null
+          if (item.value === '/') {
+            status = 'WIPED'
+          } else if (item.value === '-' || item.value === '') {
+            status = 'NOT_PLAYED'
+          } else {
+            grossStrokes = parseInt(item.value)
+          }
+          return {
+            participantId: item.partId,
+            roundId: round.id,
+            holeId: item.holeId,
+            grossStrokes,
+            status
+          }
+        })
+        saveBatchScores(
+          round.competitionId,
+          updates,
+          session.user.id,
+          session.user.name || session.user.email
+        ).catch(console.error)
+      }
+    }
+  }, [round.id, round.competitionId, session.user.id, session.user.name, session.user.email])
+
+  const handleScoreClick = (partId: string, holeId: string, value: string) => {
     // If clicked the already selected button, deselect it (revert to '')
     const currentVal = localScores[partId] || ""
     const targetValue = currentVal === value ? "" : value
@@ -115,36 +226,18 @@ export function LiveScoreEntry({
     setLocalScores(prev => ({ ...prev, [partId]: targetValue }))
 
     const cellKey = `${partId}-${holeId}`
-    setSavingCells(prev => ({ ...prev, [cellKey]: true }))
+    
+    // Mark key as dirty and add to queue
+    dirtyKeysRef.current[cellKey] = true
+    pendingChangesRef.current[cellKey] = { partId, holeId, value: targetValue }
 
-    try {
-      let grossStrokes: number | null = null
-      let status: string | null = null
-
-      if (targetValue === '/') {
-        status = 'WIPED'
-      } else if (targetValue === '-') {
-        status = 'NOT_PLAYED'
-      } else {
-        grossStrokes = parseInt(targetValue)
-      }
-
-      await saveHoleScore({
-        participantId: partId,
-        roundId: round.id,
-        holeId: holeId,
-        grossStrokes,
-        status,
-        enteredByUserId: session.user.id,
-        enteredByUserName: session.user.name || session.user.email
-      })
-
-      onScoreSaved()
-    } catch (err) {
-      console.error("Failed to save score:", err)
-    } finally {
-      setSavingCells(prev => ({ ...prev, [cellKey]: false }))
+    // Reset debounce timer (2 seconds)
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current)
     }
+    saveTimeoutRef.current = setTimeout(() => {
+      performBatchSave()
+    }, 2000)
   }
 
   if (!currentHole) {
@@ -182,7 +275,7 @@ export function LiveScoreEntry({
 
         <div className="text-center">
           <div className="text-sm font-semibold text-slate-500 uppercase tracking-widest">Hole {currentHoleNum} of {activeHoles.length}</div>
-          <h3 className="text-2xl font-extrabold text-slate-800 flex items-center justify-center gap-3 mt-1">
+          <h3 className="text-2xl font-extrabold text-slate-850 flex items-center justify-center gap-3 mt-1">
             <span>Par {par}</span>
             <span className="text-xs font-mono font-normal text-slate-655 bg-white/40 border border-slate-200/60 px-2 py-0.5 rounded uppercase shadow-sm">
               Idx {strokeIndex}
@@ -244,7 +337,6 @@ export function LiveScoreEntry({
               {/* Right Column: Symmetric Grid Buttons Selector */}
               <div className="flex-1 grid grid-cols-8 gap-1 max-w-md">
                 {columns.map((col, colIdx) => {
-
                   const opt = col.val
                   const isActive = activeVal === opt
                   
@@ -296,7 +388,6 @@ export function LiveScoreEntry({
                     <button
                       key={`${opt}-${colIdx}`}
                       onClick={() => handleScoreClick(p.id, currentHole.id, opt)}
-                      disabled={isSaving}
                       title={tooltip}
                       className={`relative w-full aspect-square flex items-center justify-center rounded-lg border transition-all ${btnStyle}`}
                     >

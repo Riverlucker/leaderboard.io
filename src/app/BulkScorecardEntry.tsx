@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { saveHoleScore } from "@/app/actions/scores"
+import { useState, useEffect, useRef } from "react"
+import { saveBatchScores } from "@/app/actions/scores"
 import { Loader2 } from "lucide-react"
 import { calculateCourseHandicap, getHandicapStrokesOnHole, getRoundHoleInfo } from "@/lib/scoring"
 
@@ -34,6 +34,11 @@ export function BulkScorecardEntry({
   const [savingCells, setSavingCells] = useState<Record<string, boolean>>({})
   const [localScores, setLocalScores] = useState<Record<string, string>>({}) // key: "partId-holeId", value: string (1-9, /, -)
 
+  // Debounce and queue refs
+  const pendingChangesRef = useRef<Record<string, { partId: string; holeId: string; value: string }>>({})
+  const saveTimeoutRef = useRef<any>(null)
+  const dirtyKeysRef = useRef<Record<string, boolean>>({})
+
   // Focus effect when switched from Live
   useEffect(() => {
     if (initialFocusId) {
@@ -48,30 +53,139 @@ export function BulkScorecardEntry({
     }
   }, [initialFocusId])
 
-  // Initialize local scores state from database scores
+  // Sync localScores from props when participants or round updates, without overwriting actively edited/unsaved cells
   useEffect(() => {
-    const scoresMap: Record<string, string> = {}
-    for (const p of selectedParticipants) {
-      for (const hole of course.holes) {
-        const score = p.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
-        if (score) {
-          if (score.status === 'WIPED') {
-            scoresMap[`${p.id}-${hole.id}`] = '/'
-          } else if (score.status === 'NOT_PLAYED') {
-            scoresMap[`${p.id}-${hole.id}`] = '-'
-          } else if (score.grossStrokes !== null && score.grossStrokes !== undefined) {
-            scoresMap[`${p.id}-${hole.id}`] = String(score.grossStrokes)
+    setLocalScores(prev => {
+      const scoresMap = { ...prev }
+      for (const p of selectedParticipants) {
+        for (const hole of course.holes) {
+          const cellKey = `${p.id}-${hole.id}`
+          if (dirtyKeysRef.current[cellKey]) {
+            continue
           }
-        } else {
-          scoresMap[`${p.id}-${hole.id}`] = ''
+          const score = p.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
+          if (score) {
+            if (score.status === 'WIPED') {
+              scoresMap[cellKey] = '/'
+            } else if (score.status === 'NOT_PLAYED') {
+              scoresMap[cellKey] = '-'
+            } else if (score.grossStrokes !== null && score.grossStrokes !== undefined) {
+              scoresMap[cellKey] = String(score.grossStrokes)
+            } else {
+              scoresMap[cellKey] = ''
+            }
+          } else {
+            scoresMap[cellKey] = ''
+          }
         }
       }
-    }
-    setLocalScores(scoresMap)
+      return scoresMap
+    })
   }, [selectedParticipants, round.id, course.holes])
 
+  // Perform the batch save
+  const performBatchSave = async () => {
+    const queue = pendingChangesRef.current
+    if (Object.keys(queue).length === 0) return
+
+    const batchToSave = { ...queue }
+    pendingChangesRef.current = {}
+
+    // Show indicator on saving cells
+    setSavingCells(prev => {
+      const next = { ...prev }
+      for (const key of Object.keys(batchToSave)) {
+        next[key] = true
+      }
+      return next
+    })
+
+    try {
+      const updates = Object.values(batchToSave).map(item => {
+        let grossStrokes: number | null = null
+        let status: string | null = null
+        if (item.value === '/') {
+          status = 'WIPED'
+        } else if (item.value === '-' || item.value === '') {
+          status = 'NOT_PLAYED'
+        } else {
+          grossStrokes = parseInt(item.value)
+        }
+        return {
+          participantId: item.partId,
+          roundId: round.id,
+          holeId: item.holeId,
+          grossStrokes,
+          status
+        }
+      })
+
+      await saveBatchScores(
+        round.competitionId,
+        updates,
+        session.user.id,
+        session.user.name || session.user.email
+      )
+
+      // Clear from dirty list after successful save
+      for (const key of Object.keys(batchToSave)) {
+        delete dirtyKeysRef.current[key]
+      }
+
+      onScoreSaved()
+    } catch (err) {
+      console.error("Failed to save batch scores:", err)
+      // Restore to queue to try again
+      pendingChangesRef.current = { ...batchToSave, ...pendingChangesRef.current }
+    } finally {
+      setSavingCells(prev => {
+        const next = { ...prev }
+        for (const key of Object.keys(batchToSave)) {
+          next[key] = false
+        }
+        return next
+      })
+    }
+  }
+
+  // Force save on unmount if any pending changes exist
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current)
+      }
+      const queue = pendingChangesRef.current
+      if (Object.keys(queue).length > 0) {
+        const updates = Object.values(queue).map(item => {
+          let grossStrokes: number | null = null
+          let status: string | null = null
+          if (item.value === '/') {
+            status = 'WIPED'
+          } else if (item.value === '-' || item.value === '') {
+            status = 'NOT_PLAYED'
+          } else {
+            grossStrokes = parseInt(item.value)
+          }
+          return {
+            participantId: item.partId,
+            roundId: round.id,
+            holeId: item.holeId,
+            grossStrokes,
+            status
+          }
+        })
+        saveBatchScores(
+          round.competitionId,
+          updates,
+          session.user.id,
+          session.user.name || session.user.email
+        ).catch(console.error)
+      }
+    }
+  }, [round.id, round.competitionId, session.user.id, session.user.name, session.user.email])
+
   // Handle score change and auto-focus jump
-  const handleInputChange = async (
+  const handleInputChange = (
     pIndex: number,
     partId: string,
     holeId: string,
@@ -89,7 +203,6 @@ export function BulkScorecardEntry({
       if (!isNaN(strokesVal)) {
         const hole = course.holes.find((h: any) => h.id === holeId)
         if (hole && strokesVal < hole.par - 2) {
-          // Do not allow scores below Eagle (better than Eagle)
           return
         }
       }
@@ -97,38 +210,20 @@ export function BulkScorecardEntry({
 
     const cellKey = `${partId}-${holeId}`
     setLocalScores(prev => ({ ...prev, [cellKey]: cleanVal }))
+    
+    // Mark key as dirty and add to queue
+    dirtyKeysRef.current[cellKey] = true
+    pendingChangesRef.current[cellKey] = { partId, holeId, value: cleanVal }
 
-    setSavingCells(prev => ({ ...prev, [cellKey]: true }))
-    try {
-      let grossStrokes: number | null = null
-      let status: string | null = null
-
-      if (cleanVal === '/') {
-        status = 'WIPED'
-      } else if (cleanVal === '-' || cleanVal === '') {
-        status = 'NOT_PLAYED'
-      } else {
-        grossStrokes = parseInt(cleanVal)
-      }
-
-      await saveHoleScore({
-        participantId: partId,
-        roundId: round.id,
-        holeId: holeId,
-        grossStrokes,
-        status,
-        enteredByUserId: session.user.id,
-        enteredByUserName: session.user.name || session.user.email
-      })
-
-      onScoreSaved()
-    } catch (err) {
-      console.error("Failed to save score:", err)
-    } finally {
-      setSavingCells(prev => ({ ...prev, [cellKey]: false }))
+    // Reset debounce timer
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current)
     }
+    saveTimeoutRef.current = setTimeout(() => {
+      performBatchSave()
+    }, 2000)
 
-    // Auto-focus next cell (only jump if user entered a score)
+    // Auto-focus next cell immediately
     if (cleanVal !== "") {
       const currentHoleIndex = activeHoles.indexOf(holeNum)
       if (currentHoleIndex !== -1 && currentHoleIndex < activeHoles.length - 1) {

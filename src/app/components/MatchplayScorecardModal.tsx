@@ -289,9 +289,16 @@ export function MatchplayScorecardModal({
 
     const renderPlayerRow = (p: any, displayName: string, allowanceVal: number, strokesMap: any, pIdx: number) => {
       let totalStrokes = 0
+      let nameBg = "bg-slate-50/50 text-slate-700 font-bold"
+      if (pIdx === 1 || pIdx === 2) {
+        nameBg = "bg-emerald-50 text-emerald-950 font-extrabold border-l-2 border-emerald-500"
+      } else if (pIdx === 3 || pIdx === 4 || (!isTeamMatchplay && pIdx === 2)) {
+        nameBg = "bg-red-50 text-red-950 font-extrabold border-l-2 border-red-500"
+      }
+
       return (
         <tr className="border-b border-slate-200">
-          <td className="px-3 py-2 text-left font-bold text-slate-700 border-r border-slate-200 text-[10px] bg-slate-50/50 truncate max-w-[110px]">
+          <td className={`px-3 py-2 text-left border-r border-slate-200 text-[10px] truncate max-w-[110px] ${nameBg}`}>
             {displayName}
             {allowanceVal > 0 && ` (${allowanceVal})`}
           </td>
@@ -494,6 +501,12 @@ export function MatchplayScorecardModal({
                 <span className="font-bold text-slate-600 block">Calculation Method</span>
                 <span className="text-sm font-black text-slate-900">{match.allowanceType || "75%"} base</span>
               </div>
+              {competition.shortTrackLimit !== null && competition.shortTrackLimit !== undefined && (
+                <div>
+                  <span className="font-bold text-red-500 block">Short Track</span>
+                  <span className="text-sm font-black text-red-650 font-black">Max {competition.shortTrackLimit} Up</span>
+                </div>
+              )}
               <div>
                 <span className="font-bold text-slate-600 block">Holes</span>
                 <span className="text-sm font-black text-slate-900">{match.holeRange || "1-18"}</span>
@@ -502,7 +515,7 @@ export function MatchplayScorecardModal({
                 <span className="font-bold text-slate-600 block">Status</span>
                 {(() => {
                   const { statusText, lead, holesPlayed } = computeMatchplayStatus(match, round)
-                  let statusColor = "text-slate-650"
+                  let statusColor = "text-slate-655"
                   if (holesPlayed > 0) {
                     if (lead > 0) statusColor = "text-emerald-600 font-extrabold"
                     else if (lead < 0) statusColor = "text-red-600 font-extrabold"

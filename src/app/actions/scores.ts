@@ -187,6 +187,177 @@ export async function saveHoleScore(input: SaveScoreInput) {
   return { success: true, score: updatedScore }
 }
 
+interface BatchScoreInput {
+  participantId: string
+  roundId: string
+  holeId: string
+  grossStrokes: number | null
+  status: string | null
+}
+
+export async function saveBatchScores(
+  compId: string,
+  inputs: BatchScoreInput[],
+  enteredByUserId: string,
+  enteredByUserName: string
+) {
+  const auditDetails: string[] = []
+
+  for (const input of inputs) {
+    const { participantId, roundId, holeId, grossStrokes, status } = input
+
+    const participant = await prisma.participant.findUnique({
+      where: { id: participantId },
+      include: { user: true }
+    })
+    if (!participant) continue
+
+    const round = await prisma.round.findUnique({
+      where: { id: roundId },
+      include: { course: { include: { tees: true } }, tee: true }
+    })
+    if (!round) continue
+
+    const hole = await prisma.hole.findUnique({
+      where: { id: holeId }
+    })
+    if (!hole) continue
+
+    const tee = round.tee ||
+                round.course.tees.find(t => t.name.toLowerCase().includes('yellow')) ||
+                round.course.tees.find(t => t.name.toLowerCase().includes('white')) ||
+                round.course.tees[0]
+
+    let netStrokes = null
+    let points = null
+    let resolvedStrokes = grossStrokes
+
+    if (status === 'WIPED') {
+      resolvedStrokes = 0
+      netStrokes = 0
+      points = 0
+    } else if (status === 'NOT_PLAYED') {
+      resolvedStrokes = null
+      netStrokes = null
+      points = null
+    } else if (grossStrokes !== null) {
+      let holePar = hole.par
+      let holeStrokeIndex = hole.strokeIndex
+      if (round.ninePreset) {
+        const adjusted = getRoundHoleInfo(round, hole.number)
+        if (adjusted) {
+          holePar = adjusted.par
+          holeStrokeIndex = adjusted.strokeIndex
+        }
+      }
+
+      if (tee) {
+        const courseHoles = await prisma.hole.findMany({
+          where: { courseId: round.courseId }
+        })
+        const coursePar = courseHoles.reduce((sum, h) => sum + h.par, 0)
+
+        const manualHcpRecord = await prisma.manualRoundHandicap.findUnique({
+          where: {
+            participantId_roundId: {
+              participantId,
+              roundId
+            }
+          }
+        })
+
+        const courseHandicap = manualHcpRecord !== null
+          ? manualHcpRecord.handicapValue
+          : (participant.compHandicap !== null
+              ? calculateCourseHandicap(participant.compHandicap, tee, coursePar)
+              : 0)
+        
+        const hcpStrokes = getHandicapStrokesOnHole(courseHandicap, holeStrokeIndex)
+        netStrokes = Math.max(0, grossStrokes - hcpStrokes)
+        points = calculateStablefordPoints(grossStrokes, holePar, hcpStrokes, true)
+      } else {
+        netStrokes = grossStrokes
+        points = calculateStablefordPoints(grossStrokes, holePar, 0, false)
+      }
+    }
+
+    const existingScore = await prisma.score.findFirst({
+      where: {
+        participantId,
+        roundId,
+        holeId
+      }
+    })
+
+    if (existingScore) {
+      await prisma.score.update({
+        where: { id: existingScore.id },
+        data: {
+          grossStrokes: resolvedStrokes,
+          netStrokes,
+          points,
+          status,
+          enteredBy: enteredByUserName
+        }
+      })
+    } else {
+      await prisma.score.create({
+        data: {
+          participantId,
+          roundId,
+          holeId,
+          grossStrokes: resolvedStrokes,
+          netStrokes,
+          points,
+          status,
+          enteredBy: enteredByUserName
+        }
+      })
+    }
+
+    const playerName = participant.userId ? (participant.user?.name || participant.user?.email) : participant.dummyName
+    auditDetails.push(`Player: ${playerName}, Hole: ${hole.number}, Strokes: ${status === 'WIPED' ? '/' : status === 'NOT_PLAYED' ? '-' : grossStrokes}`)
+  }
+
+  if (auditDetails.length > 0) {
+    const detailsString = auditDetails.join("\n")
+    const fifteenSecondsAgo = new Date(Date.now() - 15000)
+    const recentLog = await prisma.auditLog.findFirst({
+      where: {
+        competitionId: compId,
+        action: "SCORE_UPDATE",
+        userId: enteredByUserId,
+        createdAt: { gte: fifteenSecondsAgo }
+      },
+      orderBy: { createdAt: 'desc' }
+    })
+
+    if (recentLog) {
+      await prisma.auditLog.update({
+        where: { id: recentLog.id },
+        data: {
+          details: `${recentLog.details}\n${detailsString}`.trim(),
+          createdAt: new Date()
+        }
+      })
+    } else {
+      await prisma.auditLog.create({
+        data: {
+          competitionId: compId,
+          action: "SCORE_UPDATE",
+          details: detailsString,
+          userId: enteredByUserId,
+          userName: enteredByUserName
+        }
+      })
+    }
+  }
+
+  revalidatePath(`/admin/competitions/${compId}`)
+  revalidatePath(`/`)
+  return { success: true }
+}
+
 export async function clearPlayerRoundScores(roundId: string, participantId: string, enteredByUserId: string, enteredByUserName: string) {
   const participant = await prisma.participant.findUnique({
     where: { id: participantId },

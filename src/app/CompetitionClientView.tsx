@@ -182,15 +182,7 @@ export function getMatchHandicapStrokesOnHole(allowance: number, strokeIndex: nu
 
 export function parseHoleRange(rangeStr: string | null | undefined, roundHoles: number[]): number[] {
   if (!rangeStr) return roundHoles.length > 0 ? roundHoles : Array.from({ length: 18 }, (_, i) => i + 1)
-  const parts = rangeStr.split('-')
-  if (parts.length === 2) {
-    const start = parseInt(parts[0])
-    const end = parseInt(parts[1])
-    if (!isNaN(start) && !isNaN(end) && start <= end) {
-      return Array.from({ length: end - start + 1 }, (_, i) => start + i)
-    }
-  }
-  return roundHoles.length > 0 ? roundHoles : Array.from({ length: 18 }, (_, i) => i + 1)
+  return parseHoleRangeString(rangeStr)
 }
 
 export function parseHoleRangeString(rangeStr: string): number[] {
@@ -227,6 +219,53 @@ export function parseHoleRangeString(rangeStr: string): number[] {
     }
   }
   return result
+}
+
+export function getHoleRangeString(holes: number[]): string {
+  if (!holes || holes.length === 0) return "1-18"
+  
+  // Check if it's consecutive ascending
+  let isConsecutive = true
+  for (let i = 1; i < holes.length; i++) {
+    if (holes[i] !== holes[i - 1] + 1) {
+      isConsecutive = false
+      break
+    }
+  }
+  if (isConsecutive) {
+    return `${holes[0]}-${holes[holes.length - 1]}`
+  }
+  
+  const isFrontTwice = holes.length === 18 && holes.slice(0, 9).every((h, idx) => h === idx + 1) && holes.slice(9, 18).every((h, idx) => h === idx + 1)
+  if (isFrontTwice) return "1-9,1-9"
+
+  const isBackTwice = holes.length === 18 && holes.slice(0, 9).every((h, idx) => h === idx + 10) && holes.slice(9, 18).every((h, idx) => h === idx + 10)
+  if (isBackTwice) return "10-18,10-18"
+
+  const parts: string[] = []
+  let start = holes[0]
+  let prev = holes[0]
+  
+  for (let i = 1; i < holes.length; i++) {
+    const current = holes[i]
+    if (current === prev + 1) {
+      prev = current
+    } else {
+      if (start === prev) {
+        parts.push(String(start))
+      } else {
+        parts.push(`${start}-${prev}`)
+      }
+      start = current
+      prev = current
+    }
+  }
+  if (start === prev) {
+    parts.push(String(start))
+  } else {
+    parts.push(`${start}-${prev}`)
+  }
+  return parts.join(",")
 }
 
 export function getMatchHoleStrokesMap(matchHoles: number[], round: any, allowance: number) {
@@ -530,6 +569,14 @@ export function CompetitionClientView({ competition, session, courses = [], user
       setNewRoundTeeId("")
     }
   }, [newRoundCourseId, selectedCourseForNewRound])
+
+  // Pre-populate match holeRange state from round holesPlayed
+  useEffect(() => {
+    const r = competition.rounds.find((x: any) => x.id === selectedRoundId)
+    if (r) {
+      setHoleRange(getHoleRangeString(r.holesPlayed))
+    }
+  }, [selectedRoundId, competition.rounds])
 
   // Local storage persistence for setups and setting mount cookie
   useEffect(() => {

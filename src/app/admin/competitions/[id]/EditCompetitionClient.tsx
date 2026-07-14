@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { 
@@ -17,7 +17,7 @@ import {
   updateMatchPlayerAllowance
 } from "../actions"
 import { TEAM_COLOR_LIST, getTeamColorConfig } from "@/lib/teamColors"
-import { getPlayingHandicap, getMatchAllowance, getPlayerCalculatedAllowance, parseHoleRangeString } from "@/app/CompetitionClientView"
+import { getPlayingHandicap, getMatchAllowance, getPlayerCalculatedAllowance, parseHoleRangeString, getHoleRangeString } from "@/app/CompetitionClientView"
 
 // Helper to format date for input type="date"
 const formatDateInput = (dateVal: any) => {
@@ -130,6 +130,14 @@ export function EditCompetitionClient({
   const [selectedPartIds, setSelectedPartIds] = useState<string[]>([])
   const [pairingError, setPairingError] = useState("")
   const [isCreatingPairing, setIsCreatingPairing] = useState(false)
+
+  // Pre-populate match holeRange state from round holesPlayed
+  useEffect(() => {
+    const r = competition.rounds.find((x: any) => x.id === selectedRoundId)
+    if (r) {
+      setHoleRange(getHoleRangeString(r.holesPlayed))
+    }
+  }, [selectedRoundId, competition.rounds])
 
   // Actions
   const handleSaveGeneral = async (e: React.FormEvent) => {

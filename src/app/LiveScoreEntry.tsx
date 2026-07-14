@@ -353,8 +353,18 @@ export function LiveScoreEntry({
                   const isActive = activeVal === opt
                   
                   let btnStyle = "border-slate-200/60 bg-white/30 text-slate-550 opacity-80 hover:bg-white/60 text-sm"
+                  let btnStyleOverride: React.CSSProperties = {}
                   if (isActive) {
-                    btnStyle = "bg-emerald-500 text-white border-emerald-500 opacity-100 font-black text-xl shadow-md ring-2 ring-emerald-500/20"
+                    if (teamConfig) {
+                      btnStyle = "text-white opacity-100 font-black text-xl shadow-md ring-2"
+                      btnStyleOverride = {
+                        backgroundColor: `hsl(${teamConfig.hue}, 85%, 22%)`,
+                        borderColor: `hsl(${teamConfig.hue}, 85%, 15%)`,
+                        boxShadow: `0 0 0 2px hsla(${teamConfig.hue}, 85%, 22%, 0.2)`
+                      }
+                    } else {
+                      btnStyle = "bg-emerald-500 text-white border-emerald-500 opacity-100 font-black text-xl shadow-md ring-2 ring-emerald-500/20"
+                    }
                   }
 
                   let markerElement = null
@@ -401,6 +411,7 @@ export function LiveScoreEntry({
                       key={`${opt}-${colIdx}`}
                       onClick={() => handleScoreClick(p.id, currentHole.id, opt)}
                       title={tooltip}
+                      style={btnStyleOverride}
                       className={`relative w-full aspect-square flex items-center justify-center rounded-lg border transition-all ${btnStyle}`}
                     >
                       <span>{opt}</span>

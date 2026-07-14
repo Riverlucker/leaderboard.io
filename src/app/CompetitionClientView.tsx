@@ -9,7 +9,7 @@ import { useRouter } from "next/navigation"
 import { 
   Trophy, BookOpen, Key, LogOut, CheckCircle, 
   Settings, ChevronRight, Users, Play, Edit, 
-  HelpCircle, Eye, RefreshCw, X, Loader2, Save, Trash2, ShieldAlert, Home
+  HelpCircle, Eye, RefreshCw, X, Loader2, Save, Trash2, ShieldAlert, Home, Plus
 } from "lucide-react"
 
 import { 
@@ -19,7 +19,7 @@ import {
   assignLeaderboardRanks,
   getRoundHoleInfo
 } from "@/lib/scoring"
-import { getTeamColorConfig } from "@/lib/teamColors"
+import { getTeamColorConfig, TEAM_COLOR_LIST } from "@/lib/teamColors"
 
 import { 
   saveManualRoundHandicap, 
@@ -38,9 +38,15 @@ import {
   updateRoundHoles,
   addTeam, 
   deleteTeam, 
+  updateTeamColor,
   addParticipant, 
   deleteParticipant,
-  updateParticipant
+  updateParticipant,
+  addMatch,
+  deleteMatch,
+  updateMatchAllowance,
+  updateMatchPlayUntilEnd,
+  updateMatchHoleRange
 } from "@/app/admin/competitions/actions"
 
 import { BulkScorecardEntry } from "./BulkScorecardEntry"
@@ -315,6 +321,21 @@ export function CompetitionClientView({ competition, session, courses = [], user
   const [dangerResetPlayerId, setDangerResetPlayerId] = useState("")
   const [isResetting, setIsResetting] = useState(false)
 
+  // Matches / Pairings State
+  const [matchType, setMatchType] = useState("SINGLES")
+  const [allowanceType, setAllowanceType] = useState("75%")
+  const [playUntilEnd, setPlayUntilEnd] = useState(false)
+  const [holeRange, setHoleRange] = useState("1-18")
+  const [selectedPartIds, setSelectedPartIds] = useState<string[]>([])
+  const [overrideAllowances, setOverrideAllowances] = useState<Record<string, string>>({})
+  const [savingAllowance, setSavingAllowance] = useState<Record<string, boolean>>({})
+  const [overrideHoleRanges, setOverrideHoleRanges] = useState<Record<string, string>>({})
+  const [savingHoleRange, setSavingHoleRange] = useState<Record<string, boolean>>({})
+  const [pairingError, setPairingError] = useState("")
+  const [isCreatingPairing, setIsCreatingPairing] = useState(false)
+
+  const selectedRound = competition.rounds.find((r: any) => r.id === selectedRoundId)
+
   // Handle credentials login
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -463,6 +484,11 @@ export function CompetitionClientView({ competition, session, courses = [], user
             setSelectedPlayerIds(activePlayerIds)
           }
         } catch (_) {}
+      } else {
+        if (competition.participants.length <= 4) {
+          activePlayerIds = competition.participants.map((p: any) => p.id)
+          setSelectedPlayerIds(activePlayerIds)
+        }
       }
 
       if (savedMode === 'LIVE' || savedMode === 'BULK') setEntryMode(savedMode)
@@ -1875,6 +1901,94 @@ export function CompetitionClientView({ competition, session, courses = [], user
     if (confirm("Are you sure you want to delete this team? Members will be unassigned.")) {
       await deleteTeam(teamId, competition.id)
       router.refresh()
+    }
+  }
+
+  const handleUpdateTeamColor = async (teamId: string, color: string) => {
+    try {
+      await updateTeamColor(teamId, competition.id, color)
+      router.refresh()
+    } catch (err) {
+      console.error("Failed to update team color:", err)
+      alert("Failed to update team color.")
+    }
+  }
+
+  const togglePartSelection = (id: string) => {
+    if (selectedPartIds.includes(id)) {
+      setSelectedPartIds(selectedPartIds.filter(x => x !== id))
+    } else {
+      setSelectedPartIds([...selectedPartIds, id])
+    }
+  }
+
+  const handleAddMatch = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!selectedRoundId) return
+    setIsCreatingPairing(true)
+    setPairingError("")
+    try {
+      await addMatch(selectedRoundId, competition.id, {
+        type: matchType,
+        participantIds: selectedPartIds,
+        allowanceType: (matchType === "SINGLES" || matchType === "TEAM_MATCHPLAY") ? allowanceType : null,
+        playUntilEnd: (matchType === "SINGLES" || matchType === "TEAM_MATCHPLAY") ? playUntilEnd : null,
+        holeRange: (matchType === "SINGLES" || matchType === "TEAM_MATCHPLAY") ? holeRange : null
+      })
+      setSelectedPartIds([])
+      router.refresh()
+    } catch (err: any) {
+      setPairingError(err.message || "Failed to create pairing.")
+    } finally {
+      setIsCreatingPairing(false)
+    }
+  }
+
+  const handleDeleteMatch = async (matchId: string) => {
+    if (confirm("Are you sure you want to delete this match?")) {
+      await deleteMatch(matchId, competition.id)
+      router.refresh()
+    }
+  }
+
+  const handleSaveAllowance = async (matchId: string) => {
+    const val = overrideAllowances[matchId]
+    if (val === undefined) return
+    setSavingAllowance(prev => ({ ...prev, [matchId]: true }))
+    try {
+      const parsed = val === "" ? null : parseInt(val)
+      await updateMatchAllowance(matchId, competition.id, parsed)
+      router.refresh()
+    } catch (err) {
+      console.error(err)
+      alert("Failed to update allowance")
+    } finally {
+      setSavingAllowance(prev => ({ ...prev, [matchId]: false }))
+    }
+  }
+
+  const handleSaveHoleRange = async (matchId: string) => {
+    const val = overrideHoleRanges[matchId]
+    if (val === undefined) return
+    setSavingHoleRange(prev => ({ ...prev, [matchId]: true }))
+    try {
+      await updateMatchHoleRange(matchId, competition.id, val)
+      router.refresh()
+    } catch (err) {
+      console.error(err)
+      alert("Failed to update hole range")
+    } finally {
+      setSavingHoleRange(prev => ({ ...prev, [matchId]: false }))
+    }
+  }
+
+  const handleTogglePlayUntilEnd = async (matchId: string, currentVal: boolean) => {
+    try {
+      await updateMatchPlayUntilEnd(matchId, competition.id, !currentVal)
+      router.refresh()
+    } catch (err) {
+      console.error(err)
+      alert("Failed to toggle play until end")
     }
   }
 
@@ -3535,22 +3649,57 @@ export function CompetitionClientView({ competition, session, courses = [], user
 
                       {/* Team List */}
                       <div className="divide-y divide-slate-150">
-                        {competition.teams.map((t: any) => (
-                          <div key={t.id} className="py-3 flex justify-between items-center">
-                            <div>
-                              <span className="font-extrabold text-slate-800">{t.name}</span>
-                              <span className="text-xs text-slate-400 font-mono ml-2">
-                                ({competition.participants.filter((p: any) => p.teamId === t.id).length} members)
-                              </span>
+                        {competition.teams.map((t: any, tIdx: number) => {
+                          const membersCount = competition.participants.filter((p: any) => p.teamId === t.id).length
+                          const teamConfig = getTeamColorConfig(t.color, tIdx)
+                          const defaultAssignedColorKey = TEAM_COLOR_LIST[tIdx % TEAM_COLOR_LIST.length]
+
+                          return (
+                            <div key={t.id} className="py-3 flex justify-between items-center gap-4">
+                              <div className="flex items-center space-x-2">
+                                <span className={`w-3.5 h-3.5 rounded-full ${teamConfig.badge} border border-slate-300 shadow-sm`} />
+                                <div>
+                                  <span className="font-extrabold text-slate-800">{t.name}</span>
+                                  <span className="text-xs text-slate-400 font-mono ml-2">
+                                    ({membersCount} members)
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center space-x-4">
+                                {/* 3x3 grid color picker */}
+                                <div className="flex flex-col space-y-1 bg-white p-1.5 rounded-lg border border-slate-200 shadow-sm w-fit">
+                                  <div className="grid grid-cols-3 gap-1">
+                                    {TEAM_COLOR_LIST.map((colorKey) => {
+                                      const config = getTeamColorConfig(colorKey, 0)
+                                      const isSelected = (t.color || "") === colorKey || (!t.color && colorKey === defaultAssignedColorKey)
+                                      return (
+                                        <button
+                                          key={colorKey}
+                                          type="button"
+                                          onClick={() => handleUpdateTeamColor(t.id, colorKey)}
+                                          className={`w-3 h-3 rounded-full ${config.badge} transition-all cursor-pointer ${
+                                            isSelected 
+                                              ? 'ring-2 ring-emerald-500 scale-125 border border-white shadow' 
+                                              : 'opacity-40 hover:opacity-100 hover:scale-110'
+                                          }`}
+                                          title={config.name}
+                                        />
+                                      )
+                                    })}
+                                  </div>
+                                </div>
+
+                                <button
+                                  onClick={() => triggerDeleteTeam(t.id)}
+                                  className="p-1 bg-white hover:bg-red-50 border border-slate-200 rounded text-slate-400 hover:text-red-600 shadow-sm"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </div>
                             </div>
-                            <button
-                              onClick={() => triggerDeleteTeam(t.id)}
-                              className="p-1 bg-white hover:bg-red-50 border border-slate-200 rounded text-slate-400 hover:text-red-600 shadow-sm"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
-                        ))}
+                          )
+                        })}
                       </div>
                     </div>
                   )}
@@ -3792,55 +3941,266 @@ export function CompetitionClientView({ competition, session, courses = [], user
 
                   {configureSubTab === 'matches' && (
                     <div className="space-y-6">
-                      <div className="flex justify-between items-center pb-2 border-b border-slate-100">
+                      <div className="flex justify-between items-center pb-2 border-b border-slate-100 flex-wrap gap-4">
                         <h4 className="text-sm font-extrabold uppercase tracking-wider text-slate-650">
                           Pairings & Matches
                         </h4>
-                        <a
-                          href={`/admin/competitions/${competition.id}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="px-3.5 py-1.5 bg-emerald-600 text-white font-extrabold text-xs rounded-lg hover:bg-emerald-500 transition-colors shadow-sm"
-                        >
-                          Manage in Backend &rarr;
-                        </a>
-                      </div>
-                      
-                      <div className="bg-emerald-50 text-emerald-850 p-4 rounded-xl text-xs border border-emerald-150">
-                        <p className="font-bold mb-1">Matches and Pairings Setup</p>
-                        <p>To assign players, create new matchplay matches, override stroke allowance, or toggle play-until-end behavior, click the button above to open the full administrator dashboard.</p>
+                        <div className="flex items-center space-x-2">
+                          <label className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Select Round:</label>
+                          <select
+                            value={selectedRoundId}
+                            onChange={e => {
+                              setSelectedRoundId(e.target.value)
+                              setSelectedPartIds([])
+                            }}
+                            className="bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-700 font-medium focus:ring-1 focus:ring-emerald-500 focus:outline-none"
+                          >
+                            {competition.rounds.length === 0 && <option value="">-- No Rounds Exist --</option>}
+                            {competition.rounds.map((r: any) => (
+                              <option key={r.id} value={r.id}>{r.name}</option>
+                            ))}
+                          </select>
+                        </div>
                       </div>
 
-                      <div className="space-y-4">
-                        {competition.rounds.map((round: any, idx: number) => (
-                          <div key={round.id} className="bg-slate-50 p-4 border border-slate-200 rounded-xl space-y-2">
-                            <div className="flex justify-between items-center">
-                              <span className="font-extrabold text-sm text-slate-800">{round.name}</span>
-                              <span className="text-xs text-slate-555 font-mono font-bold">{(round.matches || []).length} match(es)</span>
+                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        <div className="lg:col-span-2 space-y-4">
+                          {!selectedRoundId ? (
+                            <div className="bg-slate-50 border border-slate-200 rounded-xl p-8 text-center text-slate-500">
+                              Please create a round in the "Rounds" tab before managing pairings.
                             </div>
-                            {(round.matches || []).length === 0 ? (
-                              <p className="text-xs text-slate-450 italic">No matches set up for this round yet.</p>
-                            ) : (
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                                {round.matches.map((m: any, mIdx: number) => {
-                                  const players = m.matchPlayers.map((mp: any) => {
-                                    const part = competition.participants.find((p: any) => p.id === mp.participantId)
-                                    return part ? (part.userId ? (part.user?.name || part.user?.email) : part.dummyName) : "Unknown"
-                                  })
-                                  return (
-                                    <div key={m.id} className="bg-white p-2.5 rounded-lg border border-slate-150 shadow-sm flex flex-col justify-between">
-                                      <div className="font-bold text-slate-700">Match #{mIdx + 1} ({m.type})</div>
-                                      <div className="text-slate-500 mt-1">{players.join(" vs ")}</div>
-                                      {m.handicapAllowance !== null && (
-                                        <div className="text-[10px] text-cyan-600 font-bold mt-1">Allowance: {m.handicapAllowance} strokes</div>
+                          ) : (
+                            <div className="space-y-4">
+                              <div className="text-xs font-semibold text-slate-650 uppercase tracking-wider bg-slate-50 px-4 py-2.5 rounded-xl border border-slate-200 flex justify-between">
+                                <span>Round Course: {selectedRound?.course.name}</span>
+                                <span>{selectedRound?.matches?.length || 0} Matches Configured</span>
+                              </div>
+
+                              {!selectedRound?.matches || selectedRound.matches.length === 0 ? (
+                                <div className="bg-slate-50 border border-slate-200 rounded-xl p-8 text-center text-slate-500 italic">
+                                  No matches set up for this round. Assign participants into matches/groups on the right.
+                                </div>
+                              ) : (
+                                <div className="grid grid-cols-1 gap-4">
+                                  {selectedRound.matches.map((match: any, index: number) => (
+                                    <div key={match.id} className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-3 relative group">
+                                      <div className="flex justify-between items-start">
+                                        <div>
+                                          <h4 className="font-extrabold text-slate-800 text-sm">Match #{index + 1}</h4>
+                                          <span className="inline-block bg-slate-100 text-slate-655 text-[10px] font-bold px-2 py-0.5 rounded border border-slate-200 mt-1 uppercase">
+                                            Type: {match.type}
+                                          </span>
+                                        </div>
+                                        <button
+                                          onClick={() => handleDeleteMatch(match.id)}
+                                          className="p-1.5 bg-white border border-slate-200 hover:bg-red-50 text-slate-400 hover:text-red-655 rounded-lg transition-colors"
+                                          title="Delete Match"
+                                        >
+                                          <Trash2 size={14} />
+                                        </button>
+                                      </div>
+
+                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 border-t border-slate-100 pt-3">
+                                        {match.matchPlayers.map((mp: any) => {
+                                          const part = competition.participants.find((p: any) => p.id === mp.participantId)
+                                          const name = part?.userId ? part.user?.name : part?.dummyName
+
+                                          return (
+                                            <div key={mp.id} className="bg-slate-50 border border-slate-200/80 rounded-lg p-2.5 flex justify-between items-center text-xs">
+                                              <div>
+                                                <span className="font-semibold text-slate-700">{name || "Unknown Player"}</span>
+                                                {part?.team && (
+                                                  <span className="ml-2 text-[10px] text-cyan-600 font-bold">({part.team.name})</span>
+                                                )}
+                                              </div>
+                                              <span className="font-bold text-cyan-700 font-mono">
+                                                HC: {part?.compHandicap !== null && part?.compHandicap !== undefined ? part.compHandicap.toFixed(1) : "-"}
+                                              </span>
+                                            </div>
+                                          )
+                                        })}
+                                      </div>
+
+                                      {(match.type === "SINGLES" || match.type === "TEAM_MATCHPLAY") && (
+                                        <div className="flex flex-col space-y-2 pt-3 border-t border-slate-100 mt-2 text-xs">
+                                          <div className="flex items-center space-x-2">
+                                            <label className="text-slate-500 font-semibold">Handicap Allowance (Vorgabe):</label>
+                                            <input
+                                              type="number"
+                                              value={overrideAllowances[match.id] !== undefined ? overrideAllowances[match.id] : (match.handicapAllowance ?? "")}
+                                              onChange={e => setOverrideAllowances(prev => ({ ...prev, [match.id]: e.target.value }))}
+                                              className="w-14 bg-slate-50 border border-slate-300 rounded px-1.5 py-0.5 text-center text-xs focus:ring-1 focus:ring-emerald-500 focus:outline-none"
+                                            />
+                                            <button
+                                              type="button"
+                                              onClick={() => handleSaveAllowance(match.id)}
+                                              disabled={savingAllowance[match.id]}
+                                              className="px-2.5 py-1 bg-emerald-655 hover:bg-emerald-500 text-slate-800 hover:text-emerald-950 font-bold text-[10px] rounded transition-colors disabled:opacity-50"
+                                            >
+                                              {savingAllowance[match.id] ? "Saving..." : "Save"}
+                                            </button>
+                                            <span className="text-[10px] text-slate-400 font-mono">({match.allowanceType || "75%"} base)</span>
+                                          </div>
+                                          <div className="flex items-center space-x-2">
+                                            <input
+                                              type="checkbox"
+                                              id={`playUntilEnd-${match.id}`}
+                                              checked={match.playUntilEnd}
+                                              onChange={() => handleTogglePlayUntilEnd(match.id, match.playUntilEnd)}
+                                              className="w-3.5 h-3.5 rounded text-emerald-600 border-slate-300 bg-white cursor-pointer"
+                                            />
+                                            <label htmlFor={`playUntilEnd-${match.id}`} className="text-slate-655 font-semibold select-none cursor-pointer">
+                                              Bis zum Ende spielen (kein vorzeitiges Ende)
+                                            </label>
+                                          </div>
+                                          <div className="flex items-center space-x-2 pt-1">
+                                            <label className="text-slate-500 font-semibold">Holes (Löcher):</label>
+                                            <input
+                                              type="text"
+                                              value={overrideHoleRanges[match.id] !== undefined ? overrideHoleRanges[match.id] : (match.holeRange ?? "1-18")}
+                                              onChange={e => setOverrideHoleRanges(prev => ({ ...prev, [match.id]: e.target.value }))}
+                                              placeholder="1-18"
+                                              className="w-20 bg-slate-50 border border-slate-300 rounded px-1.5 py-0.5 text-center text-xs focus:ring-1 focus:ring-emerald-500 focus:outline-none"
+                                            />
+                                            <button
+                                              type="button"
+                                              onClick={() => handleSaveHoleRange(match.id)}
+                                              disabled={savingHoleRange[match.id]}
+                                              className="px-2.5 py-1 bg-emerald-655 hover:bg-emerald-500 text-slate-800 hover:text-emerald-950 font-bold text-[10px] rounded transition-colors disabled:opacity-50"
+                                            >
+                                              {savingHoleRange[match.id] ? "Saving..." : "Save"}
+                                            </button>
+                                          </div>
+                                        </div>
                                       )}
                                     </div>
-                                  )
-                                })}
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        <div>
+                          <form onSubmit={handleAddMatch} className="bg-slate-50 border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
+                            <h3 className="text-sm font-extrabold text-slate-700 uppercase tracking-wider mb-2">Create Match / Group</h3>
+
+                            {pairingError && (
+                              <div className="bg-red-50 border border-red-200 text-red-505 px-3 py-2 rounded-lg text-xs">
+                                {pairingError}
                               </div>
                             )}
-                          </div>
-                        ))}
+                            <div>
+                              <label className="block text-xs font-semibold text-slate-500 mb-1">Match Format</label>
+                              <select
+                                value={matchType}
+                                onChange={e => setMatchType(e.target.value)}
+                                className="w-full bg-white border border-slate-300 rounded px-3 py-2 text-sm text-slate-700 focus:ring-1 focus:ring-emerald-500 focus:outline-none"
+                                required
+                              >
+                                <option value="SINGLES">SINGLES (Matchplay or Group)</option>
+                                <option value="TEAM_MATCHPLAY">TEAM MATCHPLAY (2 vs 2 Best Ball Matchplay)</option>
+                                <option value="4BALL">FOURBALL (2 vs 2 Best Ball)</option>
+                                <option value="CHAPMAN">CHAPMAN (Chapman-System)</option>
+                                <option value="GROUP">STANDARD GROUP (Strokeplay / Stableford)</option>
+                              </select>
+                            </div>
+
+                            {(matchType === "SINGLES" || matchType === "TEAM_MATCHPLAY") && (
+                              <div className="space-y-3">
+                                <div>
+                                  <label className="block text-xs font-semibold text-slate-500 mb-1">Handicap Allowance Calculation</label>
+                                  <select
+                                    value={allowanceType}
+                                    onChange={e => setAllowanceType(e.target.value)}
+                                    className="w-full bg-white border border-slate-300 rounded px-3 py-2 text-sm text-slate-700 focus:ring-1 focus:ring-emerald-500"
+                                  >
+                                    <option value="75%">75% Difference of Playing HCP (Default)</option>
+                                    <option value="50%">50% Difference of Playing HCP</option>
+                                    <option value="100%">100% Difference of Playing HCP</option>
+                                    <option value="0%">Scratch / 0% Allowance</option>
+                                  </select>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <input
+                                    type="checkbox"
+                                    id="newPlayUntilEnd"
+                                    checked={playUntilEnd}
+                                    onChange={e => setPlayUntilEnd(e.target.checked)}
+                                    className="w-3.5 h-3.5 rounded text-emerald-600 border-slate-300 bg-white cursor-pointer"
+                                  />
+                                  <label htmlFor="newPlayUntilEnd" className="text-xs text-slate-500 font-semibold select-none cursor-pointer">
+                                    Bis zum Ende spielen (kein vorzeitiges Ende)
+                                  </label>
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-semibold text-slate-500 mb-1">Hole Range (e.g. 1-18, 1-9, 10-18)</label>
+                                  <input
+                                    type="text"
+                                    value={holeRange}
+                                    onChange={e => setHoleRange(e.target.value)}
+                                    placeholder="1-18"
+                                    className="w-full bg-white border border-slate-300 rounded px-3 py-2 text-sm text-slate-700"
+                                  />
+                                </div>
+                              </div>
+                            )}
+
+                            <div>
+                              <label className="block text-xs font-semibold text-slate-500 mb-2">
+                                Assign Players ({selectedPartIds.length} Selected)
+                              </label>
+                              
+                              {competition.participants.length === 0 ? (
+                                <p className="text-xs text-slate-450 italic">No registered participants to pair.</p>
+                              ) : (
+                                <div className="max-h-60 overflow-y-auto border border-slate-200 rounded-lg p-2 bg-white space-y-2 divide-y divide-slate-100 scrollbar-thin">
+                                  {competition.participants.map((p: any) => {
+                                    const name = p.userId ? p.user?.name : p.dummyName
+                                    const isChecked = selectedPartIds.includes(p.id)
+
+                                    return (
+                                      <div 
+                                        key={p.id} 
+                                        onClick={() => togglePartSelection(p.id)}
+                                        className={`flex items-center space-x-2 py-1.5 px-2 rounded cursor-pointer select-none text-xs transition-colors ${
+                                          isChecked 
+                                            ? 'bg-emerald-50 text-emerald-700 font-semibold' 
+                                            : 'text-slate-600 hover:bg-slate-50'
+                                        }`}
+                                      >
+                                        <input
+                                          type="checkbox"
+                                          checked={isChecked}
+                                          readOnly
+                                          className="w-3.5 h-3.5 rounded text-emerald-600 border-slate-350 bg-white focus:ring-offset-white"
+                                        />
+                                        <div className="flex-1 truncate">
+                                          <span>{name}</span>
+                                          {p.team && (
+                                            <span className="ml-1 text-[9px] text-cyan-600 font-bold">[{p.team.name}]</span>
+                                          )}
+                                        </div>
+                                        <span className="text-[10px] text-slate-400 font-mono">
+                                          HC: {p.compHandicap !== null && p.compHandicap !== undefined ? p.compHandicap.toFixed(1) : "-"}
+                                        </span>
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                              )}
+                            </div>
+
+                            <button
+                              type="submit"
+                              disabled={isCreatingPairing || !selectedRoundId || competition.participants.length === 0}
+                              className="w-full flex items-center justify-center space-x-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 rounded-lg text-sm transition-colors disabled:opacity-50 shadow-sm"
+                            >
+                              <Plus size={16} />
+                              <span>{isCreatingPairing ? "Pairing..." : "Create Pairing"}</span>
+                            </button>
+                          </form>
+                        </div>
                       </div>
                     </div>
                   )}

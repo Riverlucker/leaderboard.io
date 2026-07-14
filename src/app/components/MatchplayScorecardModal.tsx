@@ -329,10 +329,14 @@ export function MatchplayScorecardModal({
                 } else {
                   const otherNet = pIdx === 3 ? netValuesAtHole[num]?.[4] : netValuesAtHole[num]?.[3]
                   const myNet = netValuesAtHole[num]?.[pIdx]
-                  cellBg = myNet < otherNet ? "bg-emerald-100 text-emerald-950 font-black" : "bg-emerald-50 text-emerald-800"
+                  cellBg = myNet < otherNet ? "bg-red-100 text-red-950 font-black" : "bg-red-50 text-red-800"
                 }
               } else {
-                cellBg = "bg-emerald-50 text-emerald-800"
+                if (pIdx === 1) {
+                  cellBg = "bg-emerald-50 text-emerald-800 font-extrabold"
+                } else {
+                  cellBg = "bg-red-50 text-red-800 font-extrabold"
+                }
               }
             }
 
@@ -488,12 +492,19 @@ export function MatchplayScorecardModal({
               </div>
               <div>
                 <span className="font-bold text-slate-600 block">Status</span>
-                <span className="text-sm font-black text-emerald-600 uppercase">
-                  {(() => {
-                    const { statusText } = computeMatchplayStatus(match, round)
-                    return statusText
-                  })()}
-                </span>
+                {(() => {
+                  const { statusText, lead, holesPlayed } = computeMatchplayStatus(match, round)
+                  let statusColor = "text-slate-650"
+                  if (holesPlayed > 0) {
+                    if (lead > 0) statusColor = "text-emerald-600 font-extrabold"
+                    else if (lead < 0) statusColor = "text-red-600 font-extrabold"
+                  }
+                  return (
+                    <span className={`text-sm font-black uppercase ${statusColor}`}>
+                      {statusText}
+                    </span>
+                  )
+                })()}
               </div>
             </div>
 

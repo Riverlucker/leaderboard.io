@@ -520,7 +520,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
       const players = pIds.map((id: string) => competition.participants.find((p: any) => p.id === id)).filter(Boolean)
 
       if (players.length < 4) {
-        return { statusText: "Setup Pending", holesPlayed: 0, totalHoles: 18, allowance: 0, player1Name: "Unknown", player2Name: "Unknown", player3Name: "Unknown", player4Name: "Unknown", player1Allowance: 0, player2Allowance: 0, player3Allowance: 0, player4Allowance: 0, isFinished: false, isTeamMatchplay: true }
+        return { statusText: "Setup Pending", holesPlayed: 0, totalHoles: 18, allowance: 0, player1Name: "Unknown", player2Name: "Unknown", player3Name: "Unknown", player4Name: "Unknown", player1Allowance: 0, player2Allowance: 0, player3Allowance: 0, player4Allowance: 0, isFinished: false, isTeamMatchplay: true, lead: 0 }
       }
 
       const allNames = competition.participants.map((p: any) =>
@@ -542,7 +542,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
       const team2Players = players.filter((p: any) => p.teamId === team2Id)
 
       if (team1Players.length !== 2 || team2Players.length !== 2) {
-        return { statusText: "Team Division Error", holesPlayed: 0, totalHoles: 18, allowance: 0, player1Name: "Unknown", player2Name: "Unknown", player3Name: "Unknown", player4Name: "Unknown", player1Allowance: 0, player2Allowance: 0, player3Allowance: 0, player4Allowance: 0, isFinished: false, isTeamMatchplay: true }
+        return { statusText: "Team Division Error", holesPlayed: 0, totalHoles: 18, allowance: 0, player1Name: "Unknown", player2Name: "Unknown", player3Name: "Unknown", player4Name: "Unknown", player1Allowance: 0, player2Allowance: 0, player3Allowance: 0, player4Allowance: 0, isFinished: false, isTeamMatchplay: true, lead: 0 }
       }
 
       team1Players.sort((a: any, b: any) => getPlayingHandicap(a, round) - getPlayingHandicap(b, round))
@@ -685,12 +685,13 @@ export function CompetitionClientView({ competition, session, courses = [], user
         player3Allowance: allowance2_1,
         player4Allowance: allowance2_2,
         isFinished: decidedInfo !== null || (holesPlayedCount + excludedHolesCount === matchHoles.length),
-        isTeamMatchplay: true
+        isTeamMatchplay: true,
+        lead
       }
     } else {
       const p1 = competition.participants.find((p: any) => p.id === match.matchPlayers[0]?.participantId)
       const p2 = competition.participants.find((p: any) => p.id === match.matchPlayers[1]?.participantId)
-      if (!p1 || !p2) return { statusText: "Unknown Players", holesPlayed: 0, totalHoles: 18, allowance: 0, player1Name: "Unknown", player2Name: "Unknown", player3Name: "Unknown", player4Name: "Unknown", player1Allowance: 0, player2Allowance: 0, player3Allowance: 0, player4Allowance: 0, isFinished: false, isTeamMatchplay: false }
+      if (!p1 || !p2) return { statusText: "Unknown Players", holesPlayed: 0, totalHoles: 18, allowance: 0, player1Name: "Unknown", player2Name: "Unknown", player3Name: "Unknown", player4Name: "Unknown", player1Allowance: 0, player2Allowance: 0, player3Allowance: 0, player4Allowance: 0, isFinished: false, isTeamMatchplay: false, lead: 0 }
 
       const hcp1 = getPlayingHandicap(p1, round)
       const hcp2 = getPlayingHandicap(p2, round)
@@ -808,7 +809,8 @@ export function CompetitionClientView({ competition, session, courses = [], user
         player3Allowance: 0,
         player4Allowance: 0,
         isFinished: decidedInfo !== null || (holesPlayedCount + excludedHolesCount === matchHoles.length),
-        isTeamMatchplay: false
+        isTeamMatchplay: false,
+        lead
       }
     }
   }
@@ -2160,7 +2162,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
                           })
 
                           return evaluated.map(({ round, match, status }) => {
-                            const { statusText, holesPlayed, totalHoles, player1Name, player2Name, player3Name, player4Name, player1Allowance, player2Allowance, player3Allowance, player4Allowance, isTeamMatchplay } = status
+                            const { statusText, holesPlayed, totalHoles, player1Name, player2Name, player3Name, player4Name, player1Allowance, player2Allowance, player3Allowance, player4Allowance, isTeamMatchplay, lead } = status
                             return (
                               <tr key={match.id} className="hover:bg-slate-50/50 transition-colors cursor-pointer" onClick={() => {
                                 setSelectedMatchForScorecard(match)
@@ -2209,7 +2211,15 @@ export function CompetitionClientView({ competition, session, courses = [], user
                                 <td className="px-5 py-4 text-center font-mono text-slate-600">
                                   {holesPlayed}/{totalHoles}
                                 </td>
-                                <td className={`px-5 py-4 text-right font-black text-sm md:text-base ${statusText === "Not Started" ? "text-slate-400 font-bold" : "text-emerald-600"}`}>
+                                <td className={`px-5 py-4 text-right font-black text-sm md:text-base ${
+                                  holesPlayed === 0 
+                                    ? "text-slate-400 font-bold" 
+                                    : lead > 0 
+                                      ? "text-emerald-600" 
+                                      : lead < 0 
+                                        ? "text-red-600" 
+                                        : "text-slate-600"
+                                }`}>
                                   {statusText}
                                 </td>
                               </tr>

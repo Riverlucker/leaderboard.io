@@ -148,7 +148,13 @@ export function getPlayerCalculatedAllowance(mp: any, match: any, round: any, pa
   if (match.type === "TEAM_MATCHPLAY") {
     if (hcps.length === 0) return 0
     const minPH = Math.min(...hcps)
-    return pHcp - minPH
+    const diff = pHcp - minPH
+    const allowanceType = match.allowanceType || "75%"
+    let percentage = 0.75
+    if (allowanceType === "50%") percentage = 0.50
+    if (allowanceType === "100%") percentage = 1.00
+    if (allowanceType === "0%") percentage = 0.00
+    return Math.round(diff * percentage)
   } else if (match.type === "SINGLES" && matchPlayersList.length === 2) {
     const p1 = matchPlayersList[0]
     const p2 = matchPlayersList[1]
@@ -672,10 +678,16 @@ export function CompetitionClientView({ competition, session, courses = [], user
 
       const minPH = Math.min(hcp1_1, hcp1_2, hcp2_1, hcp2_2)
 
-      const allowance1_1 = getPlayerMPAllowance(team1Players[0].id, hcp1_1 - minPH)
-      const allowance1_2 = getPlayerMPAllowance(team1Players[1].id, hcp1_2 - minPH)
-      const allowance2_1 = getPlayerMPAllowance(team2Players[0].id, hcp2_1 - minPH)
-      const allowance2_2 = getPlayerMPAllowance(team2Players[1].id, hcp2_2 - minPH)
+      const allowanceType = match.allowanceType || "75%"
+      let percentage = 0.75
+      if (allowanceType === "50%") percentage = 0.50
+      if (allowanceType === "100%") percentage = 1.00
+      if (allowanceType === "0%") percentage = 0.00
+
+      const allowance1_1 = getPlayerMPAllowance(team1Players[0].id, Math.round((hcp1_1 - minPH) * percentage))
+      const allowance1_2 = getPlayerMPAllowance(team1Players[1].id, Math.round((hcp1_2 - minPH) * percentage))
+      const allowance2_1 = getPlayerMPAllowance(team2Players[0].id, Math.round((hcp2_1 - minPH) * percentage))
+      const allowance2_2 = getPlayerMPAllowance(team2Players[1].id, Math.round((hcp2_2 - minPH) * percentage))
 
       const name1_1 = getCompactName(team1Players[0].userId ? team1Players[0].user?.name : team1Players[0].dummyName || "", allNames)
       const name1_2 = getCompactName(team1Players[1].userId ? team1Players[1].user?.name : team1Players[1].dummyName || "", allNames)

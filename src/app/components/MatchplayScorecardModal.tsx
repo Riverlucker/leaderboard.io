@@ -129,10 +129,16 @@ export function MatchplayScorecardModal({
       return defVal
     }
 
-    p1Allowance = getPlayerMPAllowance(p1.id, hcp1 - minPH)
-    p2Allowance = getPlayerMPAllowance(p2.id, hcp2 - minPH)
-    p3Allowance = getPlayerMPAllowance(p3.id, hcp3 - minPH)
-    p4Allowance = getPlayerMPAllowance(p4.id, hcp4 - minPH)
+    const allowanceType = match.allowanceType || "75%"
+    let percentage = 0.75
+    if (allowanceType === "50%") percentage = 0.50
+    if (allowanceType === "100%") percentage = 1.00
+    if (allowanceType === "0%") percentage = 0.00
+
+    p1Allowance = getPlayerMPAllowance(p1.id, Math.round((hcp1 - minPH) * percentage))
+    p2Allowance = getPlayerMPAllowance(p2.id, Math.round((hcp2 - minPH) * percentage))
+    p3Allowance = getPlayerMPAllowance(p3.id, Math.round((hcp3 - minPH) * percentage))
+    p4Allowance = getPlayerMPAllowance(p4.id, Math.round((hcp4 - minPH) * percentage))
 
     strokesMap1 = getMatchHoleStrokesMap(matchHoles, round, p1Allowance)
     strokesMap2 = getMatchHoleStrokesMap(matchHoles, round, p2Allowance)

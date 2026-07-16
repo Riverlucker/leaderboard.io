@@ -766,14 +766,18 @@ export function CompetitionClientView({ competition, session, courses = [], user
       }
 
       // Restore view filters & tabs
-      if (savedTab) {
+      const sp = new URLSearchParams(window.location.search)
+      const hasScorecard = sp.has("scorecardPlayer") || sp.has("scorecardMatch") || sp.has("scorecardTeam")
+
+      if (hasScorecard) {
+        setActiveTab('leaderboard')
+      } else if (savedTab) {
         setActiveTab(savedTab as any)
       } else if (savedConfirmed === 'true') {
         setActiveTab('scores')
       }
 
       // Restore view filters & tabs from URL query params (takes precedence) or fallback to localStorage
-      const sp = new URLSearchParams(window.location.search)
       const typeParam = sp.get("type")
       const roundParam = sp.get("round")
 

@@ -382,17 +382,6 @@ export function CompetitionClientView({ competition, session, courses = [], user
   const [selectedRoundFilter, setSelectedRoundFilter] = useState<string>("TOTAL")
   const [selectedLeaderboardType, setSelectedLeaderboardType] = useState<string>("MAIN")
 
-  // Hydrate filters from URL query parameters
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const sp = new URLSearchParams(window.location.search)
-      const roundParam = sp.get("round")
-      const typeParam = sp.get("type")
-      if (roundParam) setSelectedRoundFilter(roundParam)
-      if (typeParam) setSelectedLeaderboardType(typeParam)
-    }
-  }, [])
-
   const [shareCopied, setShareCopied] = useState(false)
 
   const handleShareView = () => {
@@ -715,10 +704,20 @@ export function CompetitionClientView({ competition, session, courses = [], user
         setActiveTab('scores')
       }
 
-      if (savedLeaderboard) {
+      // Restore view filters & tabs from URL query params (takes precedence) or fallback to localStorage
+      const sp = new URLSearchParams(window.location.search)
+      const typeParam = sp.get("type")
+      const roundParam = sp.get("round")
+
+      if (typeParam) {
+        setSelectedLeaderboardType(typeParam)
+      } else if (savedLeaderboard) {
         setSelectedLeaderboardType(savedLeaderboard)
       }
-      if (savedRoundFilter) {
+
+      if (roundParam) {
+        setSelectedRoundFilter(roundParam)
+      } else if (savedRoundFilter) {
         setSelectedRoundFilter(savedRoundFilter)
       }
     }

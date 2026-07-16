@@ -2839,7 +2839,6 @@ export function CompetitionClientView({ competition, session, courses = [], user
                             </th>
                           )
                         })}
-                        <th className="px-2 py-2.5 md:px-5 md:py-4 text-right w-12 md:w-16">Cards</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 bg-white/15 text-slate-700">

@@ -407,6 +407,74 @@ export function CompetitionClientView({ competition, session, courses = [], user
   const [selectedMatchForScorecard, setSelectedMatchForScorecard] = useState<any | null>(null)
   const [selectedMatchRoundForScorecard, setSelectedMatchRoundForScorecard] = useState<any | null>(null)
   const [selectedTeamForScorecard, setSelectedTeamForScorecard] = useState<any | null>(null)
+
+  const [modalShareCopied, setModalShareCopied] = useState(false)
+
+  const handleSharePlayerScorecard = () => {
+    if (selectedParticipantForScorecard && typeof window !== "undefined") {
+      const url = new URL(window.location.href)
+      url.searchParams.set("round", selectedRoundFilter)
+      url.searchParams.set("type", selectedLeaderboardType)
+      url.searchParams.set("scorecardPlayer", selectedParticipantForScorecard.id)
+      if (selectedRoundIdForScorecard) {
+        url.searchParams.set("scorecardRound", selectedRoundIdForScorecard)
+      } else {
+        url.searchParams.delete("scorecardRound")
+      }
+      url.searchParams.delete("scorecardMatch")
+      url.searchParams.delete("scorecardTeam")
+
+      navigator.clipboard.writeText(url.toString()).then(() => {
+        setModalShareCopied(true)
+        setTimeout(() => setModalShareCopied(false), 2000)
+      })
+    }
+  }
+
+  const handleShareMatchplayScorecard = () => {
+    if (selectedMatchForScorecard && selectedMatchRoundForScorecard && typeof window !== "undefined") {
+      const url = new URL(window.location.href)
+      url.searchParams.set("round", selectedRoundFilter)
+      url.searchParams.set("type", selectedLeaderboardType)
+      url.searchParams.set("scorecardMatch", selectedMatchForScorecard.id)
+      url.searchParams.set("scorecardRound", selectedMatchRoundForScorecard.id)
+      url.searchParams.delete("scorecardPlayer")
+      url.searchParams.delete("scorecardTeam")
+
+      navigator.clipboard.writeText(url.toString()).then(() => {
+        setModalShareCopied(true)
+        setTimeout(() => setModalShareCopied(false), 2000)
+      })
+    }
+  }
+
+  const handleShareTeamScorecard = () => {
+    if (selectedTeamForScorecard && typeof window !== "undefined") {
+      const url = new URL(window.location.href)
+      url.searchParams.set("round", selectedRoundFilter)
+      url.searchParams.set("type", selectedLeaderboardType)
+      url.searchParams.set("scorecardTeam", selectedTeamForScorecard.id)
+      url.searchParams.delete("scorecardPlayer")
+      url.searchParams.delete("scorecardMatch")
+      url.searchParams.delete("scorecardRound")
+
+      navigator.clipboard.writeText(url.toString()).then(() => {
+        setModalShareCopied(true)
+        setTimeout(() => setModalShareCopied(false), 2000)
+      })
+    }
+  }
+
+  const clearScorecardUrlParams = () => {
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href)
+      url.searchParams.delete("scorecardPlayer")
+      url.searchParams.delete("scorecardRound")
+      url.searchParams.delete("scorecardMatch")
+      url.searchParams.delete("scorecardTeam")
+      window.history.replaceState({}, "", url.toString())
+    }
+  }
   
   // Score Entry state
   const [loginEmail, setLoginEmail] = useState("")
@@ -719,6 +787,36 @@ export function CompetitionClientView({ competition, session, courses = [], user
         setSelectedRoundFilter(roundParam)
       } else if (savedRoundFilter) {
         setSelectedRoundFilter(savedRoundFilter)
+      }
+
+      // Hydrate scorecard modals if they are in query params
+      const scorecardPlayer = sp.get("scorecardPlayer")
+      const scorecardRound = sp.get("scorecardRound")
+      const scorecardMatch = sp.get("scorecardMatch")
+      const scorecardTeam = sp.get("scorecardTeam")
+
+      if (scorecardPlayer) {
+        const participant = competition.participants.find((p: any) => p.id === scorecardPlayer)
+        if (participant) {
+          setSelectedParticipantForScorecard(participant)
+          if (scorecardRound) {
+            setSelectedRoundIdForScorecard(scorecardRound)
+          }
+        }
+      } else if (scorecardMatch && scorecardRound) {
+        const r = competition.rounds.find((r: any) => r.id === scorecardRound)
+        if (r) {
+          const match = (r.matches || []).find((m: any) => m.id === scorecardMatch)
+          if (match) {
+            setSelectedMatchForScorecard(match)
+            setSelectedMatchRoundForScorecard(r)
+          }
+        }
+      } else if (scorecardTeam) {
+        const team = (competition.teams || []).find((t: any) => t.id === scorecardTeam)
+        if (team) {
+          setSelectedTeamForScorecard(team)
+        }
       }
     }
   }, [competition.id, competition.rounds, competition.participants])
@@ -4764,8 +4862,11 @@ export function CompetitionClientView({ competition, session, courses = [], user
           onClose={() => {
             setSelectedMatchForScorecard(null)
             setSelectedMatchRoundForScorecard(null)
+            clearScorecardUrlParams()
           }}
           computeMatchplayStatus={computeMatchplayStatus}
+          onShare={handleShareMatchplayScorecard}
+          shareCopied={modalShareCopied}
         />
       )}
 
@@ -4779,7 +4880,10 @@ export function CompetitionClientView({ competition, session, courses = [], user
           onClose={() => {
             setSelectedParticipantForScorecard(null)
             setSelectedRoundIdForScorecard(null)
+            clearScorecardUrlParams()
           }}
+          onShare={handleSharePlayerScorecard}
+          shareCopied={modalShareCopied}
         />
       )}
 
@@ -4788,7 +4892,12 @@ export function CompetitionClientView({ competition, session, courses = [], user
         <TeamScorecardModal
           selectedTeamForScorecard={selectedTeamForScorecard}
           competition={competition}
-          onClose={() => setSelectedTeamForScorecard(null)}
+          onClose={() => {
+            setSelectedTeamForScorecard(null)
+            clearScorecardUrlParams()
+          }}
+          onShare={handleShareTeamScorecard}
+          shareCopied={modalShareCopied}
         />
       )}
     </div>

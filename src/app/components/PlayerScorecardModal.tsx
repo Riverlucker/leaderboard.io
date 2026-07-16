@@ -1,7 +1,7 @@
 "use client"
 
 import React from "react"
-import { X } from "lucide-react"
+import { X, Share2, CheckCircle } from "lucide-react"
 import { getHandicapStrokesOnHole, calculateStablefordPoints, getRoundHoleInfo } from "@/lib/scoring"
 import { getPlayingHandicap } from "../CompetitionClientView"
 
@@ -11,6 +11,8 @@ interface PlayerScorecardModalProps {
   competition: any
   selectedLeaderboardType: string
   onClose: () => void
+  onShare?: () => void
+  shareCopied?: boolean
 }
 
 export function PlayerScorecardModal({
@@ -18,7 +20,9 @@ export function PlayerScorecardModal({
   selectedRoundIdForScorecard,
   competition,
   selectedLeaderboardType,
-  onClose
+  onClose,
+  onShare,
+  shareCopied
 }: PlayerScorecardModalProps) {
   return (
     <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -32,12 +36,27 @@ export function PlayerScorecardModal({
               Competition Handicap Index: {selectedParticipantForScorecard.compHandicap !== null ? selectedParticipantForScorecard.compHandicap.toFixed(1) : "-"}
             </p>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 bg-slate-50 border border-slate-200 text-slate-500 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-colors shadow-sm focus:outline-none"
-          >
-            <X size={18} />
-          </button>
+          <div className="flex items-center space-x-2">
+            {onShare && (
+              <button
+                onClick={onShare}
+                className="p-1.5 bg-slate-50 border border-slate-200 text-slate-500 hover:text-emerald-655 rounded-lg hover:bg-emerald-50 transition-colors shadow-sm focus:outline-none cursor-pointer"
+                title="Copy Scorecard Share Link"
+              >
+                {shareCopied ? (
+                  <CheckCircle size={16} className="text-emerald-600 animate-pulse" />
+                ) : (
+                  <Share2 size={16} />
+                )}
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="p-1.5 bg-slate-50 border border-slate-200 text-slate-500 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-colors shadow-sm focus:outline-none cursor-pointer"
+            >
+              <X size={18} />
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto space-y-8 scrollbar-thin">

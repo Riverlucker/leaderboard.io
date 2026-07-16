@@ -373,32 +373,50 @@ export function MatchplayScorecardModal({
                         (!isTeamMatchplay && pIdx === 1 && wonTeam === '1') ||
                         (!isTeamMatchplay && pIdx === 2 && wonTeam === '2')
 
-            let cellBg = "text-slate-800"
+            const halvedContributor = wonTeam === 'halved' && (
+              (isTeamMatchplay && pIdx === 1 && netValuesAtHole[num]?.[1] === Math.min(netValuesAtHole[num]?.[1], netValuesAtHole[num]?.[2])) ||
+              (isTeamMatchplay && pIdx === 2 && netValuesAtHole[num]?.[2] === Math.min(netValuesAtHole[num]?.[1], netValuesAtHole[num]?.[2])) ||
+              (isTeamMatchplay && pIdx === 3 && netValuesAtHole[num]?.[3] === Math.min(netValuesAtHole[num]?.[3], netValuesAtHole[num]?.[4])) ||
+              (isTeamMatchplay && pIdx === 4 && netValuesAtHole[num]?.[4] === Math.min(netValuesAtHole[num]?.[3], netValuesAtHole[num]?.[4])) ||
+              (!isTeamMatchplay && (pIdx === 1 || pIdx === 2))
+            )
+
+            let cellBg = "text-slate-805"
+            let cellStyle: React.CSSProperties = {}
+
             if (won) {
+              const hue = (pIdx === 1 || pIdx === 2) ? team1Color.hue : team2Color.hue
+              cellStyle = {
+                backgroundColor: `hsla(${hue}, 80%, 90%, 0.85)`,
+                color: `hsl(${hue}, 85%, 20%)`
+              }
               if (isTeamMatchplay) {
                 if (pIdx === 1 || pIdx === 2) {
                   const otherNet = pIdx === 1 ? netValuesAtHole[num]?.[2] : netValuesAtHole[num]?.[1]
                   const myNet = netValuesAtHole[num]?.[pIdx]
-                  cellBg = myNet < otherNet ? `${team1Color.bg} ${team1Color.text} font-black` : `${team1Color.bg} ${team1Color.text}`
+                  cellBg = myNet < otherNet ? "font-black" : ""
                 } else {
                   const otherNet = pIdx === 3 ? netValuesAtHole[num]?.[4] : netValuesAtHole[num]?.[3]
                   const myNet = netValuesAtHole[num]?.[pIdx]
-                  cellBg = myNet < otherNet ? `${team2Color.bg} ${team2Color.text} font-black` : `${team2Color.bg} ${team2Color.text}`
+                  cellBg = myNet < otherNet ? "font-black" : ""
                 }
               } else {
-                if (pIdx === 1) {
-                  cellBg = `${team1Color.bg} ${team1Color.text} font-extrabold`
-                } else {
-                  cellBg = `${team2Color.bg} ${team2Color.text} font-extrabold`
-                }
+                cellBg = "font-extrabold"
               }
+            } else if (halvedContributor) {
+              const hue = (pIdx === 1 || pIdx === 2) ? team1Color.hue : team2Color.hue
+              cellStyle = {
+                backgroundColor: `hsla(${hue}, 80%, 95%, 0.45)`,
+                color: `hsl(${hue}, 85%, 35%)`
+              }
+              cellBg = "font-semibold"
             }
 
             const strokeCount = allowanceVal > 0 ? (strokesMap[num] || 0) : 0
             const markerMarkup = getMarkerMarkup(displayVal, diff, isWiped)
 
             return (
-              <td key={num} className={`px-1 py-2 border-r border-slate-200/80 relative font-bold text-[11px] transition-colors duration-150 ${cellBg}`}>
+              <td key={num} style={cellStyle} className={`px-1 py-2 border-r border-slate-200/80 relative font-bold text-[11px] transition-colors duration-150 ${cellBg}`}>
                 <div className="flex items-center justify-center h-7 relative w-full">
                   <span className={isWiped ? 'text-red-650 font-black' : ''}>{displayVal}</span>
                   {markerMarkup}

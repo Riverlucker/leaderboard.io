@@ -9,7 +9,7 @@ import { useRouter } from "next/navigation"
 import { 
   Trophy, BookOpen, Key, LogOut, CheckCircle, 
   Settings, ChevronRight, Users, Play, Edit, 
-  HelpCircle, Eye, RefreshCw, X, Loader2, Save, Trash2, ShieldAlert, Home, Plus
+  HelpCircle, Eye, RefreshCw, X, Loader2, Save, Trash2, ShieldAlert, Home, Plus, Share2
 } from "lucide-react"
 
 import { 
@@ -347,10 +347,33 @@ export function CompetitionClientView({ competition, session, courses = [], user
     }
   } catch (_) {}
 
+  const getPlayableHolesForRound = (round: any) => {
+    const roundHoles = round.holesPlayed && round.holesPlayed.length > 0
+      ? [...round.holesPlayed].sort((a: number, b: number) => a - b)
+      : Array.from({ length: 18 }, (_, i) => i + 1)
+
+    const hasAnyScores = (competition.participants || []).some((p: any) =>
+      (p.scores || []).some((s: any) => s.roundId === round.id && (s.grossStrokes !== null || s.status === 'WIPED'))
+    )
+    if (!hasAnyScores) return roundHoles
+
+    return roundHoles.filter((holeNum: number) => {
+      const hole = round.course.holes.find((h: any) => h.number === holeNum)
+      if (!hole) return false
+
+      const holeScores = (competition.participants || [])
+        .map((p: any) => (p.scores || []).find((s: any) => s.roundId === round.id && s.holeId === hole.id))
+        .filter(Boolean)
+
+      const isExcluded = holeScores.length > 0 && holeScores.every((s: any) => s.status === 'NOT_PLAYED')
+      return !isExcluded
+    })
+  }
+
   // compute totalCompHoles
   let totalCompHoles = 0
   for (const round of (competition.rounds || [])) {
-    totalCompHoles += round.holesPlayed && round.holesPlayed.length > 0 ? round.holesPlayed.length : 18
+    totalCompHoles += getPlayableHolesForRound(round).length
   }
 
 
@@ -358,6 +381,36 @@ export function CompetitionClientView({ competition, session, courses = [], user
   // Leaderboard filters
   const [selectedRoundFilter, setSelectedRoundFilter] = useState<string>("TOTAL")
   const [selectedLeaderboardType, setSelectedLeaderboardType] = useState<string>("MAIN")
+
+  // Hydrate filters from URL query parameters
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const sp = new URLSearchParams(window.location.search)
+      const roundParam = sp.get("round")
+      const typeParam = sp.get("type")
+      if (roundParam) setSelectedRoundFilter(roundParam)
+      if (typeParam) setSelectedLeaderboardType(typeParam)
+    }
+  }, [])
+
+  const [shareCopied, setShareCopied] = useState(false)
+
+  const handleShareView = () => {
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href)
+      url.searchParams.set("round", selectedRoundFilter)
+      url.searchParams.set("type", selectedLeaderboardType)
+      
+      navigator.clipboard.writeText(url.toString())
+        .then(() => {
+          setShareCopied(true)
+          setTimeout(() => setShareCopied(false), 2000)
+        })
+        .catch(err => {
+          console.error("Could not copy URL: ", err)
+        })
+    }
+  }
   
   // Scorecard modal state
   const [selectedParticipantForScorecard, setSelectedParticipantForScorecard] = useState<any | null>(null)
@@ -1178,9 +1231,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
 
         for (const round of rounds) {
           const courseHandicap = getPlayingHandicap(p, round)
-          const roundHoles = round.holesPlayed && round.holesPlayed.length > 0 
-            ? round.holesPlayed 
-            : Array.from({ length: 18 }, (_, i) => i + 1)
+          const roundHoles = getPlayableHolesForRound(round)
 
           let roundPts = 0
           let roundHolesPlayed = false
@@ -1247,9 +1298,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
         const roundPoints: Record<string, number> = {}
 
         for (const round of rounds) {
-          const roundHoles = round.holesPlayed && round.holesPlayed.length > 0 
-            ? round.holesPlayed 
-            : Array.from({ length: 18 }, (_, i) => i + 1)
+          const roundHoles = getPlayableHolesForRound(round)
 
           let roundStrokes = 0
           let roundHolesPlayed = false
@@ -1325,9 +1374,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
 
         for (const round of rounds) {
           const courseHandicap = getPlayingHandicap(p, round)
-          const roundHoles = round.holesPlayed && round.holesPlayed.length > 0 
-            ? round.holesPlayed 
-            : Array.from({ length: 18 }, (_, i) => i + 1)
+          const roundHoles = getPlayableHolesForRound(round)
 
           let roundPts = 0
           let roundHolesPlayed = false
@@ -1394,9 +1441,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
         const roundPoints: Record<string, number> = {}
 
         for (const round of rounds) {
-          const roundHoles = round.holesPlayed && round.holesPlayed.length > 0 
-            ? round.holesPlayed 
-            : Array.from({ length: 18 }, (_, i) => i + 1)
+          const roundHoles = getPlayableHolesForRound(round)
 
           let roundBirdies = 0
           let roundHolesPlayed = false
@@ -1463,9 +1508,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
         const roundPoints: Record<string, number> = {}
 
         for (const round of rounds) {
-          const roundHoles = round.holesPlayed && round.holesPlayed.length > 0 
-            ? round.holesPlayed 
-            : Array.from({ length: 18 }, (_, i) => i + 1)
+          const roundHoles = getPlayableHolesForRound(round)
 
           let roundDbPlus = 0
           let roundHolesPlayed = false
@@ -1539,9 +1582,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
         const roundPoints: Record<string, number> = {}
 
         for (const round of rounds) {
-          const roundHoles = round.holesPlayed && round.holesPlayed.length > 0 
-            ? round.holesPlayed 
-            : Array.from({ length: 18 }, (_, i) => i + 1)
+          const roundHoles = getPlayableHolesForRound(round)
 
           let roundMaxStreak = 0
           let roundCurrentStreak = 0
@@ -1576,7 +1617,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
 
         // Count played holes inside active rounds only
         for (const ar of activeRounds) {
-          const roundHoles = ar.holesPlayed && ar.holesPlayed.length > 0 ? ar.holesPlayed : Array.from({ length: 18 }, (_, i) => i + 1)
+          const roundHoles = getPlayableHolesForRound(ar)
           for (const holeNum of roundHoles) {
             const hole = ar.course.holes.find((h: any) => h.number === holeNum)
             if (hole) {
@@ -1646,9 +1687,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
           let rStrokes = 0
           let rPlayedHoles = 0
 
-          const roundHoles = round.holesPlayed && round.holesPlayed.length > 0 
-            ? round.holesPlayed 
-            : Array.from({ length: 18 }, (_, i) => i + 1)
+          const roundHoles = getPlayableHolesForRound(round)
 
           totalHolesCount += roundHoles.length
 
@@ -1749,6 +1788,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
     if (selectedLeaderboardType === 'MVP') {
       const entries = competition.participants.map((p: any) => {
         let totalPoints = 0
+        let totalMvpHolesPlayed = 0
         const roundPoints: Record<string, number> = {}
 
         for (const round of activeRounds) {
@@ -1794,11 +1834,13 @@ export function CompetitionClientView({ competition, session, courses = [], user
             const allowance2_1 = hcp2_1 - minPH
             const allowance2_2 = hcp2_2 - minPH
 
-            const roundHoles = round.holesPlayed && round.holesPlayed.length > 0
-              ? [...round.holesPlayed].sort((a: number, b: number) => a - b)
-              : Array.from({ length: 18 }, (_, i) => i + 1)
+            const roundHoles = getPlayableHolesForRound(round)
 
             const matchHoles = parseHoleRange(match.holeRange, roundHoles)
+
+            // accumulate played holes for player
+            const status = computeMatchplayStatus(match, round)
+            totalMvpHolesPlayed += status.holesPlayed
 
             const strokesMap1_1 = getMatchHoleStrokesMap(matchHoles, round, allowance1_1)
             const strokesMap1_2 = getMatchHoleStrokesMap(matchHoles, round, allowance1_2)
@@ -1895,7 +1937,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
           name,
           totalPoints,
           roundPoints,
-          holesPlayed: activeRounds.length
+          holesPlayed: totalMvpHolesPlayed
         }
       })
 
@@ -2474,6 +2516,19 @@ export function CompetitionClientView({ competition, session, courses = [], user
                   )}
                 </select>
               </div>
+
+              {/* Share View Button */}
+              <button
+                onClick={handleShareView}
+                className="p-2.5 bg-slate-50 hover:bg-emerald-50 text-slate-500 hover:text-emerald-655 rounded-lg border border-slate-200 transition-colors shadow-sm inline-flex items-center justify-center cursor-pointer ml-2"
+                title="Share Current View"
+              >
+                {shareCopied ? (
+                  <CheckCircle size={16} className="text-emerald-600 animate-pulse" />
+                ) : (
+                  <Share2 size={16} />
+                )}
+              </button>
             </div>
 
             {(() => {
@@ -2653,14 +2708,16 @@ export function CompetitionClientView({ competition, session, courses = [], user
                               </th>
                             )
                           })}
-                          <th className="px-2 py-2.5 md:px-5 md:py-4 text-right w-12 md:w-16">Cards</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 bg-white/15 text-slate-700">
                         {leaderboardList.map((entry) => {
                           const totalHolesForFilter = selectedRoundFilter === 'TOTAL'
                             ? totalCompHoles
-                            : (competition.rounds.find((r: any) => r.id === selectedRoundFilter)?.holesPlayed?.length || 18)
+                            : (() => {
+                                const r = competition.rounds.find((r: any) => r.id === selectedRoundFilter)
+                                return r ? getPlayableHolesForRound(r).length : 18
+                              })()
 
                           const isStableford = selectedLeaderboardType === 'STABLEFORD_NETTO' || selectedLeaderboardType === 'STABLEFORD_BRUTTO' || (selectedLeaderboardType === 'MAIN' && competition.type === 'NETTO_STABLEFORD')
                           const isMvp = selectedLeaderboardType === 'MVP'
@@ -2748,21 +2805,6 @@ export function CompetitionClientView({ competition, session, courses = [], user
                                   </td>
                                 )
                               })}
-
-                              <td className="px-2 py-2.5 md:px-5 md:py-4 text-right">
-                                {selectedLeaderboardType !== 'MVP' && (
-                                  <button
-                                    onClick={() => {
-                                      setSelectedParticipantForScorecard(entry.participant)
-                                      setSelectedRoundIdForScorecard(null)
-                                    }}
-                                    className="p-1 md:p-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-500 hover:text-emerald-600 rounded-lg transition-colors shadow-sm"
-                                    title="View Full Scorecard"
-                                  >
-                                    <Eye size={16} className="landscape:w-3.5 landscape:h-3.5" />
-                                  </button>
-                                )}
-                              </td>
                             </tr>
                           )
                         })}
@@ -2805,7 +2847,10 @@ export function CompetitionClientView({ competition, session, courses = [], user
                       {leaderboardList.map((entry) => {
                         const totalHolesForFilter = selectedRoundFilter === 'TOTAL'
                           ? totalCompHoles
-                          : (competition.rounds.find((r: any) => r.id === selectedRoundFilter)?.holesPlayed?.length || 18)
+                          : (() => {
+                              const r = competition.rounds.find((r: any) => r.id === selectedRoundFilter)
+                              return r ? getPlayableHolesForRound(r).length : 18
+                            })()
 
                         return (
                           <tr key={entry.teamId} className="hover:bg-slate-50/50 transition-colors">
@@ -2853,19 +2898,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
                                 </td>
                               )
                             })}
-
-                            <td className="px-2 py-2.5 md:px-5 md:py-4 text-right">
-                              <button
-                                onClick={() => {
-                                  setSelectedTeamForScorecard(entry.team)
-                                }}
-                                className="p-1 md:p-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-500 hover:text-emerald-600 rounded-lg transition-colors shadow-sm"
-                                title="View Full Team Scorecard"
-                              >
-                                <Eye size={16} className="landscape:w-3.5 landscape:h-3.5" />
-                              </button>
-                            </td>
-                          </tr>
+                            </tr>
                         )
                       })}
                     </tbody>

@@ -3,8 +3,9 @@
 import { useState, useEffect, useRef } from "react"
 import { saveBatchScores } from "@/app/actions/scores"
 import { ArrowLeft, ArrowRight, Loader2 } from "lucide-react"
-import { calculateCourseHandicap, getRoundHoleInfo } from "@/lib/scoring"
+import { calculateCourseHandicap, getRoundHoleInfo, getHandicapStrokesOnHole } from "@/lib/scoring"
 import { getTeamColorConfig } from "@/lib/teamColors"
+import { getPlayerCalculatedAllowance } from "./CompetitionClientView"
 
 interface LiveScoreEntryProps {
   round: any
@@ -320,6 +321,21 @@ export function LiveScoreEntry({
             courseHandicap = calculateCourseHandicap(p.compHandicap, tee, coursePar)
           }
 
+          // Find player's matchplay match to calculate matchplay allowance
+          let matchplayAllowance: number | null = null
+          const playerMatch = round.matches?.find((m: any) =>
+            m.matchPlayers.some((mp: any) => mp.participantId === p.id)
+          )
+          if (playerMatch) {
+            const mp = playerMatch.matchPlayers.find((x: any) => x.participantId === p.id)
+            if (mp) {
+              matchplayAllowance = getPlayerCalculatedAllowance(mp, playerMatch, round, competition?.participants || [])
+            }
+          }
+
+          const displayHandicap = matchplayAllowance !== null ? matchplayAllowance : courseHandicap
+          const strokesOnCurrentHole = getHandicapStrokesOnHole(displayHandicap, strokeIndex)
+
           const teamIdx = competition?.teams?.findIndex((t: any) => t.id === p.teamId) ?? -1
           const teamConfig = (isTeamComp && p.team) ? getTeamColorConfig(p.team.color, teamIdx === -1 ? pIdx : teamIdx) : null
 
@@ -335,8 +351,18 @@ export function LiveScoreEntry({
                 <h4 className={`font-extrabold text-sm truncate leading-tight ${teamConfig ? teamConfig.text : 'text-slate-850'}`}>
                   {playerName}
                 </h4>
-                <div className={`text-[10px] font-mono mt-0.5 ${teamConfig ? teamConfig.textLight : 'text-slate-500'}`}>
-                  HC {p.compHandicap !== null ? p.compHandicap.toFixed(1) : "-"} ({courseHandicap})
+                <div className="flex flex-wrap items-center gap-1 mt-0.5">
+                  <span className={`text-[10px] font-mono ${teamConfig ? teamConfig.textLight : 'text-slate-500'}`}>
+                    HC {p.compHandicap !== null ? p.compHandicap.toFixed(1) : "-"} ({displayHandicap})
+                  </span>
+                  {strokesOnCurrentHole > 0 && (
+                    <span 
+                      className="inline-flex items-center justify-center bg-cyan-100 text-cyan-800 font-extrabold text-[8px] px-1 py-0.2 rounded border border-cyan-300 font-mono"
+                      title={`${strokesOnCurrentHole} strokes received on this hole`}
+                    >
+                      {Array.from({ length: strokesOnCurrentHole }).map(() => "•").join("")}
+                    </span>
+                  )}
                 </div>
                 {isSaving && (
                   <div className="flex items-center space-x-1 text-[9px] text-emerald-600 font-bold mt-0.5">

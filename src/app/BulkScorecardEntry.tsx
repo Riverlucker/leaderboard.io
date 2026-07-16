@@ -5,6 +5,7 @@ import { saveBatchScores } from "@/app/actions/scores"
 import { Loader2 } from "lucide-react"
 import { calculateCourseHandicap, getHandicapStrokesOnHole, getRoundHoleInfo } from "@/lib/scoring"
 import { getTeamColorConfig } from "@/lib/teamColors"
+import { getPlayerCalculatedAllowance } from "./CompetitionClientView"
 
 interface BulkScorecardEntryProps {
   round: any
@@ -321,6 +322,20 @@ export function BulkScorecardEntry({
                 courseHandicap = calculateCourseHandicap(p.compHandicap, tee, coursePar)
               }
 
+              // Find player's matchplay match to calculate matchplay allowance
+              let matchplayAllowance: number | null = null
+              const playerMatch = round.matches?.find((m: any) =>
+                m.matchPlayers.some((mp: any) => mp.participantId === p.id)
+              )
+              if (playerMatch) {
+                const mp = playerMatch.matchPlayers.find((x: any) => x.participantId === p.id)
+                if (mp) {
+                  matchplayAllowance = getPlayerCalculatedAllowance(mp, playerMatch, round, competition?.participants || [])
+                }
+              }
+
+              const displayHandicap = matchplayAllowance !== null ? matchplayAllowance : courseHandicap
+
               const teamIdx = competition?.teams?.findIndex((t: any) => t.id === p.teamId) ?? -1
               const teamConfig = (isTeamComp && p.team) ? getTeamColorConfig(p.team.color, teamIdx === -1 ? pIndex : teamIdx) : null
 
@@ -330,7 +345,7 @@ export function BulkScorecardEntry({
                   <td className={`px-4 py-2 font-black border-b border-slate-100/60 border-r border-slate-200/40 ${teamConfig ? `${teamConfig.bg} ${teamConfig.text} border-l-4 ${teamConfig.border}` : 'bg-white/10 text-slate-805'}`} rowSpan={2}>
                     <div className="truncate max-w-[145px] text-sm font-black">{playerName}</div>
                     <div className={`text-[10px] font-mono mt-0.5 font-normal ${teamConfig ? teamConfig.textLight : 'text-slate-500'}`}>
-                      HC {p.compHandicap !== null ? p.compHandicap.toFixed(1) : "-"} ({courseHandicap})
+                      HC {p.compHandicap !== null ? p.compHandicap.toFixed(1) : "-"} ({displayHandicap})
                     </div>
                   </td>
                   <td className={`px-4 py-2 text-center border-r border-slate-200 text-xs font-mono font-bold border-b border-slate-100/60 ${teamConfig ? `${teamConfig.bg} ${teamConfig.textLight}` : 'bg-white/20 text-cyan-605'}`}>
@@ -340,7 +355,7 @@ export function BulkScorecardEntry({
                     const hole = course.holes.find((h: any) => h.number === holeNum)
                     const adjusted = getRoundHoleInfo(round, holeNum)
                     const holeStrokeIndex = adjusted ? adjusted.strokeIndex : (hole?.strokeIndex || 1)
-                    const hcpStrokes = getHandicapStrokesOnHole(courseHandicap, holeStrokeIndex)
+                    const hcpStrokes = getHandicapStrokesOnHole(displayHandicap, holeStrokeIndex)
                     const shotsMarkup = hcpStrokes === 1 ? "|" : hcpStrokes >= 2 ? "||" : ""
                     return (
                       <td key={`shots-${p.id}-${holeNum}`} className={`p-1 text-center border-r border-slate-200/80 border-b border-slate-100/60 text-xs font-mono font-black ${teamConfig ? `${teamConfig.bg} ${teamConfig.textLight}` : 'bg-white/10 text-cyan-650'}`}>

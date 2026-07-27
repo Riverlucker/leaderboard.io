@@ -529,3 +529,97 @@ export async function deleteMatch(matchId: string, compId: string) {
   revalidatePath(`/admin/competitions/${compId}`)
   return { success: true }
 }
+
+export async function createQuickSingleRound(data: {
+  courseId: string
+  date: string
+  teeId?: string
+  type?: string
+  selectedUserIds: string[]
+  customPlayers: Array<{ name: string; handicap?: number }>
+}) {
+  const course = await prisma.course.findUnique({
+    where: { id: data.courseId },
+    include: { tees: true }
+  })
+  if (!course) throw new Error("Course not found.")
+
+  const roundDate = data.date ? new Date(data.date) : new Date()
+  
+  const day = String(roundDate.getDate()).padStart(2, '0')
+  const month = String(roundDate.getMonth() + 1).padStart(2, '0')
+  const year = String(roundDate.getFullYear()).slice(-2)
+  const dateStr = `${day}.${month}.${year}`
+
+  let cleanCourseName = course.name.replace(/^(GC\s+|Golfclub\s+)/i, "").trim()
+  const compName = `${cleanCourseName}, ${dateStr}`
+
+  const baseSlug = cleanCourseName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") + "-" + dateStr.replace(/\./g, "-")
+  let uniqueSlug = baseSlug
+  let counter = 1
+  while (await prisma.competition.findUnique({ where: { uniqueSlug } })) {
+    uniqueSlug = `${baseSlug}-${counter++}`
+  }
+
+  const defaultPhoto = "https://www.golfinfo.at/media/system/animation/154-0479-lr-golfclub-millstaetterseegert-perauer.jpg"
+
+  let chosenTeeId = data.teeId
+  if (!chosenTeeId) {
+    const yellowTee = course.tees.find(t => t.name.toLowerCase().includes("yellow") || t.name.toLowerCase().includes("gelb"))
+    chosenTeeId = yellowTee?.id || course.tees[0]?.id || undefined
+  }
+
+  const selectedUsers = await prisma.user.findMany({
+    where: { id: { in: data.selectedUserIds } }
+  })
+
+  const participantsData: any[] = []
+  for (const user of selectedUsers) {
+    participantsData.push({
+      userId: user.id,
+      compHandicap: user.handicap !== null && user.handicap !== undefined ? user.handicap : null
+    })
+  }
+
+  for (const cp of data.customPlayers) {
+    const cleanName = cp.name.trim()
+    if (cleanName) {
+      participantsData.push({
+        dummyName: cleanName,
+        compHandicap: cp.handicap !== undefined && cp.handicap !== null && !isNaN(cp.handicap) ? cp.handicap : null
+      })
+    }
+  }
+
+  const comp = await prisma.competition.create({
+    data: {
+      name: compName,
+      uniqueSlug,
+      type: data.type || "NETTO_STABLEFORD",
+      isTeamComp: false,
+      showRelToPar: true,
+      bgImage: defaultPhoto,
+      startDate: roundDate,
+      endDate: roundDate,
+      rounds: {
+        create: [
+          {
+            name: "Round 1",
+            courseId: course.id,
+            teeId: chosenTeeId,
+            startDate: roundDate,
+            endDate: roundDate,
+            holesPlayed: Array.from({ length: 18 }, (_, i) => i + 1)
+          }
+        ]
+      },
+      participants: {
+        create: participantsData
+      }
+    }
+  })
+
+  revalidatePath("/admin/competitions")
+  revalidatePath("/")
+  return { competitionId: comp.id, uniqueSlug: comp.uniqueSlug }
+}

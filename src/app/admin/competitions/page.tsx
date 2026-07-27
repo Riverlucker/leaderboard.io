@@ -3,6 +3,8 @@ import Link from "next/link"
 import { Plus, Trophy, Calendar, Users, Layers, Flag } from "lucide-react"
 import { CompetitionRowActions } from "./CompetitionRowActions"
 
+import { CompetitionsHeaderActions } from "./CompetitionsHeaderActions"
+
 // Format helper
 function formatCompType(type: string) {
   switch (type) {
@@ -33,20 +35,40 @@ export default async function AdminCompetitionsPage() {
     }
   })
 
+  const courses = await prisma.course.findMany({
+    include: {
+      tees: {
+        select: {
+          id: true,
+          name: true
+        }
+      }
+    },
+    orderBy: {
+      name: 'asc'
+    }
+  })
+
+  const users = await prisma.user.findMany({
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      handicap: true
+    },
+    orderBy: {
+      name: 'asc'
+    }
+  })
+
   return (
     <div className="p-8">
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="text-3xl font-bold">Manage Competitions</h1>
           <p className="text-slate-400 text-sm mt-1">Configure tournaments, add courses, set pairings, and review scorecards.</p>
         </div>
-        <Link
-          href="/admin/competitions/new"
-          className="flex items-center space-x-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold px-4 py-2 rounded-xl transition-colors text-sm"
-        >
-          <Plus size={16} />
-          <span>New Competition</span>
-        </Link>
+        <CompetitionsHeaderActions courses={courses} users={users} />
       </div>
 
       <div className="grid grid-cols-1 gap-6">

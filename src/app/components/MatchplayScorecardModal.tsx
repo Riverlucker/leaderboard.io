@@ -388,8 +388,10 @@ export function MatchplayScorecardModal({
             let cellBg = "text-slate-805"
             let cellStyle: React.CSSProperties = {}
 
+            const isGreen = isTeamMatchplay ? (pIdx === 1 || pIdx === 2) : (pIdx === 1)
+            const hue = isGreen ? team1Color.hue : team2Color.hue
+
             if (won) {
-              const hue = (pIdx === 1 || pIdx === 2) ? team1Color.hue : team2Color.hue
               cellStyle = {
                 backgroundColor: `hsla(${hue}, 80%, 90%, 0.85)`,
                 color: `hsl(${hue}, 85%, 20%)`
@@ -408,7 +410,6 @@ export function MatchplayScorecardModal({
                 cellBg = "font-extrabold"
               }
             } else if (halvedContributor) {
-              const hue = (pIdx === 1 || pIdx === 2) ? team1Color.hue : team2Color.hue
               cellStyle = {
                 backgroundColor: `hsla(${hue}, 80%, 95%, 0.45)`,
                 color: `hsl(${hue}, 85%, 35%)`

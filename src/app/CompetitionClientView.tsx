@@ -853,15 +853,18 @@ export function CompetitionClientView({ competition, session, courses = [], user
     }
   }, [selectedRoundFilter, competition.id])
 
-  // Auto-fill logged in player in scoring flight list
+  // Auto-fill logged in player in scoring flight list (only if setup is not confirmed and no saved flight exists)
   useEffect(() => {
-    if (session?.user?.email && selectedPlayerIds.length === 0) {
-      const matchedPart = competition.participants.find((p: any) => p.userId && p.user?.email === session.user.email)
-      if (matchedPart) {
-        setSelectedPlayerIds([matchedPart.id])
+    if (session?.user?.email && selectedPlayerIds.length === 0 && !setupConfirmed) {
+      const hasSavedPlayers = typeof window !== "undefined" && !!localStorage.getItem(`setup-players-${competition.id}`)
+      if (!hasSavedPlayers) {
+        const matchedPart = competition.participants.find((p: any) => p.userId && p.user?.email === session.user.email)
+        if (matchedPart) {
+          setSelectedPlayerIds([matchedPart.id])
+        }
       }
     }
-  }, [session, competition.participants, selectedPlayerIds])
+  }, [session, competition.participants, selectedPlayerIds, setupConfirmed, competition.id])
 
   // Get unique courses played in this competition's rounds
   const uniqueCoursesMap = new Map<string, any>()

@@ -377,12 +377,11 @@ export function MatchplayScorecardModal({
                         (!isTeamMatchplay && pIdx === 1 && wonTeam === '1') ||
                         (!isTeamMatchplay && pIdx === 2 && wonTeam === '2')
 
-            const halvedContributor = wonTeam === 'halved' && (
-              (isTeamMatchplay && pIdx === 1 && netValuesAtHole[num]?.[1] === Math.min(netValuesAtHole[num]?.[1], netValuesAtHole[num]?.[2])) ||
-              (isTeamMatchplay && pIdx === 2 && netValuesAtHole[num]?.[2] === Math.min(netValuesAtHole[num]?.[1], netValuesAtHole[num]?.[2])) ||
-              (isTeamMatchplay && pIdx === 3 && netValuesAtHole[num]?.[3] === Math.min(netValuesAtHole[num]?.[3], netValuesAtHole[num]?.[4])) ||
-              (isTeamMatchplay && pIdx === 4 && netValuesAtHole[num]?.[4] === Math.min(netValuesAtHole[num]?.[3], netValuesAtHole[num]?.[4])) ||
-              (!isTeamMatchplay && (pIdx === 1 || pIdx === 2))
+            const halvedContributor = isTeamMatchplay && wonTeam === 'halved' && (
+              (pIdx === 1 && netValuesAtHole[num]?.[1] === Math.min(netValuesAtHole[num]?.[1], netValuesAtHole[num]?.[2])) ||
+              (pIdx === 2 && netValuesAtHole[num]?.[2] === Math.min(netValuesAtHole[num]?.[1], netValuesAtHole[num]?.[2])) ||
+              (pIdx === 3 && netValuesAtHole[num]?.[3] === Math.min(netValuesAtHole[num]?.[3], netValuesAtHole[num]?.[4])) ||
+              (pIdx === 4 && netValuesAtHole[num]?.[4] === Math.min(netValuesAtHole[num]?.[3], netValuesAtHole[num]?.[4]))
             )
 
             let cellBg = "text-slate-805"

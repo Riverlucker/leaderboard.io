@@ -254,9 +254,19 @@ export function LiveScoreEntry({
   const par = adjustedHole ? adjustedHole.par : currentHole.par
   const strokeIndex = adjustedHole ? adjustedHole.strokeIndex : currentHole.strokeIndex
 
-  // Generate score options dynamically to be 100% symmetric around Par
-  // No scores below Eagle (par - 2).
-  const columns: Array<{ type: 'score' | 'action'; val: string }> = [
+  const isStrokeplay = (competition?.type || round?.competition?.type || '') === 'STROKEPLAY_GROSS' ||
+                       (competition?.type || round?.competition?.type || '').includes('STROKEPLAY')
+
+  const columns: Array<{ type: 'score' | 'action'; val: string }> = isStrokeplay ? [
+    { type: 'action', val: '-' },
+    { type: 'score', val: String(par - 2) },
+    { type: 'score', val: String(par - 1) },
+    { type: 'score', val: String(par) },
+    { type: 'score', val: String(par + 1) },
+    { type: 'score', val: String(par + 2) },
+    { type: 'score', val: String(par + 3) },
+    { type: 'score', val: String(par + 4) }
+  ] : [
     { type: 'action', val: '-' },
     { type: 'score', val: String(par - 2) },
     { type: 'score', val: String(par - 1) },
@@ -445,6 +455,29 @@ export function LiveScoreEntry({
                     </button>
                   )
                 })}
+              </div>
+
+              {/* Custom High Score Input */}
+              <div className="flex-shrink-0 flex items-center">
+                <input
+                  type="number"
+                  min="1"
+                  max="25"
+                  placeholder="#"
+                  value={columns.some(c => c.val === activeVal) ? "" : activeVal}
+                  onChange={(e) => {
+                    const val = e.target.value
+                    if (val === "" || (/^\d+$/.test(val) && parseInt(val) <= 25)) {
+                      handleScoreClick(p.id, currentHole.id, val)
+                    }
+                  }}
+                  className={`w-12 h-10 text-center font-black text-xs bg-white border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
+                    !columns.some(c => c.val === activeVal) && activeVal !== ""
+                      ? "border-emerald-500 bg-emerald-50 text-emerald-800 font-extrabold"
+                      : "border-slate-300 text-slate-700"
+                  }`}
+                  title="Custom score (e.g. 10..20)"
+                />
               </div>
             </div>
           )

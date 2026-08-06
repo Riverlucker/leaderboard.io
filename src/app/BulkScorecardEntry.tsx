@@ -198,20 +198,25 @@ export function BulkScorecardEntry({
     holeNum: number,
     value: string
   ) => {
+    const isStrokeplay = (competition?.type || round?.competition?.type || '') === 'STROKEPLAY_GROSS' ||
+                         (competition?.type || round?.competition?.type || '').includes('STROKEPLAY')
+
     const cleanVal = value.trim()
-    if (cleanVal !== "" && !/^[1-9/\-]$/.test(cleanVal)) {
+    if (isStrokeplay && cleanVal === "/") {
       return
     }
 
-    // Check eagle limit: no scores with strokes < par - 2
-    if (cleanVal !== "" && cleanVal !== "/" && cleanVal !== "-") {
-      const strokesVal = parseInt(cleanVal)
-      if (!isNaN(strokesVal)) {
-        const hole = course.holes.find((h: any) => h.id === holeId)
-        if (hole && strokesVal < hole.par - 2) {
-          return
-        }
+    if (cleanVal !== "" && cleanVal !== "-" && cleanVal !== "/") {
+      const num = parseInt(cleanVal)
+      if (isNaN(num) || num < 1 || num > 25) {
+        return
       }
+      const hole = course.holes.find((h: any) => h.id === holeId)
+      if (hole && num < hole.par - 2) {
+        return
+      }
+    } else if (cleanVal !== "" && !/^[/\-]$/.test(cleanVal)) {
+      return
     }
 
     const cellKey = `${partId}-${holeId}`

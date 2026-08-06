@@ -457,27 +457,51 @@ export function LiveScoreEntry({
                 })}
               </div>
 
-              {/* Custom High Score Input */}
-              <div className="flex-shrink-0 flex items-center">
+              {/* Custom High Score Input & Stepper */}
+              <div className="flex-shrink-0 flex items-center space-x-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const currentNum = parseInt(activeVal) || par
+                    const nextVal = Math.max(1, currentNum - 1)
+                    handleScoreClick(p.id, currentHole.id, String(nextVal))
+                  }}
+                  className="w-7 h-10 bg-white/50 border border-slate-200 text-slate-700 font-bold rounded-l-lg hover:bg-white text-xs flex items-center justify-center cursor-pointer select-none"
+                  title="Decrease score"
+                >
+                  -
+                </button>
                 <input
-                  type="number"
-                  min="1"
-                  max="25"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   placeholder="#"
-                  value={columns.some(c => c.val === activeVal) ? "" : activeVal}
+                  value={activeVal || ""}
                   onChange={(e) => {
-                    const val = e.target.value
+                    const val = e.target.value.trim()
                     if (val === "" || (/^\d+$/.test(val) && parseInt(val) <= 25)) {
                       handleScoreClick(p.id, currentHole.id, val)
                     }
                   }}
-                  className={`w-12 h-10 text-center font-black text-xs bg-white border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
-                    !columns.some(c => c.val === activeVal) && activeVal !== ""
+                  className={`w-10 h-10 text-center font-black text-xs bg-white border-y border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
+                    activeVal && !columns.some(c => c.val === activeVal)
                       ? "border-emerald-500 bg-emerald-50 text-emerald-800 font-extrabold"
-                      : "border-slate-300 text-slate-700"
+                      : "text-slate-800"
                   }`}
                   title="Custom score (e.g. 10..20)"
                 />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const currentNum = parseInt(activeVal) || par
+                    const nextVal = Math.min(25, currentNum + 1)
+                    handleScoreClick(p.id, currentHole.id, String(nextVal))
+                  }}
+                  className="w-7 h-10 bg-white/50 border border-slate-200 text-slate-700 font-bold rounded-r-lg hover:bg-white text-xs flex items-center justify-center cursor-pointer select-none"
+                  title="Increase score"
+                >
+                  +
+                </button>
               </div>
             </div>
           )

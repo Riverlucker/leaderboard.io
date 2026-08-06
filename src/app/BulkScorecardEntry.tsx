@@ -234,21 +234,24 @@ export function BulkScorecardEntry({
       performBatchSave()
     }, 2000)
 
-    // Auto-focus next cell immediately
+    // Auto-focus next cell immediately for 2-digit scores or digits >= 3
     if (cleanVal !== "") {
-      const currentHoleIndex = activeHoles.indexOf(holeNum)
-      if (currentHoleIndex !== -1 && currentHoleIndex < activeHoles.length - 1) {
-        const nextHoleNum = activeHoles[currentHoleIndex + 1]
-        const nextInput = document.getElementById(`input-${pIndex}-${nextHoleNum}`)
-        nextInput?.focus()
-        // @ts-ignore
-        nextInput?.select()
-      } else if (pIndex < selectedParticipants.length - 1) {
-        const nextPlayerFirstHoleNum = activeHoles[0]
-        const nextInput = document.getElementById(`input-${pIndex + 1}-${nextPlayerFirstHoleNum}`)
-        nextInput?.focus()
-        // @ts-ignore
-        nextInput?.select()
+      const isTwoDigitOrBig = cleanVal.length >= 2 || (cleanVal !== '1' && cleanVal !== '2' && cleanVal !== '-' && cleanVal !== '/')
+      if (isTwoDigitOrBig) {
+        const currentHoleIndex = activeHoles.indexOf(holeNum)
+        if (currentHoleIndex !== -1 && currentHoleIndex < activeHoles.length - 1) {
+          const nextHoleNum = activeHoles[currentHoleIndex + 1]
+          const nextInput = document.getElementById(`input-${pIndex}-${nextHoleNum}`)
+          nextInput?.focus()
+          // @ts-ignore
+          nextInput?.select()
+        } else if (pIndex < selectedParticipants.length - 1) {
+          const nextPlayerFirstHoleNum = activeHoles[0]
+          const nextInput = document.getElementById(`input-${pIndex + 1}-${nextPlayerFirstHoleNum}`)
+          nextInput?.focus()
+          // @ts-ignore
+          nextInput?.select()
+        }
       }
     }
   }

@@ -1325,6 +1325,90 @@ export function CompetitionClientView({ competition, session, courses = [], user
       : rounds.filter((r: any) => r.id === selectedRoundFilter)
 
     if (selectedLeaderboardType === 'MAIN') {
+      if (competition.type === 'STROKEPLAY_GROSS' || competition.type === 'STROKEPLAY_NET') {
+        const entries = competition.participants.map((p: any) => {
+          let totalStrokes = 0
+          let totalParPlayedHoles = 0
+          let holesPlayed = 0
+          const roundPoints: Record<string, number> = {}
+          const roundRelToPar: Record<string, number> = {}
+
+          for (const round of rounds) {
+            const roundHoles = getPlayableHolesForRound(round)
+
+            let roundStrokes = 0
+            let roundPar = 0
+            let roundHolesPlayed = false
+
+            for (const holeNum of roundHoles) {
+              const hole = round.course.holes.find((h: any) => h.number === holeNum)
+              if (!hole) continue
+
+              const adjusted = getRoundHoleInfo(round, holeNum)
+              const holePar = adjusted ? adjusted.par : hole.par
+
+              const score = p.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
+              if (score && (score.grossStrokes !== null || (score.status !== null && score.status !== 'NOT_PLAYED'))) {
+                roundHolesPlayed = true
+                const isActive = activeRounds.some((ar: any) => ar.id === round.id)
+                if (isActive) holesPlayed++
+
+                if (score.status === 'WIPED') {
+                  roundStrokes += holePar + 3
+                  if (isActive) roundPar += holePar
+                } else if (score.grossStrokes !== null) {
+                  roundStrokes += score.grossStrokes
+                  if (isActive) roundPar += holePar
+                }
+              }
+            }
+
+            if (roundHolesPlayed) {
+              roundPoints[round.id] = roundStrokes
+              roundRelToPar[round.id] = roundStrokes - roundPar
+              if (activeRounds.some((ar: any) => ar.id === round.id)) {
+                totalStrokes += roundStrokes
+                totalParPlayedHoles += roundPar
+              }
+            } else {
+              roundPoints[round.id] = 0
+              roundRelToPar[round.id] = 0
+            }
+          }
+
+          const relToPar = totalStrokes - totalParPlayedHoles
+
+          return {
+            participantId: p.id,
+            participant: p,
+            name: p.userId ? (p.user?.name || p.user?.email) : p.dummyName,
+            totalPoints: totalStrokes,
+            totalStrokes,
+            holesPlayed,
+            roundPoints,
+            roundRelToPar,
+            relToPar
+          }
+        })
+
+        // Sort ascending (lowest strokes win)
+        const sorted = [...entries].sort((a, b) => {
+          if (a.totalStrokes !== b.totalStrokes) return a.totalStrokes - b.totalStrokes
+          return b.holesPlayed - a.holesPlayed
+        })
+
+        return sorted.map((entry, idx) => {
+          const ties = sorted.filter(x => x.totalStrokes === entry.totalStrokes)
+          const isTied = ties.length > 1
+          const firstTiedIndex = sorted.findIndex(x => x.totalStrokes === entry.totalStrokes) + 1
+          const rankString = isTied ? `T${firstTiedIndex}` : `${idx + 1}`
+          return {
+            ...entry,
+            rank: rankString
+          }
+        })
+      }
+
       // Netto Stableford default
       const entries = competition.participants.map((p: any) => {
         let totalPoints = 0
@@ -1398,13 +1482,16 @@ export function CompetitionClientView({ competition, session, courses = [], user
     if (selectedLeaderboardType === 'STROKEPLAY') {
       const entries = competition.participants.map((p: any) => {
         let totalStrokes = 0
+        let totalParPlayedHoles = 0
         let holesPlayed = 0
         const roundPoints: Record<string, number> = {}
+        const roundRelToPar: Record<string, number> = {}
 
         for (const round of rounds) {
           const roundHoles = getPlayableHolesForRound(round)
 
           let roundStrokes = 0
+          let roundPar = 0
           let roundHolesPlayed = false
 
           for (const holeNum of roundHoles) {
@@ -1422,21 +1509,28 @@ export function CompetitionClientView({ competition, session, courses = [], user
 
               if (score.status === 'WIPED') {
                 roundStrokes += holePar + 3 // wiped hole is triple bogey in strokeplay gross
+                if (isActive) roundPar += holePar
               } else if (score.grossStrokes !== null) {
                 roundStrokes += score.grossStrokes
+                if (isActive) roundPar += holePar
               }
             }
           }
 
           if (roundHolesPlayed) {
             roundPoints[round.id] = roundStrokes
+            roundRelToPar[round.id] = roundStrokes - roundPar
             if (activeRounds.some((ar: any) => ar.id === round.id)) {
               totalStrokes += roundStrokes
+              totalParPlayedHoles += roundPar
             }
           } else {
             roundPoints[round.id] = 0
+            roundRelToPar[round.id] = 0
           }
         }
+
+        const relToPar = totalStrokes - totalParPlayedHoles
 
         return {
           participantId: p.id,
@@ -1445,7 +1539,9 @@ export function CompetitionClientView({ competition, session, courses = [], user
           totalPoints: totalStrokes, // Use totalPoints field as rank sorting value
           totalStrokes,
           holesPlayed,
-          roundPoints
+          roundPoints,
+          roundRelToPar,
+          relToPar
         }
       })
       
@@ -1459,10 +1555,11 @@ export function CompetitionClientView({ competition, session, courses = [], user
       return sorted.map((entry, idx) => {
         const ties = sorted.filter(x => x.totalPoints === entry.totalPoints)
         const isTied = ties.length > 1
-        const firstIdx = sorted.findIndex(x => x.totalPoints === entry.totalPoints) + 1
+        const firstTiedIndex = sorted.findIndex(x => x.totalPoints === entry.totalPoints) + 1
+        const rankString = isTied ? `T${firstTiedIndex}` : `${idx + 1}`
         return {
           ...entry,
-          rank: isTied ? `T${firstIdx}` : `${idx + 1}`
+          rank: rankString
         }
       })
     }

@@ -2429,10 +2429,11 @@ export function CompetitionClientView({ competition, session, courses = [], user
     <div 
       className="min-h-screen bg-slate-100 text-slate-800 flex flex-col transition-all duration-300"
       style={{
-        backgroundImage: competition.bgImage ? `linear-gradient(to bottom, rgba(248, 250, 252, 0.1), rgba(248, 250, 252, 0.25)), url("${competition.bgImage}")` : 'none',
+        backgroundImage: competition.bgImage ? `linear-gradient(to bottom, rgba(248, 250, 252, 0.4), rgba(248, 250, 252, 0.6)), url(${JSON.stringify(competition.bgImage)})` : 'none',
         backgroundSize: 'cover',
         backgroundPosition: 'center',
-        backgroundAttachment: 'fixed'
+        backgroundAttachment: 'fixed',
+        backgroundRepeat: 'no-repeat'
       }}
     >
       {/* Top Header */}

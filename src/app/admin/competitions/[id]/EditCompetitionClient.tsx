@@ -667,14 +667,50 @@ export function EditCompetitionClient({
                     <input 
                       type="file"
                       accept="image/*"
-                      onChange={(e) => {
+                      onChange={async (e) => {
                         const file = e.target.files?.[0]
                         if (file) {
-                          const reader = new FileReader()
-                          reader.onloadend = () => {
-                            setBgImage(reader.result as string)
+                          try {
+                            const compressed = await new Promise<string>((resolve, reject) => {
+                              const reader = new FileReader()
+                              reader.onload = (event) => {
+                                const img = new Image()
+                                img.onload = () => {
+                                  let w = img.width
+                                  let h = img.height
+                                  const maxDim = 1200
+                                  if (w > maxDim || h > maxDim) {
+                                    if (w > h) {
+                                      h = Math.round((h * maxDim) / w)
+                                      w = maxDim
+                                    } else {
+                                      w = Math.round((w * maxDim) / h)
+                                      h = maxDim
+                                    }
+                                  }
+                                  const canvas = document.createElement('canvas')
+                                  canvas.width = w
+                                  canvas.height = h
+                                  const ctx = canvas.getContext('2d')
+                                  if (ctx) {
+                                    ctx.drawImage(img, 0, 0, w, h)
+                                    resolve(canvas.toDataURL('image/jpeg', 0.75))
+                                  } else {
+                                    resolve(event.target?.result as string)
+                                  }
+                                }
+                                img.onerror = reject
+                                img.src = event.target?.result as string
+                              }
+                              reader.onerror = reject
+                              reader.readAsDataURL(file)
+                            })
+                            setBgImage(compressed)
+                          } catch (_) {
+                            const reader = new FileReader()
+                            reader.onloadend = () => setBgImage(reader.result as string)
+                            reader.readAsDataURL(file)
                           }
-                          reader.readAsDataURL(file)
                         }
                       }}
                       className="w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-slate-800 file:text-slate-200 hover:file:bg-slate-700 cursor-pointer"

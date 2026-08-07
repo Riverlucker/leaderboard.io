@@ -25,6 +25,9 @@ async function main() {
     'GC Gut Altentann',
     'GC Eugendorf',
     'GC Zillertal-Uderns',
+    'Gut Heckenhof rot/gelb',
+    'Gut Heckenhof gelb/grün',
+    'Gut Heckenhof grün/rot',
     'Son Gual',
     'T-Club Calvia',
     'T-Club Palma',
@@ -132,6 +135,78 @@ async function main() {
         { name: 'Blue', courseRating: 68.1, slope: 124 },
         { name: 'Red', courseRating: 66.0, slope: 119 },
         { name: 'Orange', courseRating: 69.7, slope: 121 }
+      ]
+    } else if (name === 'Gut Heckenhof rot/gelb') {
+      holesData = [
+        { number: 1, par: 4, strokeIndex: 7 },
+        { number: 2, par: 3, strokeIndex: 17 },
+        { number: 3, par: 5, strokeIndex: 3 },
+        { number: 4, par: 4, strokeIndex: 5 },
+        { number: 5, par: 3, strokeIndex: 13 },
+        { number: 6, par: 5, strokeIndex: 1 },
+        { number: 7, par: 3, strokeIndex: 15 },
+        { number: 8, par: 4, strokeIndex: 9 },
+        { number: 9, par: 4, strokeIndex: 11 },
+        { number: 10, par: 4, strokeIndex: 12 },
+        { number: 11, par: 4, strokeIndex: 8 },
+        { number: 12, par: 4, strokeIndex: 4 },
+        { number: 13, par: 5, strokeIndex: 10 },
+        { number: 14, par: 3, strokeIndex: 16 },
+        { number: 15, par: 4, strokeIndex: 18 },
+        { number: 16, par: 4, strokeIndex: 14 },
+        { number: 17, par: 5, strokeIndex: 6 },
+        { number: 18, par: 4, strokeIndex: 2 }
+      ]
+      teesData = [
+        { name: 'gelb', courseRating: 71.5, slope: 132 }
+      ]
+    } else if (name === 'Gut Heckenhof gelb/grün') {
+      holesData = [
+        { number: 1, par: 4, strokeIndex: 9 },
+        { number: 2, par: 4, strokeIndex: 11 },
+        { number: 3, par: 4, strokeIndex: 7 },
+        { number: 4, par: 5, strokeIndex: 5 },
+        { number: 5, par: 3, strokeIndex: 15 },
+        { number: 6, par: 4, strokeIndex: 17 },
+        { number: 7, par: 4, strokeIndex: 13 },
+        { number: 8, par: 5, strokeIndex: 3 },
+        { number: 9, par: 4, strokeIndex: 1 },
+        { number: 10, par: 4, strokeIndex: 4 },
+        { number: 11, par: 3, strokeIndex: 18 },
+        { number: 12, par: 4, strokeIndex: 16 },
+        { number: 13, par: 4, strokeIndex: 8 },
+        { number: 14, par: 4, strokeIndex: 12 },
+        { number: 15, par: 3, strokeIndex: 14 },
+        { number: 16, par: 4, strokeIndex: 2 },
+        { number: 17, par: 4, strokeIndex: 10 },
+        { number: 18, par: 5, strokeIndex: 6 }
+      ]
+      teesData = [
+        { name: 'gelb', courseRating: 72.1, slope: 131 }
+      ]
+    } else if (name === 'Gut Heckenhof grün/rot') {
+      holesData = [
+        { number: 1, par: 4, strokeIndex: 5 },
+        { number: 2, par: 3, strokeIndex: 17 },
+        { number: 3, par: 4, strokeIndex: 15 },
+        { number: 4, par: 4, strokeIndex: 7 },
+        { number: 5, par: 4, strokeIndex: 9 },
+        { number: 6, par: 3, strokeIndex: 13 },
+        { number: 7, par: 4, strokeIndex: 3 },
+        { number: 8, par: 4, strokeIndex: 8 },
+        { number: 9, par: 5, strokeIndex: 1 },
+        { number: 10, par: 4, strokeIndex: 8 },
+        { number: 11, par: 3, strokeIndex: 18 },
+        { number: 12, par: 5, strokeIndex: 4 },
+        { number: 13, par: 4, strokeIndex: 6 },
+        { number: 14, par: 3, strokeIndex: 14 },
+        { number: 15, par: 5, strokeIndex: 2 },
+        { number: 16, par: 3, strokeIndex: 16 },
+        { number: 17, par: 4, strokeIndex: 10 },
+        { number: 18, par: 4, strokeIndex: 12 }
+      ]
+      teesData = [
+        { name: 'gelb', courseRating: 69.8, slope: 124 }
       ]
     }
 

@@ -25,6 +25,7 @@ async function main() {
     'GC Gut Altentann',
     'GC Eugendorf',
     'GC Zillertal-Uderns',
+    'GC Achensee',
     'Gut Heckenhof rot/gelb',
     'Gut Heckenhof gelb/grün',
     'Gut Heckenhof grün/rot',
@@ -135,6 +136,33 @@ async function main() {
         { name: 'Blue', courseRating: 68.1, slope: 124 },
         { name: 'Red', courseRating: 66.0, slope: 119 },
         { name: 'Orange', courseRating: 69.7, slope: 121 }
+      ]
+    } else if (name === 'GC Achensee') {
+      holesData = [
+        { number: 1, par: 4, strokeIndex: 17 },
+        { number: 2, par: 4, strokeIndex: 5 },
+        { number: 3, par: 3, strokeIndex: 13 },
+        { number: 4, par: 5, strokeIndex: 1 },
+        { number: 5, par: 4, strokeIndex: 11 },
+        { number: 6, par: 3, strokeIndex: 15 },
+        { number: 7, par: 4, strokeIndex: 7 },
+        { number: 8, par: 5, strokeIndex: 9 },
+        { number: 9, par: 4, strokeIndex: 3 },
+        { number: 10, par: 5, strokeIndex: 12 },
+        { number: 11, par: 3, strokeIndex: 14 },
+        { number: 12, par: 4, strokeIndex: 4 },
+        { number: 13, par: 3, strokeIndex: 18 },
+        { number: 14, par: 5, strokeIndex: 10 },
+        { number: 15, par: 4, strokeIndex: 8 },
+        { number: 16, par: 4, strokeIndex: 2 },
+        { number: 17, par: 4, strokeIndex: 6 },
+        { number: 18, par: 3, strokeIndex: 16 }
+      ]
+      teesData = [
+        { name: 'White', courseRating: 73.2, slope: 128 },
+        { name: 'Yellow', courseRating: 71.2, slope: 127 },
+        { name: 'Blue', courseRating: 74.4, slope: 124 },
+        { name: 'Red', courseRating: 72.5, slope: 123 }
       ]
     } else if (name === 'Gut Heckenhof rot/gelb') {
       holesData = [

@@ -25,7 +25,7 @@ export function PlayerScorecardModal({
   shareCopied
 }: PlayerScorecardModalProps) {
   return (
-    <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
       <div className="bg-white border border-slate-200 rounded-2xl max-w-4xl w-full p-6 shadow-2xl space-y-4 overflow-hidden max-h-[90vh] flex flex-col text-slate-800">
         <div className="flex justify-between items-center border-b border-slate-200 pb-3">
           <div>

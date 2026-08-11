@@ -406,6 +406,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
   // Scorecard modal state
   const [selectedParticipantForScorecard, setSelectedParticipantForScorecard] = useState<any | null>(null)
   const [selectedRoundIdForScorecard, setSelectedRoundIdForScorecard] = useState<string | null>(null)
+  const [selectedCompetitionForScorecard, setSelectedCompetitionForScorecard] = useState<any | null>(null)
   const [selectedMatchForScorecard, setSelectedMatchForScorecard] = useState<any | null>(null)
   const [selectedMatchRoundForScorecard, setSelectedMatchRoundForScorecard] = useState<any | null>(null)
   const [selectedTeamForScorecard, setSelectedTeamForScorecard] = useState<any | null>(null)
@@ -5065,11 +5066,12 @@ export function CompetitionClientView({ competition, session, courses = [], user
         <PlayerScorecardModal
           selectedParticipantForScorecard={selectedParticipantForScorecard}
           selectedRoundIdForScorecard={selectedRoundIdForScorecard}
-          competition={competition}
+          competition={selectedCompetitionForScorecard || competition}
           selectedLeaderboardType={selectedLeaderboardType}
           onClose={() => {
             setSelectedParticipantForScorecard(null)
             setSelectedRoundIdForScorecard(null)
+            setSelectedCompetitionForScorecard(null)
             clearScorecardUrlParams()
           }}
           onShare={handleSharePlayerScorecard}
@@ -5106,7 +5108,8 @@ export function CompetitionClientView({ competition, session, courses = [], user
         <PlayerHistoryModal
           player={historyModalPlayer}
           onClose={() => setHistoryModalPlayer(null)}
-          onOpenScorecard={(round, participant) => {
+          onOpenScorecard={(round, participant, comp) => {
+            setSelectedCompetitionForScorecard(comp)
             setSelectedParticipantForScorecard(participant)
             setSelectedRoundIdForScorecard(round.id)
           }}

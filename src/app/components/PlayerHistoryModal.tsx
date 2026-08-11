@@ -11,7 +11,7 @@ interface PlayerHistoryModalProps {
     name: string
   }
   onClose: () => void
-  onOpenScorecard: (round: any, participant: any) => void
+  onOpenScorecard: (round: any, participant: any, competition: any) => void
 }
 
 export function PlayerHistoryModal({ player, onClose, onOpenScorecard }: PlayerHistoryModalProps) {
@@ -253,9 +253,9 @@ export function PlayerHistoryModal({ player, onClose, onOpenScorecard }: PlayerH
                         {/* Interactive Bruttopunkte */}
                         <td className="px-3.5 py-3 text-center">
                           <button
-                            onClick={() => onOpenScorecard(r.round, r.participant)}
+                            onClick={() => onOpenScorecard(r.round, r.participant, r.competition)}
                             className={`px-2.5 py-1 rounded-lg border border-slate-200 hover:border-emerald-500 hover:bg-emerald-50 transition-colors font-mono cursor-pointer ${grossColor}`}
-                            title="Click to view detailed scorecard"
+                            title={`Gross Stableford Points: ${r.grossStablefordPoints} pts (${r.grossRelToParFormatted} vs target). Click for scorecard.`}
                           >
                             {r.grossRelToParFormatted}
                           </button>
@@ -264,9 +264,9 @@ export function PlayerHistoryModal({ player, onClose, onOpenScorecard }: PlayerH
                         {/* Interactive Nettopunkte */}
                         <td className="px-3.5 py-3 text-center">
                           <button
-                            onClick={() => onOpenScorecard(r.round, r.participant)}
+                            onClick={() => onOpenScorecard(r.round, r.participant, r.competition)}
                             className={`px-2.5 py-1 rounded-lg border border-slate-200 hover:border-emerald-500 hover:bg-emerald-50 transition-colors font-mono cursor-pointer ${netColor}`}
-                            title="Click to view detailed scorecard"
+                            title={`Netto Stableford Points: ${r.netStablefordPoints} pts (${r.netRelToParFormatted} vs target). Click for scorecard.`}
                           >
                             {r.netRelToParFormatted}
                           </button>
@@ -275,9 +275,9 @@ export function PlayerHistoryModal({ player, onClose, onOpenScorecard }: PlayerH
                         {/* Interactive Schlagzahl */}
                         <td className="px-3.5 py-3 text-center">
                           <button
-                            onClick={() => onOpenScorecard(r.round, r.participant)}
+                            onClick={() => onOpenScorecard(r.round, r.participant, r.competition)}
                             className="px-2.5 py-1 rounded-lg border border-slate-200 hover:border-emerald-500 hover:bg-emerald-50 transition-colors font-mono font-bold text-slate-900 cursor-pointer"
-                            title="Click to view detailed scorecard"
+                            title="Click for detailed scorecard"
                           >
                             {r.totalStrokes}
                             {r.hasWipedHoles && <span className="text-[10px] text-red-500 font-extrabold ml-1" title="Includes wiped hole stroke substitute">*</span>}
@@ -286,7 +286,7 @@ export function PlayerHistoryModal({ player, onClose, onOpenScorecard }: PlayerH
 
                         <td className="px-2 py-3 text-right">
                           <button
-                            onClick={() => onOpenScorecard(r.round, r.participant)}
+                            onClick={() => onOpenScorecard(r.round, r.participant, r.competition)}
                             className="p-1 text-slate-400 hover:text-emerald-600 rounded hover:bg-slate-100 transition-colors cursor-pointer"
                             title="View Scorecard"
                           >

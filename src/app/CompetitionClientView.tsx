@@ -3,6 +3,8 @@
 import { TeamScorecardModal } from "./components/TeamScorecardModal"
 import { MatchplayScorecardModal } from "./components/MatchplayScorecardModal"
 import { PlayerScorecardModal } from "./components/PlayerScorecardModal"
+import { ContextMenu, ContextMenuOption } from "./components/ContextMenu"
+import { PlayerHistoryModal } from "./components/PlayerHistoryModal"
 import { useState, useEffect } from "react"
 import { signIn, signOut } from "next-auth/react"
 import { useRouter } from "next/navigation"
@@ -407,6 +409,77 @@ export function CompetitionClientView({ competition, session, courses = [], user
   const [selectedMatchForScorecard, setSelectedMatchForScorecard] = useState<any | null>(null)
   const [selectedMatchRoundForScorecard, setSelectedMatchRoundForScorecard] = useState<any | null>(null)
   const [selectedTeamForScorecard, setSelectedTeamForScorecard] = useState<any | null>(null)
+
+  // Context Menu & Player History Modal State
+  const [contextMenuState, setContextMenuState] = useState<{
+    x: number
+    y: number
+    options: ContextMenuOption[]
+  } | null>(null)
+
+  const [historyModalPlayer, setHistoryModalPlayer] = useState<{
+    userId?: string | null
+    dummyName?: string | null
+    name: string
+  } | null>(null)
+
+  const handleSinglePlayerContextMenu = (e: React.MouseEvent, participant: any) => {
+    if (!participant) return
+    e.preventDefault()
+    e.stopPropagation()
+    const name = participant.userId ? (participant.user?.name || participant.user?.email) : participant.dummyName
+    setContextMenuState({
+      x: e.clientX,
+      y: e.clientY,
+      options: [
+        {
+          label: `View last rounds ${name || ""}`.trim(),
+          onClick: () => {
+            setHistoryModalPlayer({
+              userId: participant.userId,
+              dummyName: participant.dummyName,
+              name: name || "Player"
+            })
+          }
+        }
+      ]
+    })
+  }
+
+  const handleMatchplayContextMenu = (e: React.MouseEvent, match: any) => {
+    if (!match || !match.matchPlayers || match.matchPlayers.length === 0) return
+    e.preventDefault()
+    e.stopPropagation()
+
+    const options: ContextMenuOption[] = []
+
+    match.matchPlayers.forEach((mp: any) => {
+      const part = competition.participants.find((p: any) => p.id === mp.participantId)
+      if (part) {
+        const name = part.userId ? (part.user?.name || part.user?.email) : part.dummyName
+        if (name) {
+          options.push({
+            label: `View last rounds ${name}`,
+            onClick: () => {
+              setHistoryModalPlayer({
+                userId: part.userId,
+                dummyName: part.dummyName,
+                name
+              })
+            }
+          })
+        }
+      }
+    })
+
+    if (options.length > 0) {
+      setContextMenuState({
+        x: e.clientX,
+        y: e.clientY,
+        options
+      })
+    }
+  }
 
   const [modalShareCopied, setModalShareCopied] = useState(false)
 
@@ -2815,10 +2888,15 @@ export function CompetitionClientView({ competition, session, courses = [], user
                           return evaluated.map(({ round, match, status }) => {
                             const { statusText, holesPlayed, totalHoles, player1Name, player2Name, player3Name, player4Name, player1Allowance, player2Allowance, player3Allowance, player4Allowance, isTeamMatchplay, lead } = status
                             return (
-                              <tr key={match.id} className="hover:bg-slate-50/50 transition-colors cursor-pointer" onClick={() => {
-                                setSelectedMatchForScorecard(match)
-                                setSelectedMatchRoundForScorecard(round)
-                              }}>
+                              <tr
+                                key={match.id}
+                                className="hover:bg-slate-50/50 transition-colors cursor-pointer"
+                                onClick={() => {
+                                  setSelectedMatchForScorecard(match)
+                                  setSelectedMatchRoundForScorecard(round)
+                                }}
+                                onContextMenu={(e) => handleMatchplayContextMenu(e, match)}
+                              >
                                 <td className="px-5 py-4 font-bold text-slate-900">{round.name}</td>
                                 <td className="px-5 py-4">
                                   {isTeamMatchplay ? (
@@ -2934,7 +3012,10 @@ export function CompetitionClientView({ competition, session, courses = [], user
                               <td className="px-2 py-2.5 md:px-5 md:py-4 text-center font-extrabold font-mono text-slate-700">
                                 {entry.rank}
                               </td>
-                              <td className="px-3 py-2.5 md:px-5 md:py-4">
+                              <td
+                                className="px-3 py-2.5 md:px-5 md:py-4 cursor-pointer hover:bg-emerald-50/40 rounded transition-colors"
+                                onContextMenu={(e) => handleSinglePlayerContextMenu(e, entry.participant)}
+                              >
                                 <div 
                                   style={isTeamComp && highlightTeam && team ? { color: `hsl(${getTeamHue(team, competition.teams)}, 75%, 25%)` } : {}}
                                   className="font-extrabold text-slate-900 text-sm md:text-base leading-tight"
@@ -3192,7 +3273,11 @@ export function CompetitionClientView({ competition, session, courses = [], user
                 {competition.participants.map((p: any) => {
                   const name = p.userId ? (p.user?.name || p.user?.email) : p.dummyName
                   return (
-                    <div key={p.id} className="py-2.5 flex justify-between items-center">
+                    <div
+                      key={p.id}
+                      className="py-2.5 flex justify-between items-center cursor-pointer hover:bg-slate-50 px-2 rounded-lg transition-colors"
+                      onContextMenu={(e) => handleSinglePlayerContextMenu(e, p)}
+                    >
                       <div>
                         <div className="font-semibold text-sm text-slate-850 truncate max-w-[150px]">{name}</div>
                         {isTeamComp && p.team && (
@@ -5003,6 +5088,28 @@ export function CompetitionClientView({ competition, session, courses = [], user
           }}
           onShare={handleShareTeamScorecard}
           shareCopied={modalShareCopied}
+        />
+      )}
+
+      {/* Context Menu Popup */}
+      {contextMenuState && (
+        <ContextMenu
+          x={contextMenuState.x}
+          y={contextMenuState.y}
+          options={contextMenuState.options}
+          onClose={() => setContextMenuState(null)}
+        />
+      )}
+
+      {/* Player History Overview Modal */}
+      {historyModalPlayer && (
+        <PlayerHistoryModal
+          player={historyModalPlayer}
+          onClose={() => setHistoryModalPlayer(null)}
+          onOpenScorecard={(round, participant) => {
+            setSelectedParticipantForScorecard(participant)
+            setSelectedRoundIdForScorecard(round.id)
+          }}
         />
       )}
     </div>

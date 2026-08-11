@@ -33,6 +33,38 @@ export interface PlayerHistoryRound {
   competition: any
 }
 
+function formatHoleRangeString(holes: number[]): string {
+  if (holes.length === 0) return "-"
+  if (holes.length === 18 && holes[0] === 1 && holes[17] === 18) return "1-18"
+  if (holes.length === 9 && holes[0] === 1 && holes[8] === 9) return "1-9"
+  if (holes.length === 9 && holes[0] === 10 && holes[8] === 18) return "10-18"
+
+  const parts: string[] = []
+  let start = holes[0]
+  let prev = holes[0]
+
+  for (let i = 1; i < holes.length; i++) {
+    const current = holes[i]
+    if (current === prev + 1) {
+      prev = current
+    } else {
+      if (start === prev) {
+        parts.push(String(start))
+      } else {
+        parts.push(`${start}-${prev}`)
+      }
+      start = current
+      prev = current
+    }
+  }
+  if (start === prev) {
+    parts.push(String(start))
+  } else {
+    parts.push(`${start}-${prev}`)
+  }
+  return parts.join(",")
+}
+
 export async function getPlayerRoundHistory(input: {
   userId?: string | null
   dummyName?: string | null
@@ -89,16 +121,25 @@ export async function getPlayerRoundHistory(input: {
       if (!competition || !competition.rounds) continue
 
       for (const round of competition.rounds) {
-        const activeHoles = round.holesPlayed && round.holesPlayed.length > 0
-          ? [...round.holesPlayed].sort((a, b) => a - b)
-          : Array.from({ length: 18 }, (_, i) => i + 1)
+        // Filter participant scores for this round that are actually played (or wiped)
+        const roundScores = participant.scores.filter(
+          s => s.roundId === round.id && (s.grossStrokes !== null || s.status === 'WIPED')
+        )
 
-        // Filter participant scores for this round
-        const roundScores = participant.scores.filter(s => s.roundId === round.id)
+        // Only include round if at least one hole was actually played
+        if (roundScores.length === 0) continue
 
-        // Only include round if at least one score exists or was entered for this round
-        const hasPlayedHoles = roundScores.some(s => s.grossStrokes !== null || (s.status !== null && s.status !== 'NOT_PLAYED'))
-        if (!hasPlayedHoles) continue
+        // Get the set of hole IDs actually played
+        const playedHoleIds = new Set(roundScores.map(s => s.holeId))
+
+        // Get the matching hole objects from round course, ordered by number
+        const playedCourseHoles = round.course.holes
+          .filter(h => playedHoleIds.has(h.id))
+          .sort((a, b) => a.number - b.number)
+
+        if (playedCourseHoles.length === 0) continue
+
+        const activeHolesList = playedCourseHoles.map(h => h.number)
 
         // Tee selection
         const tee = round.tee ||
@@ -121,11 +162,8 @@ export async function getPlayerRoundHistory(input: {
         let totalNetPoints = 0
         let hasWipedHoles = false
 
-        for (const num of activeHoles) {
-          const adjusted = getRoundHoleInfo(round, num)
-          const hole = round.course.holes.find(h => h.number === num)
-          if (!hole) continue
-
+        for (const hole of playedCourseHoles) {
+          const adjusted = getRoundHoleInfo(round, hole.number)
           const holePar = adjusted ? adjusted.par : hole.par
           const holeStrokeIndex = adjusted ? adjusted.strokeIndex : hole.strokeIndex
 
@@ -136,7 +174,7 @@ export async function getPlayerRoundHistory(input: {
 
           if (score && score.status === 'WIPED') {
             hasWipedHoles = true
-            // Rule: WIPED hole yields 0 points and net strokes = holePar + 3
+            // Rule: WIPED hole yields 0 points and gross stroke substitute = holePar + hcpStrokes + 3
             holeGross = holePar + hcpStrokes + 3
             totalGrossPoints += 0
             totalNetPoints += 0
@@ -147,21 +185,15 @@ export async function getPlayerRoundHistory(input: {
 
             totalNetPoints += netPts
             totalGrossPoints += brutPts
-          } else {
-            // Unplayed hole fallback
-            holeGross = holePar
-            totalNetPoints += 2
-            totalGrossPoints += 2
           }
 
           totalGrossStrokes += holeGross
         }
 
         // Target Stableford Points for the played holes (2 points per hole)
-        const targetStablefordPoints = activeHoles.length * 2
+        const targetStablefordPoints = playedCourseHoles.length * 2
 
         // Relative to par in Stableford: (targetPoints - earnedPoints)
-        // e.g. 6 holes (target 12 pts): 8 Net pts -> 12 - 8 = +4 (4 points below target / 4 strokes over net par)
         const grossRelToPar = targetStablefordPoints - totalGrossPoints
         const netRelToPar = targetStablefordPoints - totalNetPoints
 
@@ -173,19 +205,7 @@ export async function getPlayerRoundHistory(input: {
         const rawDate = round.startDate || round.endDate || competition.startDate || new Date()
         const d = new Date(rawDate)
         const dateFormatted = `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}`
-
-        let holesText = "1-18"
-        if (activeHoles.length > 0) {
-          if (activeHoles.length === 18 && activeHoles[0] === 1 && activeHoles[17] === 18) {
-            holesText = "1-18"
-          } else if (activeHoles.length === 9 && activeHoles[0] === 1 && activeHoles[8] === 9) {
-            holesText = "1-9"
-          } else if (activeHoles.length === 9 && activeHoles[0] === 10 && activeHoles[8] === 18) {
-            holesText = "10-18"
-          } else {
-            holesText = `${activeHoles[0]}-${activeHoles[activeHoles.length - 1]}`
-          }
-        }
+        const holesText = formatHoleRangeString(activeHolesList)
 
         roundHistories.push({
           roundId: round.id,
@@ -197,8 +217,8 @@ export async function getPlayerRoundHistory(input: {
           courseId: round.courseId,
           courseName: round.course.name,
           holesPlayedText: holesText,
-          holesPlayedCount: activeHoles.length,
-          holesPlayedList: activeHoles,
+          holesPlayedCount: playedCourseHoles.length,
+          holesPlayedList: activeHolesList,
           grossRelToPar,
           grossRelToParFormatted: formatRelToPar(grossRelToPar),
           netRelToPar,

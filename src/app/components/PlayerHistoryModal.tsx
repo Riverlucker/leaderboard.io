@@ -257,7 +257,7 @@ export function PlayerHistoryModal({ player, onClose, onOpenScorecard }: PlayerH
                             className={`px-2.5 py-1 rounded-lg border border-slate-200 hover:border-emerald-500 hover:bg-emerald-50 transition-colors font-mono cursor-pointer ${grossColor}`}
                             title={`Gross Stableford Points: ${r.grossStablefordPoints} pts (${r.grossRelToParFormatted} vs target). Click for scorecard.`}
                           >
-                            {r.grossRelToParFormatted}
+                            {r.grossStablefordPoints} <span className="text-[10px] opacity-75">({r.grossRelToParFormatted})</span>
                           </button>
                         </td>
 
@@ -268,7 +268,7 @@ export function PlayerHistoryModal({ player, onClose, onOpenScorecard }: PlayerH
                             className={`px-2.5 py-1 rounded-lg border border-slate-200 hover:border-emerald-500 hover:bg-emerald-50 transition-colors font-mono cursor-pointer ${netColor}`}
                             title={`Netto Stableford Points: ${r.netStablefordPoints} pts (${r.netRelToParFormatted} vs target). Click for scorecard.`}
                           >
-                            {r.netRelToParFormatted}
+                            {r.netStablefordPoints} <span className="text-[10px] opacity-75">({r.netRelToParFormatted})</span>
                           </button>
                         </td>
 

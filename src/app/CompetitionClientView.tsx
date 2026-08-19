@@ -2209,7 +2209,8 @@ export function CompetitionClientView({ competition, session, courses = [], user
                                    (p.id === team2Players[1].id && active2.includes(p.id))
 
                   if (isActive) {
-                    const activeCount = (p.teamId === team1Id) ? active1.length : active2.length
+                    const isTeam1Player = (p.id === team1Players[0].id || p.id === team1Players[1].id)
+                    const activeCount = isTeam1Player ? active1.length : active2.length
                     if (activeCount === 1) roundMVPPoints += 0.5
                     else if (activeCount === 2) roundMVPPoints += 0.25
                   }

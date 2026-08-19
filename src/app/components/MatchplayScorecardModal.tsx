@@ -98,26 +98,8 @@ export function MatchplayScorecardModal({
   const matchHoles = parseHoleRange(match.holeRange, roundHoles)
 
   if (isTeamMatchplay && players.length === 4) {
-    const teamIds = Array.from(new Set(players.map((x: any) => x.teamId))).filter(Boolean)
-    if (teamIds.length === 2 && players.filter((x: any) => x.teamId === teamIds[0]).length === 2 && players.filter((x: any) => x.teamId === teamIds[1]).length === 2) {
-      let team1Id = teamIds[0]
-      let team2Id = teamIds[1]
-
-      const christoph = players.find((x: any) => (x.user?.name || x.dummyName || "").toLowerCase().includes("christoph"))
-      if (christoph && christoph.teamId === team2Id) {
-        const temp = team1Id
-        team1Id = team2Id
-        team2Id = temp
-      }
-
-      team1Players = players.filter((x: any) => x.teamId === team1Id)
-      team2Players = players.filter((x: any) => x.teamId === team2Id)
-      team1Players.sort((a: any, b: any) => getPlayingHandicap(a, round) - getPlayingHandicap(b, round))
-      team2Players.sort((a: any, b: any) => getPlayingHandicap(a, round) - getPlayingHandicap(b, round))
-    } else {
-      team1Players = [players[0], players[1]]
-      team2Players = [players[2], players[3]]
-    }
+    team1Players = [players[0], players[1]]
+    team2Players = [players[2], players[3]]
 
     p1 = team1Players[0]
     p2 = team1Players[1]

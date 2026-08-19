@@ -8,7 +8,8 @@ import {
   getMatchAllowance,
   getMatchHoleStrokesMap,
   getCompactName,
-  parseHoleRange
+  parseHoleRange,
+  parseAllowancePercentage
 } from "../CompetitionClientView"
 import { getTeamColorConfig } from "@/lib/teamColors"
 
@@ -98,20 +99,25 @@ export function MatchplayScorecardModal({
 
   if (isTeamMatchplay && players.length === 4) {
     const teamIds = Array.from(new Set(players.map((x: any) => x.teamId))).filter(Boolean)
-    let team1Id = teamIds[0]
-    let team2Id = teamIds[1]
+    if (teamIds.length === 2 && players.filter((x: any) => x.teamId === teamIds[0]).length === 2 && players.filter((x: any) => x.teamId === teamIds[1]).length === 2) {
+      let team1Id = teamIds[0]
+      let team2Id = teamIds[1]
 
-    const christoph = players.find((x: any) => (x.user?.name || x.dummyName || "").toLowerCase().includes("christoph"))
-    if (christoph && christoph.teamId === team2Id) {
-      const temp = team1Id
-      team1Id = team2Id
-      team2Id = temp
+      const christoph = players.find((x: any) => (x.user?.name || x.dummyName || "").toLowerCase().includes("christoph"))
+      if (christoph && christoph.teamId === team2Id) {
+        const temp = team1Id
+        team1Id = team2Id
+        team2Id = temp
+      }
+
+      team1Players = players.filter((x: any) => x.teamId === team1Id)
+      team2Players = players.filter((x: any) => x.teamId === team2Id)
+      team1Players.sort((a: any, b: any) => getPlayingHandicap(a, round) - getPlayingHandicap(b, round))
+      team2Players.sort((a: any, b: any) => getPlayingHandicap(a, round) - getPlayingHandicap(b, round))
+    } else {
+      team1Players = [players[0], players[1]]
+      team2Players = [players[2], players[3]]
     }
-
-    team1Players = players.filter((x: any) => x.teamId === team1Id)
-    team2Players = players.filter((x: any) => x.teamId === team2Id)
-    team1Players.sort((a: any, b: any) => getPlayingHandicap(a, round) - getPlayingHandicap(b, round))
-    team2Players.sort((a: any, b: any) => getPlayingHandicap(a, round) - getPlayingHandicap(b, round))
 
     p1 = team1Players[0]
     p2 = team1Players[1]
@@ -133,11 +139,7 @@ export function MatchplayScorecardModal({
       return defVal
     }
 
-    const allowanceType = match.allowanceType || "75%"
-    let percentage = 0.75
-    if (allowanceType === "50%") percentage = 0.50
-    if (allowanceType === "100%") percentage = 1.00
-    if (allowanceType === "0%") percentage = 0.00
+    const percentage = parseAllowancePercentage(match.allowanceType)
 
     p1Allowance = getPlayerMPAllowance(p1.id, Math.round((hcp1 - minPH) * percentage))
     p2Allowance = getPlayerMPAllowance(p2.id, Math.round((hcp2 - minPH) * percentage))

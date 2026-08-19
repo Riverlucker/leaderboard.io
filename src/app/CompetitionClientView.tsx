@@ -122,16 +122,20 @@ export function getPlayingHandicap(p: any, round: any) {
   return calculateCourseHandicap(p.compHandicap, tee, coursePar)
 }
 
+export function parseAllowancePercentage(allowanceType?: string | null): number {
+  if (!allowanceType) return 0.75
+  const cleaned = allowanceType.replace('%', '').trim()
+  const num = parseFloat(cleaned)
+  if (!isNaN(num)) return num / 100
+  return 0.75
+}
+
 export function getMatchAllowance(match: any, hcpA: number, hcpB: number) {
   if (match.handicapAllowance !== null && match.handicapAllowance !== undefined) {
     return match.handicapAllowance
   }
   const diff = Math.abs(hcpA - hcpB)
-  const allowanceType = match.allowanceType || "75%"
-  let percentage = 0.75
-  if (allowanceType === "50%") percentage = 0.50
-  if (allowanceType === "100%") percentage = 1.00
-  if (allowanceType === "0%") percentage = 0.00
+  const percentage = parseAllowancePercentage(match.allowanceType)
   return Math.round(diff * percentage)
 }
 
@@ -151,11 +155,7 @@ export function getPlayerCalculatedAllowance(mp: any, match: any, round: any, pa
     if (hcps.length === 0) return 0
     const minPH = Math.min(...hcps)
     const diff = pHcp - minPH
-    const allowanceType = match.allowanceType || "75%"
-    let percentage = 0.75
-    if (allowanceType === "50%") percentage = 0.50
-    if (allowanceType === "100%") percentage = 1.00
-    if (allowanceType === "0%") percentage = 0.00
+    const percentage = parseAllowancePercentage(match.allowanceType)
     return Math.round(diff * percentage)
   } else if (match.type === "SINGLES" && matchPlayersList.length === 2) {
     const p1 = matchPlayersList[0]
@@ -975,25 +975,32 @@ export function CompetitionClientView({ competition, session, courses = [], user
       ).filter((n: any): n is string => typeof n === 'string' && n.length > 0)
 
       const teamIds = Array.from(new Set(players.map((p: any) => p.teamId))).filter(Boolean)
-      let team1Id = teamIds[0]
-      let team2Id = teamIds[1]
+      let team1Players: any[] = []
+      let team2Players: any[] = []
 
-      const christoph = players.find((p: any) => (p.user?.name || p.dummyName || "").toLowerCase().includes("christoph"))
-      if (christoph && christoph.teamId === team2Id) {
-        const temp = team1Id
-        team1Id = team2Id
-        team2Id = temp
+      if (teamIds.length === 2 && players.filter((p: any) => p.teamId === teamIds[0]).length === 2 && players.filter((p: any) => p.teamId === teamIds[1]).length === 2) {
+        let team1Id = teamIds[0]
+        let team2Id = teamIds[1]
+
+        const christoph = players.find((p: any) => (p.user?.name || p.dummyName || "").toLowerCase().includes("christoph"))
+        if (christoph && christoph.teamId === team2Id) {
+          const temp = team1Id
+          team1Id = team2Id
+          team2Id = temp
+        }
+
+        team1Players = players.filter((p: any) => p.teamId === team1Id)
+        team2Players = players.filter((p: any) => p.teamId === team2Id)
+        team1Players.sort((a: any, b: any) => getPlayingHandicap(a, round) - getPlayingHandicap(b, round))
+        team2Players.sort((a: any, b: any) => getPlayingHandicap(a, round) - getPlayingHandicap(b, round))
+      } else {
+        team1Players = [players[0], players[1]]
+        team2Players = [players[2], players[3]]
       }
-
-      const team1Players = players.filter((p: any) => p.teamId === team1Id)
-      const team2Players = players.filter((p: any) => p.teamId === team2Id)
 
       if (team1Players.length !== 2 || team2Players.length !== 2) {
         return { statusText: "Team Division Error", holesPlayed: 0, totalHoles: 18, allowance: 0, player1Name: "Unknown", player2Name: "Unknown", player3Name: "Unknown", player4Name: "Unknown", player1Allowance: 0, player2Allowance: 0, player3Allowance: 0, player4Allowance: 0, isFinished: false, isTeamMatchplay: true, lead: 0 }
       }
-
-      team1Players.sort((a: any, b: any) => getPlayingHandicap(a, round) - getPlayingHandicap(b, round))
-      team2Players.sort((a: any, b: any) => getPlayingHandicap(a, round) - getPlayingHandicap(b, round))
 
       const hcp1_1 = getPlayingHandicap(team1Players[0], round)
       const hcp1_2 = getPlayingHandicap(team1Players[1], round)
@@ -1002,11 +1009,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
 
       const minPH = Math.min(hcp1_1, hcp1_2, hcp2_1, hcp2_2)
 
-      const allowanceType = match.allowanceType || "75%"
-      let percentage = 0.75
-      if (allowanceType === "50%") percentage = 0.50
-      if (allowanceType === "100%") percentage = 1.00
-      if (allowanceType === "0%") percentage = 0.00
+      const percentage = parseAllowancePercentage(match.allowanceType)
 
       const allowance1_1 = getPlayerMPAllowance(team1Players[0].id, Math.round((hcp1_1 - minPH) * percentage))
       const allowance1_2 = getPlayerMPAllowance(team1Players[1].id, Math.round((hcp1_2 - minPH) * percentage))
@@ -1029,8 +1032,12 @@ export function CompetitionClientView({ competition, session, courses = [], user
       const strokesMap2_1 = getMatchHoleStrokesMap(matchHoles, round, allowance2_1)
       const strokesMap2_2 = getMatchHoleStrokesMap(matchHoles, round, allowance2_2)
 
-      const team1Name = team1Players[0].team?.name || "Team 1"
-      const team2Name = team2Players[0].team?.name || "Team 2"
+      const team1Name = (team1Players[0].team?.id && team1Players[0].team?.id === team1Players[1].team?.id)
+        ? (team1Players[0].team?.name || "Team 1")
+        : `${name1_1} & ${name1_2}`
+      const team2Name = (team2Players[0].team?.id && team2Players[0].team?.id === team2Players[1].team?.id)
+        ? (team2Players[0].team?.name || "Team 2")
+        : `${name2_1} & ${name2_2}`
 
       let lead = 0
       let holesPlayedCount = 0
@@ -2079,18 +2086,28 @@ export function CompetitionClientView({ competition, session, courses = [], user
             if (players.length < 4) continue
 
             const teamIds = Array.from(new Set(players.map((x: any) => x.teamId))).filter(Boolean)
-            let team1Id = teamIds[0]
-            let team2Id = teamIds[1]
+            let team1Players: any[] = []
+            let team2Players: any[] = []
 
-            const christoph = players.find((x: any) => (x.user?.name || x.dummyName || "").toLowerCase().includes("christoph"))
-            if (christoph && christoph.teamId === team2Id) {
-              const temp = team1Id
-              team1Id = team2Id
-              team2Id = temp
+            if (teamIds.length === 2 && players.filter((x: any) => x.teamId === teamIds[0]).length === 2 && players.filter((x: any) => x.teamId === teamIds[1]).length === 2) {
+              let team1Id = teamIds[0]
+              let team2Id = teamIds[1]
+
+              const christoph = players.find((x: any) => (x.user?.name || x.dummyName || "").toLowerCase().includes("christoph"))
+              if (christoph && christoph.teamId === team2Id) {
+                const temp = team1Id
+                team1Id = team2Id
+                team2Id = temp
+              }
+
+              team1Players = players.filter((x: any) => x.teamId === team1Id)
+              team2Players = players.filter((x: any) => x.teamId === team2Id)
+              team1Players.sort((a: any, b: any) => getPlayingHandicap(a, round) - getPlayingHandicap(b, round))
+              team2Players.sort((a: any, b: any) => getPlayingHandicap(a, round) - getPlayingHandicap(b, round))
+            } else {
+              team1Players = [players[0], players[1]]
+              team2Players = [players[2], players[3]]
             }
-
-            const team1Players = players.filter((x: any) => x.teamId === team1Id)
-            const team2Players = players.filter((x: any) => x.teamId === team2Id)
 
             if (team1Players.length !== 2 || team2Players.length !== 2) continue
 
@@ -4765,9 +4782,11 @@ export function CompetitionClientView({ competition, session, courses = [], user
                                     onChange={e => setAllowanceType(e.target.value)}
                                     className="w-full bg-white border border-slate-300 rounded px-3 py-2 text-sm text-slate-700 focus:ring-1 focus:ring-emerald-500"
                                   >
+                                    <option value="100%">100% Difference of Playing HCP</option>
+                                    <option value="85%">85% Difference of Playing HCP</option>
+                                    <option value="80%">80% Difference of Playing HCP</option>
                                     <option value="75%">75% Difference of Playing HCP (Default)</option>
                                     <option value="50%">50% Difference of Playing HCP</option>
-                                    <option value="100%">100% Difference of Playing HCP</option>
                                     <option value="0%">Scratch / 0% Allowance</option>
                                   </select>
                                 </div>

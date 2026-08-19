@@ -435,10 +435,8 @@ export async function addMatch(roundId: string, compId: string, data: {
     const hcpB = await getRoundPlayingHandicap(data.participantIds[1], roundId)
     const diff = Math.abs(hcpA - hcpB)
 
-    let percentage = 0.75
-    if (allowanceType === "50%") percentage = 0.50
-    if (allowanceType === "100%") percentage = 1.00
-    if (allowanceType === "0%") percentage = 0.00
+    const num = parseFloat(allowanceType.replace('%', '').trim())
+    const percentage = !isNaN(num) ? num / 100 : 0.75
 
     computedAllowance = Math.round(diff * percentage)
   }

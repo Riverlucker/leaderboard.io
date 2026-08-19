@@ -1682,9 +1682,11 @@ export function EditCompetitionClient({
                         onChange={e => setAllowanceType(e.target.value)}
                         className="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-sm text-slate-200"
                       >
+                        <option value="100%">100% Difference of Playing HCP</option>
+                        <option value="85%">85% Difference of Playing HCP</option>
+                        <option value="80%">80% Difference of Playing HCP</option>
                         <option value="75%">75% Difference of Playing HCP (Default)</option>
                         <option value="50%">50% Difference of Playing HCP</option>
-                        <option value="100%">100% Difference of Playing HCP</option>
                         <option value="0%">Scratch / 0% Allowance</option>
                       </select>
                     </div>

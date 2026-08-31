@@ -113,6 +113,7 @@ model Participant {
   
   compHandicap  Float?  
   dummyName     String? 
+  isOutOfCompetition Boolean @default(false)
   
   scores        Score[]
   matchPlayers  MatchPlayer[]

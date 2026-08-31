@@ -273,6 +273,7 @@ export async function addParticipant(compId: string, data: {
   dummyName?: string | null
   compHandicap?: number | null
   teamId?: string | null
+  isOutOfCompetition?: boolean
 }) {
   const dummyVal = data.dummyName?.trim()
   
@@ -298,7 +299,8 @@ export async function addParticipant(compId: string, data: {
       userId: data.userId || null,
       dummyName: data.userId ? null : dummyVal,
       compHandicap: data.compHandicap,
-      teamId: data.teamId || null
+      teamId: data.teamId || null,
+      isOutOfCompetition: data.isOutOfCompetition || false
     }
   })
 
@@ -347,13 +349,19 @@ export async function addParticipant(compId: string, data: {
 export async function updateParticipant(partId: string, compId: string, data: {
   compHandicap?: number | null
   teamId?: string | null
+  isOutOfCompetition?: boolean
 }) {
+  const updateData: any = {
+    compHandicap: data.compHandicap,
+    teamId: data.teamId || null
+  }
+  if (data.isOutOfCompetition !== undefined) {
+    updateData.isOutOfCompetition = data.isOutOfCompetition
+  }
+
   await prisma.participant.update({
     where: { id: partId },
-    data: {
-      compHandicap: data.compHandicap,
-      teamId: data.teamId || null
-    }
+    data: updateData
   })
 
   revalidatePath(`/admin/competitions/${compId}`)

@@ -624,6 +624,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
   const [partDummyName, setPartDummyName] = useState("")
   const [partHandicap, setPartHandicap] = useState("")
   const [partTeamId, setPartTeamId] = useState("")
+  const [partIsAK, setPartIsAK] = useState(false)
   const [isAddingParticipant, setIsAddingParticipant] = useState(false)
   const [partError, setPartError] = useState("")
 
@@ -1378,7 +1379,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
   // --- LEADERBOARDS CALCULATIONS ---
 
   // Build Leaderboard Entries based on selected filter
-  const computeLeaderboard = () => {
+  const computeLeaderboardForParticipants = (targetParticipants: any[]) => {
     const rounds = competition.rounds || []
     const activeRounds = selectedRoundFilter === 'TOTAL' 
       ? rounds 
@@ -1386,7 +1387,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
 
     if (selectedLeaderboardType === 'MAIN') {
       if (competition.type === 'STROKEPLAY_GROSS' || competition.type === 'STROKEPLAY_NET') {
-        const entries = competition.participants.map((p: any) => {
+        const entries = targetParticipants.map((p: any) => {
           let totalStrokes = 0
           let totalParPlayedHoles = 0
           let holesPlayed = 0
@@ -1470,7 +1471,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
       }
 
       // Netto Stableford default
-      const entries = competition.participants.map((p: any) => {
+      const entries = targetParticipants.map((p: any) => {
         let totalPoints = 0
         let totalStrokes = 0
         let holesPlayed = 0
@@ -1540,7 +1541,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
     }
 
     if (selectedLeaderboardType === 'STROKEPLAY') {
-      const entries = competition.participants.map((p: any) => {
+      const entries = targetParticipants.map((p: any) => {
         let totalStrokes = 0
         let totalParPlayedHoles = 0
         let holesPlayed = 0
@@ -1626,7 +1627,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
 
     if (selectedLeaderboardType === 'STABLEFORD_NETTO' || selectedLeaderboardType === 'STABLEFORD_BRUTTO') {
       const isNet = selectedLeaderboardType === 'STABLEFORD_NETTO'
-      const entries = competition.participants.map((p: any) => {
+      const entries = targetParticipants.map((p: any) => {
         let totalPoints = 0
         let totalStrokes = 0
         let holesPlayed = 0
@@ -1695,7 +1696,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
     }
 
     if (selectedLeaderboardType === 'BIRDIE') {
-      const entries = competition.participants.map((p: any) => {
+      const entries = targetParticipants.map((p: any) => {
         let birdies = 0
         let pars = 0
         let holesPlayed = 0
@@ -2207,7 +2208,16 @@ export function CompetitionClientView({ competition, session, courses = [], user
     return []
   }
 
-  const leaderboardList = computeLeaderboard()
+  const officialParticipants = competition.participants.filter((p: any) => !p.isOutOfCompetition)
+  const aKParticipants = competition.participants.filter((p: any) => p.isOutOfCompetition)
+
+  const officialLeaderboardList = computeLeaderboardForParticipants(officialParticipants)
+  const aKLeaderboardList = computeLeaderboardForParticipants(aKParticipants).map((entry, idx) => ({
+    ...entry,
+    rank: `a.K. ${idx + 1}`
+  }))
+
+  const leaderboardList = officialLeaderboardList
 
   // --- ADMIN ACTIONS HANDLERS ---
 
@@ -2499,12 +2509,14 @@ export function CompetitionClientView({ competition, session, courses = [], user
         userId: partUserId || null,
         dummyName: partDummyName || null,
         compHandicap: hcp,
-        teamId: partTeamId || null
+        teamId: partTeamId || null,
+        isOutOfCompetition: partIsAK
       })
       setPartUserId("")
       setPartDummyName("")
       setPartHandicap("")
       setPartTeamId("")
+      setPartIsAK(false)
       router.refresh()
     } catch (err: any) {
       setPartError(err.message || "Failed to add participant.")
@@ -2940,7 +2952,8 @@ export function CompetitionClientView({ competition, session, courses = [], user
 
               if (!selectedLeaderboardType.startsWith('TEAM_')) {
                 return (
-                  <div className="bg-white/35 backdrop-blur-sm border border-slate-200 rounded-2xl overflow-x-auto shadow-sm">
+                  <div className="space-y-6">
+                    <div className="bg-white/35 backdrop-blur-sm border border-slate-200 rounded-2xl overflow-x-auto shadow-sm">
                     <table className="w-full text-sm text-left border-collapse">
                       <thead className="bg-slate-100/50 text-slate-550 uppercase tracking-wider text-xs border-b border-slate-200">
                         <tr>
@@ -3071,8 +3084,110 @@ export function CompetitionClientView({ competition, session, courses = [], user
                       </tbody>
                     </table>
                   </div>
-                )
-              }
+
+                  {/* Außer Konkurrenz (a.K.) Sub-Leaderboard */}
+                  {aKLeaderboardList.length > 0 && (
+                    <div className="mt-8 space-y-3 pt-4 border-t border-slate-200/60">
+                      <div className="flex flex-wrap items-center gap-2.5 px-1">
+                        <span className="bg-purple-100 text-purple-800 text-xs font-black px-3 py-1 rounded-full uppercase tracking-wider border border-purple-200 shadow-sm flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-purple-600 animate-pulse" />
+                          Außer Konkurrenz (a.K.)
+                        </span>
+                        <span className="text-xs text-slate-500 font-medium">
+                          Eigenes Leaderboard – nimmt nicht am offiziellen Platzierungsranking teil.
+                        </span>
+                      </div>
+
+                      <div className="bg-purple-50/20 backdrop-blur-sm border border-purple-200/80 rounded-2xl overflow-x-auto shadow-sm">
+                        <table className="w-full text-sm text-left border-collapse">
+                          <thead className="bg-purple-100/50 text-purple-900 uppercase tracking-wider text-xs border-b border-purple-200/80">
+                            <tr>
+                              <th className="px-2 py-2.5 md:px-5 md:py-4 text-center w-10 md:w-16">Rank</th>
+                              <th className="px-3 py-2.5 md:px-5 md:py-4 min-w-[110px] md:min-w-[140px]">Player</th>
+                              <th className="px-2 py-2.5 md:px-5 md:py-4 text-center w-20 md:w-28">
+                                {competition.showRelToPar && (selectedLeaderboardType === 'MAIN' || selectedLeaderboardType === 'STABLEFORD_NETTO' || selectedLeaderboardType === 'STABLEFORD_BRUTTO')
+                                  ? 'Score (+/-)'
+                                  : (selectedLeaderboardType === 'STROKEPLAY' ? 'Gross Strokes' : selectedLeaderboardType === 'BIRDIE' ? 'Birdies (Pars)' : 'Total Points')
+                                }
+                              </th>
+                              <th className="px-2 py-2.5 md:px-4 md:py-4 text-center w-16 md:w-24">Played</th>
+                              {competition.rounds.map((round: any, i: number) => (
+                                <th key={round.id} className="px-1 py-2.5 md:px-3 md:py-4 text-center text-xs font-semibold text-purple-900 min-w-[75px] md:min-w-[90px]">
+                                  <div>R{i + 1}</div>
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-purple-100/80 bg-white/20 text-slate-700">
+                            {aKLeaderboardList.map((entry) => {
+                              const totalHolesForFilter = selectedRoundFilter === 'TOTAL'
+                                ? totalCompHoles
+                                : (() => {
+                                    const r = competition.rounds.find((r: any) => r.id === selectedRoundFilter)
+                                    return r ? getPlayableHolesForRound(r).length : 18
+                                  })()
+
+                              return (
+                                <tr key={entry.participantId} className="hover:bg-purple-50/40 transition-colors">
+                                  <td className="px-2 py-2.5 md:px-5 md:py-4 text-center font-extrabold font-mono text-purple-700">
+                                    {entry.rank}
+                                  </td>
+                                  <td
+                                    className="px-3 py-2.5 md:px-5 md:py-4 cursor-pointer hover:bg-purple-100/50 rounded transition-colors"
+                                    onContextMenu={(e) => handleSinglePlayerContextMenu(e, entry.participant)}
+                                  >
+                                    <div className="font-extrabold text-slate-900 text-sm md:text-base leading-tight flex items-center gap-1.5">
+                                      <span>{entry.name}</span>
+                                      <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.2 rounded font-black border border-purple-200">a.K.</span>
+                                    </div>
+                                  </td>
+                                  <td className="px-2 py-2.5 md:px-5 md:py-4 text-center text-purple-700 font-black text-base md:text-xl">
+                                    {competition.showRelToPar && (selectedLeaderboardType === 'MAIN' || selectedLeaderboardType === 'STABLEFORD_NETTO' || selectedLeaderboardType === 'STABLEFORD_BRUTTO')
+                                      ? (entry.relToPar === 0 ? "Even" : (entry.relToPar < 0 ? String(entry.relToPar) : `+${entry.relToPar}`))
+                                      : (selectedLeaderboardType === 'BIRDIE' ? `${entry.totalPoints} (${entry.pars})` : entry.totalPoints)
+                                    }
+                                  </td>
+                                  <td className="px-2 py-2.5 md:px-4 md:py-4 text-center font-mono text-slate-500 text-xs md:text-sm">
+                                    {entry.holesPlayed}/{totalHolesForFilter}
+                                  </td>
+                                  {competition.rounds.map((round: any) => {
+                                    const pts = entry.roundPoints[round.id]
+                                    const showRel = competition.showRelToPar && (selectedLeaderboardType === 'MAIN' || selectedLeaderboardType === 'STABLEFORD_NETTO' || selectedLeaderboardType === 'STABLEFORD_BRUTTO')
+                                    let displayVal = "-"
+                                    if (pts !== undefined) {
+                                      if (showRel) {
+                                        const rel = entry.roundRelToPar?.[round.id] ?? 0
+                                        displayVal = rel === 0 ? "Even" : (rel < 0 ? String(rel) : `+${rel}`)
+                                      } else {
+                                        displayVal = String(pts)
+                                      }
+                                    }
+
+                                    return (
+                                      <td key={round.id} className="px-1 py-1.5 md:px-3 md:py-4 text-center">
+                                        <button
+                                          onClick={() => {
+                                            setSelectedParticipantForScorecard(entry.participant)
+                                            setSelectedRoundIdForScorecard(round.id)
+                                          }}
+                                          className="px-2 py-0.5 md:px-2.5 md:py-1 text-xs font-extrabold bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-900 rounded-md transition-all font-mono shadow-sm"
+                                        >
+                                          {displayVal}
+                                        </button>
+                                      </td>
+                                    )
+                                  })}
+                                </tr>
+                              )
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            }
 
               return (
                 <div className="bg-white/35 backdrop-blur-sm border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
@@ -4364,6 +4479,19 @@ export function CompetitionClientView({ competition, session, courses = [], user
                               ))}
                             </select>
                           </div>
+
+                          <div className="flex items-center gap-2 pt-1">
+                            <input
+                              type="checkbox"
+                              id="partIsAK"
+                              checked={partIsAK}
+                              onChange={e => setPartIsAK(e.target.checked)}
+                              className="w-4 h-4 text-purple-600 rounded border-slate-300 focus:ring-purple-500 cursor-pointer"
+                            />
+                            <label htmlFor="partIsAK" className="font-bold text-slate-700 text-xs cursor-pointer select-none">
+                              Außer Konkurrenz (a.K. / Side-Leaderboard)
+                            </label>
+                          </div>
                         </div>
 
                         <button
@@ -4381,6 +4509,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
                           <thead className="bg-slate-50 text-slate-550 uppercase tracking-wider font-semibold border-b border-slate-200">
                             <tr>
                               <th className="px-4 py-3">Player</th>
+                              <th className="px-4 py-3">Status</th>
                               <th className="px-4 py-3">Team</th>
                               <th className="px-4 py-3 text-center">HCP Index</th>
                               
@@ -4412,7 +4541,31 @@ export function CompetitionClientView({ competition, session, courses = [], user
                               return (
                                 <tr key={p.id} className="hover:bg-slate-50/50">
                                   <td className="px-4 py-3 font-extrabold text-slate-800">
-                                    {name}
+                                    <div className="flex items-center gap-2">
+                                      <span>{name}</span>
+                                      {p.isOutOfCompetition && (
+                                        <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.2 rounded font-black border border-purple-200">a.K.</span>
+                                      )}
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    <button
+                                      type="button"
+                                      onClick={async () => {
+                                        await updateParticipant(p.id, competition.id, {
+                                          isOutOfCompetition: !p.isOutOfCompetition
+                                        })
+                                        router.refresh()
+                                      }}
+                                      className={`px-2 py-1 text-[10px] font-black rounded border transition-all ${
+                                        p.isOutOfCompetition
+                                          ? 'bg-purple-100 text-purple-700 border-purple-300 hover:bg-purple-200'
+                                          : 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100'
+                                      }`}
+                                      title="Klicken zum Umschalten zwischen Konkurrent und Außer Konkurrenz (a.K.)"
+                                    >
+                                      {p.isOutOfCompetition ? 'a.K. (Außer Konk.)' : 'Konkurrent'}
+                                    </button>
                                   </td>
                                   <td className="px-4 py-3 text-slate-500 font-medium">
                                     {p.team?.name || "-"}

@@ -1763,7 +1763,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
     }
 
     if (selectedLeaderboardType === 'DOUBLE_BOGEY_PLUS') {
-      const entries = competition.participants.map((p: any) => {
+      const entries = targetParticipants.map((p: any) => {
         let dbPlus = 0
         let bogeys = 0
         let holesPlayed = 0
@@ -1839,7 +1839,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
     }
 
     if (selectedLeaderboardType === 'PAR_PLUS_SERIES') {
-      const entries = competition.participants.map((p: any) => {
+      const entries = targetParticipants.map((p: any) => {
         let holesPlayed = 0
         const roundPoints: Record<string, number> = {}
 
@@ -2048,7 +2048,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
     }
 
     if (selectedLeaderboardType === 'MVP') {
-      const entries = competition.participants.map((p: any) => {
+      const entries = targetParticipants.map((p: any) => {
         let totalPoints = 0
         let totalMvpHolesPlayed = 0
         const roundPoints: Record<string, number> = {}
@@ -2212,10 +2212,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
   const aKParticipants = competition.participants.filter((p: any) => p.isOutOfCompetition)
 
   const officialLeaderboardList = computeLeaderboardForParticipants(officialParticipants)
-  const aKLeaderboardList = computeLeaderboardForParticipants(aKParticipants).map((entry, idx) => ({
-    ...entry,
-    rank: `a.K. ${idx + 1}`
-  }))
+  const aKLeaderboardList = computeLeaderboardForParticipants(aKParticipants)
 
   const leaderboardList = officialLeaderboardList
 
@@ -3091,10 +3088,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
                       <div className="flex flex-wrap items-center gap-2.5 px-1">
                         <span className="bg-purple-100 text-purple-800 text-xs font-black px-3 py-1 rounded-full uppercase tracking-wider border border-purple-200 shadow-sm flex items-center gap-1.5">
                           <span className="w-2 h-2 rounded-full bg-purple-600 animate-pulse" />
-                          Außer Konkurrenz (a.K.)
-                        </span>
-                        <span className="text-xs text-slate-500 font-medium">
-                          Eigenes Leaderboard – nimmt nicht am offiziellen Platzierungsranking teil.
+                          Außer Konkurrenz
                         </span>
                       </div>
 
@@ -3107,7 +3101,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
                               <th className="px-2 py-2.5 md:px-5 md:py-4 text-center w-20 md:w-28">
                                 {competition.showRelToPar && (selectedLeaderboardType === 'MAIN' || selectedLeaderboardType === 'STABLEFORD_NETTO' || selectedLeaderboardType === 'STABLEFORD_BRUTTO')
                                   ? 'Score (+/-)'
-                                  : (selectedLeaderboardType === 'STROKEPLAY' ? 'Gross Strokes' : selectedLeaderboardType === 'BIRDIE' ? 'Birdies (Pars)' : 'Total Points')
+                                  : (selectedLeaderboardType === 'STROKEPLAY' ? 'Gross Strokes' : selectedLeaderboardType === 'BIRDIE' ? 'Birdies (Pars)' : selectedLeaderboardType === 'DOUBLE_BOGEY_PLUS' ? 'DB+' : selectedLeaderboardType === 'PAR_PLUS_SERIES' ? 'Streak' : 'Total Points')
                                 }
                               </th>
                               <th className="px-2 py-2.5 md:px-4 md:py-4 text-center w-16 md:w-24">Played</th>
@@ -3136,9 +3130,8 @@ export function CompetitionClientView({ competition, session, courses = [], user
                                     className="px-3 py-2.5 md:px-5 md:py-4 cursor-pointer hover:bg-purple-100/50 rounded transition-colors"
                                     onContextMenu={(e) => handleSinglePlayerContextMenu(e, entry.participant)}
                                   >
-                                    <div className="font-extrabold text-slate-900 text-sm md:text-base leading-tight flex items-center gap-1.5">
-                                      <span>{entry.name}</span>
-                                      <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.2 rounded font-black border border-purple-200">a.K.</span>
+                                    <div className="font-extrabold text-slate-900 text-sm md:text-base leading-tight">
+                                      {entry.name}
                                     </div>
                                   </td>
                                   <td className="px-2 py-2.5 md:px-5 md:py-4 text-center text-purple-700 font-black text-base md:text-xl">

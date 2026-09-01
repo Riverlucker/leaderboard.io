@@ -364,6 +364,46 @@ export async function updateParticipant(partId: string, compId: string, data: {
     data: updateData
   })
 
+  // Auto-recalculate playing handicaps for all rounds if compHandicap changed
+  if (data.compHandicap !== undefined && data.compHandicap !== null) {
+    const rounds = await prisma.round.findMany({
+      where: { competitionId: compId },
+      include: {
+        course: {
+          include: { tees: true, holes: true }
+        },
+        tee: true
+      }
+    })
+
+    for (const round of rounds) {
+      if (!round.course) continue
+      const tee = round.tee ||
+                  round.course.tees.find((t: any) => t.name.toLowerCase().includes('yellow')) ||
+                  round.course.tees.find((t: any) => t.name.toLowerCase().includes('white')) ||
+                  round.course.tees[0]
+      if (!tee) continue
+
+      const coursePar = round.course.holes.reduce((sum: number, h: any) => sum + h.par, 0)
+      const handicapValue = calculateCourseHandicap(data.compHandicap, tee, coursePar)
+
+      await prisma.manualRoundHandicap.upsert({
+        where: {
+          participantId_roundId: {
+            participantId: partId,
+            roundId: round.id
+          }
+        },
+        update: { handicapValue },
+        create: {
+          participantId: partId,
+          roundId: round.id,
+          handicapValue
+        }
+      })
+    }
+  }
+
   revalidatePath(`/admin/competitions/${compId}`)
   revalidatePath('/')
   return { success: true }

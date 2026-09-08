@@ -1415,11 +1415,11 @@ export function CompetitionClientView({ competition, session, courses = [], user
                 if (isActive) holesPlayed++
 
                 if (score.status === 'WIPED') {
-                  roundStrokes += holePar + 3
-                  if (isActive) roundPar += holePar
+                  roundStrokes += holePar + 3 // wiped hole is triple bogey in strokeplay gross
+                  roundPar += holePar
                 } else if (score.grossStrokes !== null) {
                   roundStrokes += score.grossStrokes
-                  if (isActive) roundPar += holePar
+                  roundPar += holePar
                 }
               }
             }
@@ -1431,9 +1431,6 @@ export function CompetitionClientView({ competition, session, courses = [], user
                 totalStrokes += roundStrokes
                 totalParPlayedHoles += roundPar
               }
-            } else {
-              roundPoints[round.id] = 0
-              roundRelToPar[round.id] = 0
             }
           }
 
@@ -1570,10 +1567,10 @@ export function CompetitionClientView({ competition, session, courses = [], user
 
               if (score.status === 'WIPED') {
                 roundStrokes += holePar + 3 // wiped hole is triple bogey in strokeplay gross
-                if (isActive) roundPar += holePar
+                roundPar += holePar
               } else if (score.grossStrokes !== null) {
                 roundStrokes += score.grossStrokes
-                if (isActive) roundPar += holePar
+                roundPar += holePar
               }
             }
           }
@@ -1585,9 +1582,6 @@ export function CompetitionClientView({ competition, session, courses = [], user
               totalStrokes += roundStrokes
               totalParPlayedHoles += roundPar
             }
-          } else {
-            roundPoints[round.id] = 0
-            roundRelToPar[round.id] = 0
           }
         }
 
@@ -1729,8 +1723,6 @@ export function CompetitionClientView({ competition, session, courses = [], user
 
           if (roundHolesPlayed) {
             roundPoints[round.id] = roundBirdies
-          } else {
-            roundPoints[round.id] = 0
           }
         }
 
@@ -1805,8 +1797,6 @@ export function CompetitionClientView({ competition, session, courses = [], user
 
           if (roundHolesPlayed) {
             roundPoints[round.id] = roundDbPlus
-          } else {
-            roundPoints[round.id] = 0
           }
         }
 
@@ -1858,22 +1848,17 @@ export function CompetitionClientView({ competition, session, courses = [], user
             if (score && (score.grossStrokes !== null || (score.status !== null && score.status !== 'NOT_PLAYED'))) {
               roundHolesPlayed = true
               
-              const isActive = activeRounds.some((ar: any) => ar.id === round.id)
-              if (isActive) {
-                if (score.status !== 'WIPED' && score.grossStrokes !== null && score.grossStrokes <= hole.par) {
-                  roundCurrentStreak++
-                  if (roundCurrentStreak > roundMaxStreak) roundMaxStreak = roundCurrentStreak
-                } else {
-                  roundCurrentStreak = 0
-                }
+              if (score.status !== 'WIPED' && score.grossStrokes !== null && score.grossStrokes <= hole.par) {
+                roundCurrentStreak++
+                if (roundCurrentStreak > roundMaxStreak) roundMaxStreak = roundCurrentStreak
+              } else {
+                roundCurrentStreak = 0
               }
             }
           }
 
           if (roundHolesPlayed) {
             roundPoints[round.id] = roundMaxStreak
-          } else {
-            roundPoints[round.id] = 0
           }
         }
 

@@ -3055,7 +3055,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
                                 )}
                               </td>
                               <td className="px-2 py-2.5 md:px-4 md:py-4 text-center font-mono text-slate-500 text-xs md:text-sm">
-                                {entry.holesPlayed}/{totalHolesForFilter}
+                                {entry.holesPlayed === 0 ? "-" : `${entry.holesPlayed}/${totalHolesForFilter}`}
                               </td>
 
                               {competition.rounds.map((round: any) => {
@@ -3161,7 +3161,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
                                     )}
                                   </td>
                                   <td className="px-2 py-2.5 md:px-4 md:py-4 text-center font-mono text-slate-500 text-xs md:text-sm">
-                                    {entry.holesPlayed}/{totalHolesForFilter}
+                                    {entry.holesPlayed === 0 ? "-" : `${entry.holesPlayed}/${totalHolesForFilter}`}
                                   </td>
                                   {competition.rounds.map((round: any) => {
                                     const pts = entry.roundPoints[round.id]

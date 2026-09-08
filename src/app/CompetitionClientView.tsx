@@ -378,6 +378,40 @@ export function CompetitionClientView({ competition, session, courses = [], user
     totalCompHoles += getPlayableHolesForRound(round).length
   }
 
+  const getParticipantTotalHoles = (participant: any) => {
+    if (selectedRoundFilter !== 'TOTAL') {
+      const r = (competition.rounds || []).find((r: any) => r.id === selectedRoundFilter)
+      return r ? getPlayableHolesForRound(r).length : 18
+    }
+
+    const rounds = competition.rounds || []
+    let playerTotal = 0
+
+    for (const round of rounds) {
+      const roundHolesCount = getPlayableHolesForRound(round).length
+      
+      const playerHasScores = (participant?.scores || []).some(
+        (s: any) => s.roundId === round.id && (s.grossStrokes !== null || (s.status !== null && s.status !== 'NOT_PLAYED'))
+      )
+
+      if (playerHasScores) {
+        playerTotal += roundHolesCount
+      } else {
+        const roundHasAnyScores = (competition.participants || []).some((p: any) =>
+          (p.scores || []).some(
+            (s: any) => s.roundId === round.id && (s.grossStrokes !== null || (s.status !== null && s.status !== 'NOT_PLAYED'))
+          )
+        )
+
+        if (!roundHasAnyScores) {
+          playerTotal += roundHolesCount
+        }
+      }
+    }
+
+    return playerTotal || totalCompHoles || 18
+  }
+
 
   
   // Leaderboard filters
@@ -2969,12 +3003,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
                       </thead>
                       <tbody className="divide-y divide-slate-100 bg-white/15 text-slate-700">
                         {leaderboardList.map((entry) => {
-                          const totalHolesForFilter = selectedRoundFilter === 'TOTAL'
-                            ? totalCompHoles
-                            : (() => {
-                                const r = competition.rounds.find((r: any) => r.id === selectedRoundFilter)
-                                return r ? getPlayableHolesForRound(r).length : 18
-                              })()
+                          const totalHolesForFilter = getParticipantTotalHoles(entry.participant)
 
                           const isStableford = selectedLeaderboardType === 'STABLEFORD_NETTO' || selectedLeaderboardType === 'STABLEFORD_BRUTTO' || (selectedLeaderboardType === 'MAIN' && competition.type === 'NETTO_STABLEFORD')
                           const isMvp = selectedLeaderboardType === 'MVP'
@@ -3107,12 +3136,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
                           </thead>
                           <tbody className="divide-y divide-purple-100/80 bg-white/20 text-slate-700">
                             {aKLeaderboardList.map((entry) => {
-                              const totalHolesForFilter = selectedRoundFilter === 'TOTAL'
-                                ? totalCompHoles
-                                : (() => {
-                                    const r = competition.rounds.find((r: any) => r.id === selectedRoundFilter)
-                                    return r ? getPlayableHolesForRound(r).length : 18
-                                  })()
+                              const totalHolesForFilter = getParticipantTotalHoles(entry.participant)
 
                               return (
                                 <tr key={entry.participantId} className="hover:bg-purple-50/40 transition-colors">

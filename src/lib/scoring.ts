@@ -74,8 +74,10 @@ export function assignLeaderboardRanks(
   entries: any[],
   sortByRelToPar: boolean = false
 ): any[] {
-  // Sort descending by totalPoints (or ascending by relToPar if active), then by holesPlayed
+  // Sort entries: players who have played (> 0 holes) come before players with 0 holes played
   const sorted = [...entries].sort((a, b) => {
+    if (a.holesPlayed === 0 && b.holesPlayed > 0) return 1
+    if (b.holesPlayed === 0 && a.holesPlayed > 0) return -1
     if (sortByRelToPar) {
       if (a.relToPar !== b.relToPar) {
         return a.relToPar - b.relToPar
@@ -92,15 +94,23 @@ export function assignLeaderboardRanks(
   
   for (let i = 0; i < sorted.length; i++) {
     const current = sorted[i]
+
+    if (current.holesPlayed === 0) {
+      results.push({
+        ...current,
+        rank: "-"
+      })
+      continue
+    }
     
     const compareField = sortByRelToPar ? 'relToPar' : 'totalPoints'
-    const ties = sorted.filter(x => x[compareField] === current[compareField])
+    const ties = sorted.filter(x => x.holesPlayed > 0 && x[compareField] === current[compareField])
     const isTied = ties.length > 1
 
     let rankString = ""
     if (isTied) {
       // Find the index of the first tied player (1-based)
-      const firstTiedIndex = sorted.findIndex(x => x[compareField] === current[compareField]) + 1
+      const firstTiedIndex = sorted.findIndex(x => x.holesPlayed > 0 && x[compareField] === current[compareField]) + 1
       rankString = `T${firstTiedIndex}`
     } else {
       rankString = `${i + 1}`

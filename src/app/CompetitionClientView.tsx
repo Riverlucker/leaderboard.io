@@ -1449,16 +1449,21 @@ export function CompetitionClientView({ competition, session, courses = [], user
           }
         })
 
-        // Sort ascending (lowest strokes win)
+        // Sort ascending (lowest strokes win). Players with 0 holesPlayed go to the bottom.
         const sorted = [...entries].sort((a, b) => {
+          if (a.holesPlayed === 0 && b.holesPlayed > 0) return 1
+          if (b.holesPlayed === 0 && a.holesPlayed > 0) return -1
           if (a.totalStrokes !== b.totalStrokes) return a.totalStrokes - b.totalStrokes
           return b.holesPlayed - a.holesPlayed
         })
 
         return sorted.map((entry, idx) => {
-          const ties = sorted.filter(x => x.totalStrokes === entry.totalStrokes)
+          if (entry.holesPlayed === 0) {
+            return { ...entry, rank: "-" }
+          }
+          const ties = sorted.filter(x => x.holesPlayed > 0 && x.totalStrokes === entry.totalStrokes)
           const isTied = ties.length > 1
-          const firstTiedIndex = sorted.findIndex(x => x.totalStrokes === entry.totalStrokes) + 1
+          const firstTiedIndex = sorted.findIndex(x => x.holesPlayed > 0 && x.totalStrokes === entry.totalStrokes) + 1
           const rankString = isTied ? `T${firstTiedIndex}` : `${idx + 1}`
           return {
             ...entry,
@@ -3011,11 +3016,14 @@ export function CompetitionClientView({ competition, session, courses = [], user
                                   )
                                 )}
                               </td>
-                              <td className="px-2 py-2.5 md:px-5 md:py-4 text-center text-emerald-600 font-black text-base md:text-xl">
-                                {competition.showRelToPar && (selectedLeaderboardType === 'MAIN' || selectedLeaderboardType === 'STABLEFORD_NETTO' || selectedLeaderboardType === 'STABLEFORD_BRUTTO')
-                                  ? (entry.relToPar === 0 ? "Even" : (entry.relToPar < 0 ? String(entry.relToPar) : `+${entry.relToPar}`))
-                                  : (selectedLeaderboardType === 'BIRDIE' ? `${entry.totalPoints} (${entry.pars})` : entry.totalPoints)
-                                }
+                               <td className="px-2 py-2.5 md:px-5 md:py-4 text-center text-emerald-600 font-black text-base md:text-xl">
+                                {entry.holesPlayed === 0 ? (
+                                  "-"
+                                ) : (
+                                  competition.showRelToPar && (selectedLeaderboardType === 'MAIN' || selectedLeaderboardType === 'STABLEFORD_NETTO' || selectedLeaderboardType === 'STABLEFORD_BRUTTO')
+                                    ? (entry.relToPar === 0 ? "Even" : (entry.relToPar < 0 ? String(entry.relToPar) : `+${entry.relToPar}`))
+                                    : (selectedLeaderboardType === 'BIRDIE' ? `${entry.totalPoints} (${entry.pars})` : entry.totalPoints)
+                                )}
                               </td>
                               <td className="px-2 py-2.5 md:px-4 md:py-4 text-center font-mono text-slate-500 text-xs md:text-sm">
                                 {entry.holesPlayed}/{totalHolesForFilter}
@@ -3120,10 +3128,13 @@ export function CompetitionClientView({ competition, session, courses = [], user
                                     </div>
                                   </td>
                                   <td className="px-2 py-2.5 md:px-5 md:py-4 text-center text-purple-700 font-black text-base md:text-xl">
-                                    {competition.showRelToPar && (selectedLeaderboardType === 'MAIN' || selectedLeaderboardType === 'STABLEFORD_NETTO' || selectedLeaderboardType === 'STABLEFORD_BRUTTO')
-                                      ? (entry.relToPar === 0 ? "Even" : (entry.relToPar < 0 ? String(entry.relToPar) : `+${entry.relToPar}`))
-                                      : (selectedLeaderboardType === 'BIRDIE' ? `${entry.totalPoints} (${entry.pars})` : entry.totalPoints)
-                                    }
+                                    {entry.holesPlayed === 0 ? (
+                                      "-"
+                                    ) : (
+                                      competition.showRelToPar && (selectedLeaderboardType === 'MAIN' || selectedLeaderboardType === 'STABLEFORD_NETTO' || selectedLeaderboardType === 'STABLEFORD_BRUTTO')
+                                        ? (entry.relToPar === 0 ? "Even" : (entry.relToPar < 0 ? String(entry.relToPar) : `+${entry.relToPar}`))
+                                        : (selectedLeaderboardType === 'BIRDIE' ? `${entry.totalPoints} (${entry.pars})` : entry.totalPoints)
+                                    )}
                                   </td>
                                   <td className="px-2 py-2.5 md:px-4 md:py-4 text-center font-mono text-slate-500 text-xs md:text-sm">
                                     {entry.holesPlayed}/{totalHolesForFilter}

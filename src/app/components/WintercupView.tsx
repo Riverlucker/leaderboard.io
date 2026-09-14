@@ -265,6 +265,62 @@ export function WintercupView({ competition, session }: WintercupViewProps) {
 
   const isVorrundeComplete = isRoundComplete(r1) && isRoundComplete(r2) && isRoundComplete(r3)
 
+  // Helper to check if a match has scored results
+  const isMatchScored = (m: any) => {
+    if (!m) return false
+    if (m.allowanceType) return true
+    if (m.matchPlayers && m.matchPlayers.length > 0) {
+      const roundId = m.targetRound?.id
+      return m.matchPlayers.every((mp: any) => {
+        const p = participants.find((x: any) => x.id === mp.participantId)
+        const s = p?.scores?.find((sc: any) => sc.roundId === roundId)
+        return s && s.netStrokes !== null && s.grossStrokes !== null
+      })
+    }
+    return false
+  }
+
+  // Helper to get match by kind and index
+  const getMatchByKindAndIndex = (kind: string, origIdx: number) => {
+    const roundObj = kind === "ZWISCHENRUNDE" ? rZwischen 
+      : kind === "VF" ? rVF 
+      : kind === "HF" ? rHF 
+      : kind === "FIN" ? rFin 
+      : null
+    if (!roundObj || !roundObj.matches) return null
+    return roundObj.matches.find((m: any) => m.originalIdx === origIdx || m.id === roundObj.matches[origIdx]?.id) || roundObj.matches[origIdx]
+  }
+
+  // Check if players for a match are fixed and ready to be scheduled
+  const isMatchPlayersFixed = (match: any) => {
+    const kind = match.matchKind || (match.type === "GROUP_3" ? "VORRUNDE" : "")
+    if (!kind || kind === "VORRUNDE") return true
+    const idx = match.originalIdx ?? 0
+
+    if (kind === "ZWISCHENRUNDE") {
+      return isVorrundeComplete
+    }
+
+    if (kind === "VF") {
+      if (!isVorrundeComplete) return false
+      const zwMap = [3, 0, 1, 2]
+      const targetZwIdx = zwMap[idx]
+      const zwMatch = getMatchByKindAndIndex("ZWISCHENRUNDE", targetZwIdx)
+      return isMatchScored(zwMatch)
+    }
+
+    if (kind === "HF") {
+      const vfMap = idx === 0 ? [0, 3] : [1, 2]
+      return vfMap.every(vfIdx => isMatchScored(getMatchByKindAndIndex("VF", vfIdx)))
+    }
+
+    if (kind === "FIN") {
+      return isMatchScored(getMatchByKindAndIndex("HF", 0)) && isMatchScored(getMatchByKindAndIndex("HF", 1))
+    }
+
+    return true
+  }
+
   // Compute Vorrunde Standings for each participant
   const vorrundeStandings = participants.map((p: any) => {
     let playedMatches = 0
@@ -809,6 +865,8 @@ export function WintercupView({ competition, session }: WintercupViewProps) {
                             ? `Halbfinale - HF ${displayIndex}`
                             : "Finale"
 
+                          const isPlayersFixed = isMatchPlayersFixed(match)
+
                           return (
                             <div 
                               key={match.id} 
@@ -852,7 +910,7 @@ export function WintercupView({ competition, session }: WintercupViewProps) {
                               <div className="pt-1 flex justify-between items-center text-xs border-t border-slate-100 mt-2">
                                 <span className="text-[11px] font-semibold text-slate-500">
                                   {canEdit ? (
-                                    isScored ? "Ergebnis eingetragen" : isScheduled ? "Bereit für Score-Eingabe" : "Terminierung erforderlich"
+                                    isScored ? "Ergebnis eingetragen" : isScheduled ? "Bereit für Score-Eingabe" : !isPlayersFixed ? "Spieler stehen noch nicht fest" : "Terminierung erforderlich"
                                   ) : session ? "Nur Beteiligte / Admin" : "Log in zum Scoren/Terminieren"}
                                 </span>
 
@@ -888,7 +946,7 @@ export function WintercupView({ competition, session }: WintercupViewProps) {
                                             <span>Score</span>
                                           </button>
                                         </>
-                                      ) : (
+                                      ) : isPlayersFixed ? (
                                         <button
                                           type="button"
                                           onClick={() => setActiveScheduleMatch({ match, round: targetRound })}
@@ -897,6 +955,10 @@ export function WintercupView({ competition, session }: WintercupViewProps) {
                                           <Calendar size={13} />
                                           <span>Termin vereinbaren</span>
                                         </button>
+                                      ) : (
+                                        <span className="text-[11px] font-bold text-slate-400 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-lg">
+                                          Wartet auf vorherige Runden
+                                        </span>
                                       )}
                                     </>
                                   )}
@@ -1144,6 +1206,8 @@ export function WintercupView({ competition, session }: WintercupViewProps) {
                         const isScheduled = Boolean(match.scheduledDate)
                         const canEdit = canUserEditMatch(match)
 
+                        const isPlayersFixed = isMatchPlayersFixed(match)
+
                         return (
                           <div 
                             key={match.id} 
@@ -1183,7 +1247,7 @@ export function WintercupView({ competition, session }: WintercupViewProps) {
                             <div className="pt-1 flex justify-between items-center text-xs border-t border-slate-100 mt-2">
                               <span className="text-[11px] font-semibold text-slate-500">
                                 {canEdit ? (
-                                  isScored ? "Ergebnis eingetragen" : isScheduled ? "Bereit für Score-Eingabe" : "Terminierung erforderlich"
+                                  isScored ? "Ergebnis eingetragen" : isScheduled ? "Bereit für Score-Eingabe" : !isPlayersFixed ? "Spieler stehen noch nicht fest" : "Terminierung erforderlich"
                                 ) : session ? "Nur Beteiligte / Admin" : "Log in zum Scoren/Terminieren"}
                               </span>
 
@@ -1246,7 +1310,7 @@ export function WintercupView({ competition, session }: WintercupViewProps) {
                                           <span>Score</span>
                                         </button>
                                       </>
-                                    ) : (
+                                    ) : isPlayersFixed ? (
                                       <button
                                         type="button"
                                         onClick={() => {
@@ -1264,6 +1328,10 @@ export function WintercupView({ competition, session }: WintercupViewProps) {
                                         <Calendar size={13} />
                                         <span>Termin vereinbaren</span>
                                       </button>
+                                    ) : (
+                                      <span className="text-[11px] font-bold text-slate-400 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-lg">
+                                        Wartet auf Vorrunde
+                                      </span>
                                     )}
                                   </>
                                 )}
@@ -1315,6 +1383,7 @@ export function WintercupView({ competition, session }: WintercupViewProps) {
                           const isScheduled = Boolean(match.scheduledDate)
                           const isScored = Boolean(match.allowanceType)
                           const titleIndex = match.originalIdx ?? idx
+                          const isPlayersFixed = isMatchPlayersFixed(match)
 
                           return (
                             <div 
@@ -1343,12 +1412,18 @@ export function WintercupView({ competition, session }: WintercupViewProps) {
                                 {canEdit && (
                                   <div className="flex items-center space-x-2">
                                     {!isScheduled ? (
-                                      <button 
-                                        onClick={() => setActiveScheduleMatch({ match, round: rVF })}
-                                        className="px-2.5 py-1 bg-emerald-600 text-white rounded-lg text-xs font-extrabold shadow-xs"
-                                      >
-                                        Termin vereinbaren
-                                      </button>
+                                      isPlayersFixed ? (
+                                        <button 
+                                          onClick={() => setActiveScheduleMatch({ match, round: rVF })}
+                                          className="px-2.5 py-1 bg-emerald-600 text-white rounded-lg text-xs font-extrabold shadow-xs"
+                                        >
+                                          Termin vereinbaren
+                                        </button>
+                                      ) : (
+                                        <span className="text-[11px] font-bold text-slate-400 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded">
+                                          Wartet auf Vorrunde/Zwischenrunde
+                                        </span>
+                                      )
                                     ) : isScored ? (
                                       <button 
                                         onClick={() => setActiveModalMatch({ match, round: rVF })} 
@@ -1392,6 +1467,7 @@ export function WintercupView({ competition, session }: WintercupViewProps) {
                           const isScheduled = Boolean(match.scheduledDate)
                           const isScored = Boolean(match.allowanceType)
                           const titleIndex = match.originalIdx ?? idx
+                          const isPlayersFixed = isMatchPlayersFixed(match)
 
                           return (
                             <div 
@@ -1420,12 +1496,18 @@ export function WintercupView({ competition, session }: WintercupViewProps) {
                                 {canEdit && (
                                   <div className="flex items-center space-x-2">
                                     {!isScheduled ? (
-                                      <button 
-                                        onClick={() => setActiveScheduleMatch({ match, round: rHF })}
-                                        className="px-2.5 py-1 bg-emerald-600 text-white rounded-lg text-xs font-extrabold shadow-xs"
-                                      >
-                                        Termin vereinbaren
-                                      </button>
+                                      isPlayersFixed ? (
+                                        <button 
+                                          onClick={() => setActiveScheduleMatch({ match, round: rHF })}
+                                          className="px-2.5 py-1 bg-emerald-600 text-white rounded-lg text-xs font-extrabold shadow-xs"
+                                        >
+                                          Termin vereinbaren
+                                        </button>
+                                      ) : (
+                                        <span className="text-[11px] font-bold text-slate-400 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded">
+                                          Wartet auf Viertelfinale
+                                        </span>
+                                      )
                                     ) : isScored ? (
                                       <button 
                                         onClick={() => setActiveModalMatch({ match, round: rHF })} 
@@ -1467,6 +1549,7 @@ export function WintercupView({ competition, session }: WintercupViewProps) {
                         const canEdit = canUserEditMatch(match)
                         const isScheduled = Boolean(match.scheduledDate)
                         const isScored = Boolean(match.allowanceType)
+                        const isPlayersFixed = isMatchPlayersFixed(match)
 
                         return (
                           <div 
@@ -1493,12 +1576,18 @@ export function WintercupView({ competition, session }: WintercupViewProps) {
                             {canEdit && (
                               <div className="flex justify-end space-x-2 pt-2 border-t border-slate-100">
                                 {!isScheduled ? (
-                                  <button 
-                                    onClick={() => setActiveScheduleMatch({ match, round: rFin })} 
-                                    className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-xs"
-                                  >
-                                    Termin vereinbaren
-                                  </button>
+                                  isPlayersFixed ? (
+                                    <button 
+                                      onClick={() => setActiveScheduleMatch({ match, round: rFin })} 
+                                      className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-xs"
+                                    >
+                                      Termin vereinbaren
+                                    </button>
+                                  ) : (
+                                    <span className="text-[11px] font-bold text-slate-400 bg-slate-100 border border-slate-200 px-3 py-1 rounded-lg">
+                                      Wartet auf Halbfinale
+                                    </span>
+                                  )
                                 ) : isScored ? (
                                   <button 
                                     onClick={() => setActiveModalMatch({ match, round: rFin })} 

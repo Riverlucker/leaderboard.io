@@ -128,6 +128,10 @@ export function EditCompetitionClient({
   const [overrideHoleRanges, setOverrideHoleRanges] = useState<Record<string, string>>({})
   const [savingHoleRange, setSavingHoleRange] = useState<Record<string, boolean>>({})
   const [selectedPartIds, setSelectedPartIds] = useState<string[]>([])
+  const [team1Part1, setTeam1Part1] = useState<string>("")
+  const [team1Part2, setTeam1Part2] = useState<string>("")
+  const [team2Part1, setTeam2Part1] = useState<string>("")
+  const [team2Part2, setTeam2Part2] = useState<string>("")
   const [pairingError, setPairingError] = useState("")
   const [isCreatingPairing, setIsCreatingPairing] = useState(false)
   const [localTeamColors, setLocalTeamColors] = useState<Record<string, string>>({})
@@ -396,19 +400,38 @@ export function EditCompetitionClient({
       if (!selectedRoundId) {
         throw new Error("Please select a round first.")
       }
-      if (selectedPartIds.length === 0) {
-        throw new Error("Please select at least one player.")
+
+      let participantIdsToSubmit: string[] = []
+
+      if (matchType === "TEAM_MATCHPLAY") {
+        if (!team1Part1 || !team1Part2 || !team2Part1 || !team2Part2) {
+          throw new Error("Bitte wähle für beide Teams jeweils 2 Spieler aus.")
+        }
+        const uniqueSelected = new Set([team1Part1, team1Part2, team2Part1, team2Part2])
+        if (uniqueSelected.size < 4) {
+          throw new Error("Jeder Spieler kann nur einmal in einem Match antreten.")
+        }
+        participantIdsToSubmit = [team1Part1, team1Part2, team2Part1, team2Part2]
+      } else {
+        if (selectedPartIds.length === 0) {
+          throw new Error("Please select at least one player.")
+        }
+        participantIdsToSubmit = selectedPartIds
       }
 
       await addMatch(selectedRoundId, competition.id, {
         type: matchType,
-        participantIds: selectedPartIds,
+        participantIds: participantIdsToSubmit,
         allowanceType: (matchType === "SINGLES" || matchType === "TEAM_MATCHPLAY") ? allowanceType : null,
         playUntilEnd: (matchType === "SINGLES" || matchType === "TEAM_MATCHPLAY") ? playUntilEnd : false,
         holeRange: (matchType === "SINGLES" || matchType === "TEAM_MATCHPLAY") ? holeRange : null
       })
 
       setSelectedPartIds([])
+      setTeam1Part1("")
+      setTeam1Part2("")
+      setTeam2Part1("")
+      setTeam2Part2("")
       setPlayUntilEnd(false)
       setHoleRange("1-18")
       router.refresh()
@@ -1715,50 +1738,146 @@ export function EditCompetitionClient({
                   </div>
                 )}
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-400 mb-2">
-                    Assign Players ({selectedPartIds.length} Selected)
-                  </label>
-                  
-                  {competition.participants.length === 0 ? (
-                    <p className="text-xs text-slate-550 italic">No registered participants to pair.</p>
-                  ) : (
-                    <div className="max-h-60 overflow-y-auto border border-slate-800 rounded-lg p-2 bg-slate-950 space-y-2 divide-y divide-slate-900 scrollbar-thin">
-                      {competition.participants.map((p: any) => {
-                        const name = p.userId ? p.user?.name : p.dummyName
-                        const isChecked = selectedPartIds.includes(p.id)
-
-                        return (
-                          <div 
-                            key={p.id} 
-                            onClick={() => togglePartSelection(p.id)}
-                            className={`flex items-center space-x-2 py-1.5 px-2 rounded cursor-pointer select-none text-xs transition-colors ${
-                              isChecked 
-                                ? 'bg-emerald-950/30 text-emerald-300 font-semibold' 
-                                : 'text-slate-400 hover:bg-slate-900/50'
-                            }`}
+                {matchType === "TEAM_MATCHPLAY" ? (
+                  <div className="space-y-4">
+                    {/* Team 1 Picker */}
+                    <div className="p-3 bg-emerald-950/30 border border-emerald-800/50 rounded-lg space-y-2">
+                      <div className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                        Team 1 (Spieler 1 & 2)
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-400 mb-1">Spieler 1</label>
+                          <select
+                            value={team1Part1}
+                            onChange={e => setTeam1Part1(e.target.value)}
+                            className="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200 focus:ring-1 focus:ring-emerald-500"
                           >
-                            <input
-                              type="checkbox"
-                              checked={isChecked}
-                              readOnly
-                              className="w-3.5 h-3.5 rounded text-emerald-500 border-slate-800 bg-slate-900 focus:ring-offset-slate-950"
-                            />
-                            <div className="flex-1 truncate">
-                              <span>{name}</span>
-                              {p.team && (
-                                <span className="ml-1 text-[9px] text-cyan-500">[{p.team.name}]</span>
-                              )}
-                            </div>
-                            <span className="text-[10px] text-slate-500 font-mono">
-                              HC: {p.compHandicap !== null && p.compHandicap !== undefined ? p.compHandicap.toFixed(1) : "-"}
-                            </span>
-                          </div>
-                        )
-                      })}
+                            <option value="">-- Spieler 1 wählen --</option>
+                            {competition.participants.map((p: any) => {
+                              const name = p.userId ? p.user?.name : p.dummyName
+                              return (
+                                <option key={p.id} value={p.id}>
+                                  {name} {p.team ? `[${p.team.name}]` : ''} (HC: {p.compHandicap !== null && p.compHandicap !== undefined ? p.compHandicap.toFixed(1) : '-'})
+                                </option>
+                              )
+                            })}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-400 mb-1">Spieler 2</label>
+                          <select
+                            value={team1Part2}
+                            onChange={e => setTeam1Part2(e.target.value)}
+                            className="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200 focus:ring-1 focus:ring-emerald-500"
+                          >
+                            <option value="">-- Spieler 2 wählen --</option>
+                            {competition.participants.map((p: any) => {
+                              const name = p.userId ? p.user?.name : p.dummyName
+                              return (
+                                <option key={p.id} value={p.id}>
+                                  {name} {p.team ? `[${p.team.name}]` : ''} (HC: {p.compHandicap !== null && p.compHandicap !== undefined ? p.compHandicap.toFixed(1) : '-'})
+                                </option>
+                              )
+                            })}
+                          </select>
+                        </div>
+                      </div>
                     </div>
-                  )}
-                </div>
+
+                    {/* Team 2 Picker */}
+                    <div className="p-3 bg-rose-950/30 border border-rose-800/50 rounded-lg space-y-2">
+                      <div className="text-xs font-bold text-rose-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-rose-400"></span>
+                        Team 2 (Spieler 3 & 4)
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-400 mb-1">Spieler 1</label>
+                          <select
+                            value={team2Part1}
+                            onChange={e => setTeam2Part1(e.target.value)}
+                            className="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200 focus:ring-1 focus:ring-rose-500"
+                          >
+                            <option value="">-- Spieler 1 wählen --</option>
+                            {competition.participants.map((p: any) => {
+                              const name = p.userId ? p.user?.name : p.dummyName
+                              return (
+                                <option key={p.id} value={p.id}>
+                                  {name} {p.team ? `[${p.team.name}]` : ''} (HC: {p.compHandicap !== null && p.compHandicap !== undefined ? p.compHandicap.toFixed(1) : '-'})
+                                </option>
+                              )
+                            })}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-400 mb-1">Spieler 2</label>
+                          <select
+                            value={team2Part2}
+                            onChange={e => setTeam2Part2(e.target.value)}
+                            className="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200 focus:ring-1 focus:ring-rose-500"
+                          >
+                            <option value="">-- Spieler 2 wählen --</option>
+                            {competition.participants.map((p: any) => {
+                              const name = p.userId ? p.user?.name : p.dummyName
+                              return (
+                                <option key={p.id} value={p.id}>
+                                  {name} {p.team ? `[${p.team.name}]` : ''} (HC: {p.compHandicap !== null && p.compHandicap !== undefined ? p.compHandicap.toFixed(1) : '-'})
+                                </option>
+                              )
+                            })}
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-400 mb-2">
+                      Assign Players ({selectedPartIds.length} Selected)
+                    </label>
+                    
+                    {competition.participants.length === 0 ? (
+                      <p className="text-xs text-slate-550 italic">No registered participants to pair.</p>
+                    ) : (
+                      <div className="max-h-60 overflow-y-auto border border-slate-800 rounded-lg p-2 bg-slate-950 space-y-2 divide-y divide-slate-900 scrollbar-thin">
+                        {competition.participants.map((p: any) => {
+                          const name = p.userId ? p.user?.name : p.dummyName
+                          const isChecked = selectedPartIds.includes(p.id)
+
+                          return (
+                            <div 
+                              key={p.id} 
+                              onClick={() => togglePartSelection(p.id)}
+                              className={`flex items-center space-x-2 py-1.5 px-2 rounded cursor-pointer select-none text-xs transition-colors ${
+                                isChecked 
+                                  ? 'bg-emerald-950/30 text-emerald-300 font-semibold' 
+                                  : 'text-slate-400 hover:bg-slate-900/50'
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                readOnly
+                                className="w-3.5 h-3.5 rounded text-emerald-500 border-slate-800 bg-slate-900 focus:ring-offset-slate-950"
+                              />
+                              <div className="flex-1 truncate">
+                                <span>{name}</span>
+                                {p.team && (
+                                  <span className="ml-1 text-[9px] text-cyan-500">[{p.team.name}]</span>
+                                )}
+                              </div>
+                              <span className="text-[10px] text-slate-500 font-mono">
+                                HC: {p.compHandicap !== null && p.compHandicap !== undefined ? p.compHandicap.toFixed(1) : "-"}
+                              </span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <button
                   type="submit"

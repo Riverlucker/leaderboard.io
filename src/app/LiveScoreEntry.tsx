@@ -1,11 +1,23 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { saveBatchScores } from "@/app/actions/scores"
-import { ArrowLeft, ArrowRight, Loader2 } from "lucide-react"
+import { ArrowLeft, ArrowRight, Loader2, Wifi, WifiOff, RefreshCw, CheckCircle2, AlertCircle, Save } from "lucide-react"
 import { calculateCourseHandicap, getRoundHoleInfo, getHandicapStrokesOnHole } from "@/lib/scoring"
 import { getTeamColorConfig } from "@/lib/teamColors"
 import { getPlayerCalculatedAllowance } from "./CompetitionClientView"
+
+interface PendingScoreItem {
+  participantId: string
+  roundId: string
+  holeId: string
+  holeNumber: number
+  grossStrokes: number | null
+  status: string | null
+  value: string
+  timestamp: number
+  playerName: string
+}
 
 interface LiveScoreEntryProps {
   round: any
@@ -21,8 +33,8 @@ interface LiveScoreEntryProps {
 }
 
 function getScoreLabel(val: string, par: number): string {
-  if (val === '-') return 'not played'
-  if (val === '/') return 'wiped (0 pts)'
+  if (val === '-') return 'nicht gespielt'
+  if (val === '/') return 'gestrichen (0 Pkt)'
   const num = parseInt(val, 10)
   if (isNaN(num)) return val
   const diff = num - par
@@ -32,7 +44,7 @@ function getScoreLabel(val: string, par: number): string {
   if (diff === 0) return 'Par'
   if (diff === 1) return 'Bogey'
   if (diff === 2) return 'Double Bogey'
-  if (diff >= 3) return `+${diff} Strokes`
+  if (diff >= 3) return `+${diff} Schläge`
   return String(num)
 }
 
@@ -58,14 +70,256 @@ export function LiveScoreEntry({
   const [currentHoleIndex, setCurrentHoleIndex] = useState(initialHoleIndex || 0)
   const currentHoleNum = activeHoles[currentHoleIndex]
   const currentHole = course.holes.find((h: any) => h.number === currentHoleNum)
-  const [savingCells, setSavingCells] = useState<Record<string, boolean>>({})
-  const [localScores, setLocalScores] = useState<Record<string, string>>({}) // key: partId -> string
+
+  // Local scores structure: holeId -> partId -> scoreValue (e.g. "4", "/", "-")
+  const [scoresByHole, setScoresByHole] = useState<Record<string, Record<string, string>>>({})
+  
+  // Offline & Synchronization State
+  const [isOfflineMode, setIsOfflineMode] = useState<boolean>(false)
+  const [offlineQueue, setOfflineQueue] = useState<PendingScoreItem[]>([])
+  const [isSyncing, setIsSyncing] = useState<boolean>(false)
+  const [syncStatusMsg, setSyncStatusMsg] = useState<{ text: string; type: 'success' | 'error' | 'info' } | null>(null)
 
   // Gesture state for touch swipe score preview & commit
   const [draggingPartId, setDraggingPartId] = useState<string | null>(null)
   const [previewVal, setPreviewVal] = useState<string | null>(null)
   const activeHoleIdRef = useRef<string | null>(null)
 
+  const saveTimeoutRef = useRef<any>(null)
+
+  const queueStorageKey = `leaderboard_queue_${round.id}`
+  const cacheStorageKey = `leaderboard_cache_${round.id}`
+
+  // 1. Initialize & merge scores from props + localStorage cache & queue
+  useEffect(() => {
+    // Build map from server props
+    const serverMap: Record<string, Record<string, string>> = {}
+    for (const h of course.holes) {
+      serverMap[h.id] = {}
+      for (const p of selectedParticipants) {
+        const score = p.scores?.find((s: any) => s.roundId === round.id && s.holeId === h.id)
+        if (score) {
+          if (score.status === 'WIPED') {
+            serverMap[h.id][p.id] = '/'
+          } else if (score.status === 'NOT_PLAYED') {
+            serverMap[h.id][p.id] = '-'
+          } else if (score.grossStrokes !== null && score.grossStrokes !== undefined) {
+            serverMap[h.id][p.id] = String(score.grossStrokes)
+          } else {
+            serverMap[h.id][p.id] = ''
+          }
+        } else {
+          serverMap[h.id][p.id] = ''
+        }
+      }
+    }
+
+    // Load local cache if available
+    let localCache: Record<string, Record<string, string>> = {}
+    try {
+      const storedCache = localStorage.getItem(cacheStorageKey)
+      if (storedCache) {
+        localCache = JSON.parse(storedCache)
+      }
+    } catch (e) {
+      console.error("Failed to parse local scores cache", e)
+    }
+
+    // Load local queue if available
+    let localQueue: PendingScoreItem[] = []
+    try {
+      const storedQueue = localStorage.getItem(queueStorageKey)
+      if (storedQueue) {
+        localQueue = JSON.parse(storedQueue)
+      }
+    } catch (e) {
+      console.error("Failed to parse offline queue", e)
+    }
+
+    setOfflineQueue(localQueue)
+
+    // Merge: local cache / queue overwrites server data if newer
+    const mergedMap = { ...serverMap }
+    for (const holeId of Object.keys(localCache)) {
+      if (!mergedMap[holeId]) mergedMap[holeId] = {}
+      for (const partId of Object.keys(localCache[holeId])) {
+        if (localCache[holeId][partId] !== undefined) {
+          mergedMap[holeId][partId] = localCache[holeId][partId]
+        }
+      }
+    }
+
+    // Also apply any queued items in chronological order
+    for (const item of localQueue) {
+      if (!mergedMap[item.holeId]) mergedMap[item.holeId] = {}
+      mergedMap[item.holeId][item.participantId] = item.value
+    }
+
+    setScoresByHole(mergedMap)
+  }, [selectedParticipants, round.id, course.holes])
+
+  // 2. Listen to browser online/offline network status events
+  useEffect(() => {
+    const handleOnline = () => {
+      setSyncStatusMsg({ text: "Internetverbindung wiederhergestellt.", type: "info" })
+    }
+    const handleOffline = () => {
+      setIsOfflineMode(true)
+      setSyncStatusMsg({ text: "Kein Netz. Automatischer Wechsel in Offline-Modus.", type: "info" })
+    }
+
+    window.addEventListener("online", handleOnline)
+    window.addEventListener("offline", handleOffline)
+
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      setIsOfflineMode(true)
+    }
+
+    return () => {
+      window.removeEventListener("online", handleOnline)
+      window.removeEventListener("offline", handleOffline)
+    }
+  }, [])
+
+  // Sync initial hole index from parent props
+  useEffect(() => {
+    if (initialHoleIndex !== undefined && initialHoleIndex >= 0 && initialHoleIndex < activeHoles.length) {
+      setCurrentHoleIndex(initialHoleIndex)
+    }
+  }, [initialHoleIndex, activeHoles.length])
+
+  // Save offline queue to localStorage whenever it changes
+  const updateOfflineQueue = useCallback((newQueue: PendingScoreItem[]) => {
+    setOfflineQueue(newQueue)
+    try {
+      localStorage.setItem(queueStorageKey, JSON.stringify(newQueue))
+    } catch (e) {
+      console.error("Failed to save offline queue to localStorage", e)
+    }
+  }, [queueStorageKey])
+
+  // Save scoresByHole cache to localStorage whenever scores update
+  const updateLocalCache = useCallback((newScoresMap: Record<string, Record<string, string>>) => {
+    setScoresByHole(newScoresMap)
+    try {
+      localStorage.setItem(cacheStorageKey, JSON.stringify(newScoresMap))
+    } catch (e) {
+      console.error("Failed to save local scores cache to localStorage", e)
+    }
+  }, [cacheStorageKey])
+
+  // 3. Batch synchronization function (flushes pending queue to server)
+  const performBatchSave = async (queueToFlush?: PendingScoreItem[]) => {
+    const queue = queueToFlush || offlineQueue
+    if (queue.length === 0) return
+
+    setIsSyncing(true)
+
+    // Deduplicate items: keep latest entry per (participantId + holeId)
+    const latestItemsMap: Record<string, PendingScoreItem> = {}
+    for (const item of queue) {
+      const key = `${item.participantId}-${item.holeId}`
+      if (!latestItemsMap[key] || item.timestamp >= latestItemsMap[key].timestamp) {
+        latestItemsMap[key] = item
+      }
+    }
+
+    const updates = Object.values(latestItemsMap).map(item => ({
+      participantId: item.participantId,
+      roundId: round.id,
+      holeId: item.holeId,
+      grossStrokes: item.grossStrokes,
+      status: item.status
+    }))
+
+    try {
+      await saveBatchScores(
+        round.competitionId,
+        updates,
+        session.user.id,
+        session.user.name || session.user.email
+      )
+
+      // Remove successfully flushed items from queue
+      const flushedKeys = new Set(Object.keys(latestItemsMap))
+      const remainingQueue = offlineQueue.filter(item => !flushedKeys.has(`${item.participantId}-${item.holeId}`))
+      updateOfflineQueue(remainingQueue)
+
+      setSyncStatusMsg({
+        text: `Erfolgreich ${updates.length} Score(s) synchronisiert!`,
+        type: "success"
+      })
+
+      // Safely notify parent component without crashing if offline revalidate fails
+      try {
+        onScoreSaved()
+      } catch (err) {
+        console.warn("Parent revalidation deferred:", err)
+      }
+    } catch (err: any) {
+      console.error("Sync error:", err)
+      setIsOfflineMode(true)
+      setSyncStatusMsg({
+        text: "Übertragung fehlgeschlagen (schlechte Verbindung). Scores bleiben lokal gesichert!",
+        type: "error"
+      })
+    } finally {
+      setIsSyncing(false)
+    }
+  }
+
+  // 4. Handle score entry click on any hole
+  const handleScoreClick = (partId: string, holeId: string, value: string) => {
+    const currentHoleScores = scoresByHole[holeId] || {}
+    const currentVal = currentHoleScores[partId] || ""
+    const targetValue = currentVal === value ? "" : value
+
+    // 1. Update hole-specific score state & local cache
+    const updatedHoleScores = { ...currentHoleScores, [partId]: targetValue }
+    const updatedScoresMap = { ...scoresByHole, [holeId]: updatedHoleScores }
+    updateLocalCache(updatedScoresMap)
+
+    // 2. Prepare pending score queue item
+    let grossStrokes: number | null = null
+    let status: string | null = null
+    if (targetValue === '/') {
+      status = 'WIPED'
+    } else if (targetValue === '-' || targetValue === '') {
+      status = 'NOT_PLAYED'
+    } else {
+      grossStrokes = parseInt(targetValue, 10)
+    }
+
+    const p = selectedParticipants.find(x => x.id === partId)
+    const playerName = p ? (p.userId ? (p.user?.name || p.user?.email) : p.dummyName) : partId
+
+    const newItem: PendingScoreItem = {
+      participantId: partId,
+      roundId: round.id,
+      holeId,
+      holeNumber: currentHoleNum,
+      grossStrokes,
+      status,
+      value: targetValue,
+      timestamp: Date.now(),
+      playerName
+    }
+
+    // Append item to queue (replacing existing queued item for same partId+holeId)
+    const filteredQueue = offlineQueue.filter(q => !(q.participantId === partId && q.holeId === holeId))
+    const nextQueue = [...filteredQueue, newItem]
+    updateOfflineQueue(nextQueue)
+
+    // 3. If online and not in manual offline mode, trigger background debounced save (2 sec)
+    if (!isOfflineMode && typeof navigator !== "undefined" && navigator.onLine) {
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
+      saveTimeoutRef.current = setTimeout(() => {
+        performBatchSave(nextQueue)
+      }, 2000)
+    }
+  }
+
+  // Touch Swipe Gesture Handlers
   const handleGestureStart = (partId: string, holeId: string, e: React.PointerEvent | React.TouchEvent) => {
     setDraggingPartId(partId)
     activeHoleIdRef.current = holeId
@@ -102,68 +356,12 @@ export function LiveScoreEntry({
     activeHoleIdRef.current = null
   }
 
-  // Debounce and queue refs
-  const pendingChangesRef = useRef<Record<string, { partId: string; holeId: string; value: string }>>({})
-  const saveTimeoutRef = useRef<any>(null)
-  const dirtyKeysRef = useRef<Record<string, boolean>>({})
-
-  // Helper to extract scores for a specific hole from participants, merging pending changes and preserving dirty values
-  const getScoresForHole = (holeId: string, currentLocal: Record<string, string>) => {
-    const scoresMap: Record<string, string> = {}
-    for (const p of selectedParticipants) {
-      const cellKey = `${p.id}-${holeId}`
-      if (dirtyKeysRef.current[cellKey]) {
-        scoresMap[p.id] = currentLocal[p.id] || ''
-        continue
-      }
-
-      const score = p.scores.find((s: any) => s.roundId === round.id && s.holeId === holeId)
-      if (score) {
-        if (score.status === 'WIPED') {
-          scoresMap[p.id] = '/'
-        } else if (score.status === 'NOT_PLAYED') {
-          scoresMap[p.id] = '-'
-        } else if (score.grossStrokes !== null && score.grossStrokes !== undefined) {
-          scoresMap[p.id] = String(score.grossStrokes)
-        } else {
-          scoresMap[p.id] = ''
-        }
-      } else {
-        scoresMap[p.id] = ''
-      }
-    }
-    return scoresMap
-  }
-
-  // Handle external hole index update when toggling from bulk
-  useEffect(() => {
-    if (initialHoleIndex !== undefined && initialHoleIndex >= 0 && initialHoleIndex < activeHoles.length) {
-      setCurrentHoleIndex(initialHoleIndex)
-      const targetHoleNum = activeHoles[initialHoleIndex]
-      const targetHole = course.holes.find((h: any) => h.number === targetHoleNum)
-      if (targetHole) {
-        setLocalScores(prev => getScoresForHole(targetHole.id, prev))
-      }
-    }
-  }, [initialHoleIndex, activeHoles.length])
-
-  // Sync local scores whenever current hole changes or props change, preserving dirty states
-  useEffect(() => {
-    if (!currentHole) return
-    setLocalScores(prev => getScoresForHole(currentHole.id, prev))
-  }, [selectedParticipants, round.id, currentHole?.id])
-
   // Navigation handlers
   const handlePrevHole = () => {
     if (currentHoleIndex > 0) {
       const nextIndex = currentHoleIndex - 1
       setCurrentHoleIndex(nextIndex)
       onHoleChange(nextIndex)
-      const nextHoleNum = activeHoles[nextIndex]
-      const nextHole = course.holes.find((h: any) => h.number === nextHoleNum)
-      if (nextHole) {
-        setLocalScores(prev => getScoresForHole(nextHole.id, prev))
-      }
     }
   }
 
@@ -172,139 +370,25 @@ export function LiveScoreEntry({
       const nextIndex = currentHoleIndex + 1
       setCurrentHoleIndex(nextIndex)
       onHoleChange(nextIndex)
-      const nextHoleNum = activeHoles[nextIndex]
-      const nextHole = course.holes.find((h: any) => h.number === nextHoleNum)
-      if (nextHole) {
-        setLocalScores(prev => getScoresForHole(nextHole.id, prev))
-      }
     }
   }
 
-  // Perform the batch save
-  const performBatchSave = async () => {
-    const queue = pendingChangesRef.current
-    if (Object.keys(queue).length === 0) return
-
-    const batchToSave = { ...queue }
-    pendingChangesRef.current = {}
-
-    // Show indicator on saving cells
-    setSavingCells(prev => {
-      const next = { ...prev }
-      for (const key of Object.keys(batchToSave)) {
-        next[key] = true
-      }
-      return next
-    })
-
-    try {
-      const updates = Object.values(batchToSave).map(item => {
-        let grossStrokes: number | null = null
-        let status: string | null = null
-        if (item.value === '/') {
-          status = 'WIPED'
-        } else if (item.value === '-' || item.value === '') {
-          status = 'NOT_PLAYED'
-        } else {
-          grossStrokes = parseInt(item.value)
-        }
-        return {
-          participantId: item.partId,
-          roundId: round.id,
-          holeId: item.holeId,
-          grossStrokes,
-          status
-        }
-      })
-
-      await saveBatchScores(
-        round.competitionId,
-        updates,
-        session.user.id,
-        session.user.name || session.user.email
-      )
-
-      // Clear from dirty list after successful save
-      for (const key of Object.keys(batchToSave)) {
-        delete dirtyKeysRef.current[key]
-      }
-
-      onScoreSaved()
-    } catch (err) {
-      console.error("Failed to save batch scores:", err)
-      pendingChangesRef.current = { ...batchToSave, ...pendingChangesRef.current }
-    } finally {
-      setSavingCells(prev => {
-        const next = { ...prev }
-        for (const key of Object.keys(batchToSave)) {
-          next[key] = false
-        }
-        return next
-      })
-    }
-  }
-
-  // Force save on unmount if any pending changes exist
-  useEffect(() => {
-    return () => {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current)
-      }
-      const queue = pendingChangesRef.current
-      if (Object.keys(queue).length > 0) {
-        const updates = Object.values(queue).map(item => {
-          let grossStrokes: number | null = null
-          let status: string | null = null
-          if (item.value === '/') {
-            status = 'WIPED'
-          } else if (item.value === '-' || item.value === '') {
-            status = 'NOT_PLAYED'
-          } else {
-            grossStrokes = parseInt(item.value)
-          }
-          return {
-            participantId: item.partId,
-            roundId: round.id,
-            holeId: item.holeId,
-            grossStrokes,
-            status
-          }
-        })
-        saveBatchScores(
-          round.competitionId,
-          updates,
-          session.user.id,
-          session.user.name || session.user.email
-        ).catch(console.error)
-      }
-    }
-  }, [round.id, round.competitionId, session.user.id, session.user.name, session.user.email])
-
-  const handleScoreClick = (partId: string, holeId: string, value: string) => {
-    // If clicked the already selected button, deselect it (revert to '')
-    const currentVal = localScores[partId] || ""
-    const targetValue = currentVal === value ? "" : value
-
-    // Instant local state update
-    setLocalScores(prev => ({ ...prev, [partId]: targetValue }))
-
-    const cellKey = `${partId}-${holeId}`
-    
-    // Mark key as dirty and add to queue
-    dirtyKeysRef.current[cellKey] = true
-    pendingChangesRef.current[cellKey] = { partId, holeId, value: targetValue }
-
-    // Reset debounce timer (2 seconds)
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current)
-    }
-    saveTimeoutRef.current = setTimeout(() => {
+  // Toggle offline mode handler
+  const handleToggleOfflineMode = () => {
+    const nextMode = !isOfflineMode
+    setIsOfflineMode(nextMode)
+    if (!nextMode && offlineQueue.length > 0) {
       performBatchSave()
-    }, 2000)
+    } else {
+      setSyncStatusMsg({
+        text: nextMode ? "Offline-Modus aktiviert. Scores werden lokal gespeichert." : "Online-Modus aktiviert.",
+        type: "info"
+      })
+    }
   }
 
   if (!currentHole) {
-    return <div className="text-center text-slate-400 p-8">Hole not found</div>
+    return <div className="text-center text-slate-400 p-8">Loch nicht gefunden</div>
   }
 
   const adjustedHole = getRoundHoleInfo(round, currentHoleNum)
@@ -334,8 +418,96 @@ export function LiveScoreEntry({
     { type: 'action', val: '/' }
   ]
 
+  const currentHoleScoresMap = scoresByHole[currentHole.id] || {}
+
   return (
-    <div className="bg-white/65 backdrop-blur-sm border border-slate-200 rounded-2xl p-6 shadow-sm space-y-6 w-full">
+    <div className="bg-white/65 backdrop-blur-sm border border-slate-200 rounded-2xl p-4 md:p-6 shadow-sm space-y-5 w-full">
+      
+      {/* Network & Offline Status Banner */}
+      <div className={`p-3 rounded-xl border flex flex-wrap items-center justify-between gap-3 text-xs font-semibold transition-all ${
+        isOfflineMode 
+          ? "bg-amber-500/10 border-amber-500/30 text-amber-900" 
+          : "bg-emerald-500/10 border-emerald-500/30 text-emerald-900"
+      }`}>
+        <div className="flex items-center gap-2">
+          {isOfflineMode ? (
+            <WifiOff size={16} className="text-amber-600 animate-pulse flex-shrink-0" />
+          ) : (
+            <Wifi size={16} className="text-emerald-600 flex-shrink-0" />
+          )}
+
+          <div>
+            <div className="font-extrabold flex items-center gap-1.5">
+              <span>{isOfflineMode ? "Offline-Modus aktiv" : "Online (Live-Sync)"}</span>
+              {offlineQueue.length > 0 && (
+                <span className="bg-amber-500 text-white px-2 py-0.5 rounded-full text-[10px] font-mono font-black">
+                  {offlineQueue.length} ausstehend
+                </span>
+              )}
+            </div>
+            <div className="text-[11px] opacity-80">
+              {isOfflineMode 
+                ? "Scores werden sicher im Handyspeicher abgelegt." 
+                : "Scores werden automatisch mit dem Server synchronisiert."}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {offlineQueue.length > 0 && (
+            <button
+              type="button"
+              onClick={() => performBatchSave()}
+              disabled={isSyncing}
+              className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white font-extrabold rounded-lg transition-colors flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+            >
+              {isSyncing ? (
+                <Loader2 size={13} className="animate-spin" />
+              ) : (
+                <RefreshCw size={13} />
+              )}
+              <span>Scores übertragen ({offlineQueue.length})</span>
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={handleToggleOfflineMode}
+            className={`px-3 py-1.5 rounded-lg border font-extrabold transition-all text-xs flex items-center gap-1 ${
+              isOfflineMode
+                ? "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
+                : "bg-amber-100 hover:bg-amber-200 text-amber-900 border-amber-300"
+            }`}
+          >
+            {isOfflineMode ? "Online schalten" : "Offline-Modus"}
+          </button>
+        </div>
+      </div>
+
+      {/* Sync Status Toast Message */}
+      {syncStatusMsg && (
+        <div className={`p-2.5 rounded-lg text-xs font-bold flex items-center justify-between gap-2 border ${
+          syncStatusMsg.type === 'success'
+            ? "bg-emerald-100 text-emerald-900 border-emerald-300"
+            : syncStatusMsg.type === 'error'
+              ? "bg-rose-100 text-rose-900 border-rose-300"
+              : "bg-slate-100 text-slate-800 border-slate-300"
+        }`}>
+          <div className="flex items-center gap-2">
+            {syncStatusMsg.type === 'success' && <CheckCircle2 size={15} className="text-emerald-600" />}
+            {syncStatusMsg.type === 'error' && <AlertCircle size={15} className="text-rose-600" />}
+            <span>{syncStatusMsg.text}</span>
+          </div>
+          <button 
+            type="button" 
+            onClick={() => setSyncStatusMsg(null)}
+            className="text-slate-400 hover:text-slate-600 text-sm font-bold"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
       {/* Hole Navigation Header */}
       <div className="flex justify-between items-center bg-white/40 backdrop-blur-sm p-4 rounded-xl border border-slate-200/60">
         <button
@@ -347,11 +519,11 @@ export function LiveScoreEntry({
         </button>
 
         <div className="text-center">
-          <div className="text-sm font-semibold text-slate-500 uppercase tracking-widest">Hole {currentHoleNum} of {activeHoles.length}</div>
+          <div className="text-sm font-semibold text-slate-500 uppercase tracking-widest">Loch {currentHoleNum} von {activeHoles.length}</div>
           <h3 className="text-2xl font-extrabold text-slate-850 flex items-center justify-center gap-3 mt-1">
             <span>Par {par}</span>
             <span className="text-xs font-mono font-normal text-slate-655 bg-white/40 border border-slate-200/60 px-2 py-0.5 rounded uppercase shadow-sm">
-              Idx {strokeIndex}
+              Hcp {strokeIndex}
             </span>
           </h3>
         </div>
@@ -365,13 +537,13 @@ export function LiveScoreEntry({
         </button>
       </div>
 
-      {/* Players Scoring Rows - Vertical stack for 100% full-width number row on mobile */}
+      {/* Players Scoring Rows - Isolated state per hole */}
       <div className="space-y-4">
         {selectedParticipants.map((p, pIdx) => {
           const playerName = p.userId ? (p.user?.name || p.user?.email) : p.dummyName
-          const activeVal = localScores[p.id] || ""
-          const cellKey = `${p.id}-${currentHole.id}`
-          const isSaving = savingCells[cellKey]
+          const activeVal = currentHoleScoresMap[p.id] || ""
+          
+          const isQueued = offlineQueue.some(q => q.participantId === p.id && q.holeId === currentHole.id)
 
           const tee = round.tee || 
                       course.tees.find((t: any) => t.name.toLowerCase().includes('yellow')) ||
@@ -388,7 +560,6 @@ export function LiveScoreEntry({
             courseHandicap = calculateCourseHandicap(p.compHandicap, tee, coursePar)
           }
 
-          // Find player's matchplay match to calculate matchplay allowance
           let matchplayAllowance: number | null = null
           const playerMatch = round.matches?.find((m: any) =>
             m.matchPlayers.some((mp: any) => mp.participantId === p.id)
@@ -406,7 +577,6 @@ export function LiveScoreEntry({
           const teamIdx = competition?.teams?.findIndex((t: any) => t.id === p.teamId) ?? -1
           const teamConfig = (isTeamComp && p.team) ? getTeamColorConfig(p.team.color, teamIdx === -1 ? pIdx : teamIdx) : null
 
-          // Determine current highlighted preview during touch swipe
           const isDraggingThisPlayer = draggingPartId === p.id
           const currentHighlightedVal = isDraggingThisPlayer && previewVal ? previewVal : activeVal
 
@@ -417,7 +587,7 @@ export function LiveScoreEntry({
                 : "bg-white/50 border-slate-200/80 text-slate-800"
             }`}>
               
-              {/* Top Row: Player Info (Name, Handicap, Strokes, Saving) & Custom Input Stepper */}
+              {/* Top Row: Player Info & Stepper */}
               <div className="flex items-center justify-between gap-2 border-b border-slate-200/40 pb-2">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
@@ -438,15 +608,15 @@ export function LiveScoreEntry({
                     {strokesOnCurrentHole > 0 && (
                       <span 
                         className="inline-flex items-center justify-center bg-cyan-100 text-cyan-800 font-extrabold text-[9px] px-1.5 py-0.2 rounded border border-cyan-300 font-mono"
-                        title={`${strokesOnCurrentHole} strokes received on this hole`}
+                        title={`${strokesOnCurrentHole} Vorgabestriche auf diesem Loch`}
                       >
                         {Array.from({ length: strokesOnCurrentHole }).map(() => "•").join("")}
                       </span>
                     )}
-                    {isSaving && (
-                      <div className="flex items-center space-x-1 text-[10px] text-emerald-600 font-bold ml-1">
-                        <Loader2 size={11} className="animate-spin" />
-                        <span>Saving...</span>
+                    {isQueued && (
+                      <div className="flex items-center space-x-1 text-[10px] text-amber-600 font-bold ml-1">
+                        <Save size={11} />
+                        <span>Lokal gesichert</span>
                       </div>
                     )}
                   </div>
@@ -462,7 +632,7 @@ export function LiveScoreEntry({
                       handleScoreClick(p.id, currentHole.id, String(nextVal))
                     }}
                     className="w-7 h-8 bg-white/60 border border-slate-300 text-slate-700 font-extrabold rounded-l-lg hover:bg-white text-xs flex items-center justify-center cursor-pointer select-none"
-                    title="Decrease score"
+                    title="Score verringern"
                   >
                     -
                   </button>
@@ -483,7 +653,7 @@ export function LiveScoreEntry({
                         ? "border-emerald-500 bg-emerald-50 text-emerald-800 font-extrabold"
                         : "text-slate-800"
                     }`}
-                    title="Custom score (e.g. 10..20)"
+                    title="Freier Score (z. B. 10..20)"
                   />
                   <button
                     type="button"
@@ -493,16 +663,15 @@ export function LiveScoreEntry({
                       handleScoreClick(p.id, currentHole.id, String(nextVal))
                     }}
                     className="w-7 h-8 bg-white/60 border border-slate-300 text-slate-700 font-extrabold rounded-r-lg hover:bg-white text-xs flex items-center justify-center cursor-pointer select-none"
-                    title="Increase score"
+                    title="Score erhöhen"
                   >
                     +
                   </button>
                 </div>
               </div>
 
-              {/* Bottom Row: Full-Width 8-Column Grid Selector with Touch Swipe Support */}
+              {/* Bottom Row: Full-Width 8-Column Grid Selector */}
               <div className="relative w-full">
-                {/* Enlarged Floating Preview Badge during Swipe/Drag Gesture */}
                 {isDraggingThisPlayer && previewVal && (
                   <div className="absolute -top-14 left-1/2 -translate-x-1/2 bg-slate-900/95 text-white px-5 py-2 rounded-2xl shadow-2xl flex items-center gap-3 z-40 border border-slate-700 pointer-events-none animate-in fade-in zoom-in-95 duration-100">
                     <span className="text-3xl font-black text-emerald-400 leading-none">{previewVal}</span>
@@ -599,14 +768,23 @@ export function LiveScoreEntry({
         })}
       </div>
 
-      {/* Quick Advance Button */}
-      <div className="pt-4 border-t border-slate-200 flex justify-end">
+      {/* Footer Navigation */}
+      <div className="pt-4 border-t border-slate-200 flex items-center justify-between gap-4">
+        <button
+          onClick={handlePrevHole}
+          disabled={currentHoleIndex === 0}
+          className="flex items-center space-x-2 py-2.5 px-4 bg-white hover:bg-slate-50 text-slate-700 font-bold border border-slate-300 rounded-xl transition-all shadow-sm disabled:opacity-40"
+        >
+          <ArrowLeft size={16} />
+          <span>Vorheriges Loch</span>
+        </button>
+
         <button
           onClick={handleNextHole}
           disabled={currentHoleIndex === activeHoles.length - 1}
           className="flex items-center space-x-2 py-3 px-6 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-xl transition-all shadow disabled:opacity-40"
         >
-          <span>Next Hole</span>
+          <span>Nächstes Loch</span>
           <ArrowRight size={16} />
         </button>
       </div>

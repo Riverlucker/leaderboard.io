@@ -293,7 +293,16 @@ export function WintercupView({ competition, session }: WintercupViewProps) {
 
   // Check if players for a match are fixed and ready to be scheduled
   const isMatchPlayersFixed = (match: any) => {
-    const kind = match.matchKind || (match.type === "GROUP_3" ? "VORRUNDE" : "")
+    let kind = match.matchKind
+    if (!kind) {
+      const rId = match.roundId || match.targetRound?.id
+      if (rId === rZwischen?.id) kind = "ZWISCHENRUNDE"
+      else if (rId === rVF?.id) kind = "VF"
+      else if (rId === rHF?.id) kind = "HF"
+      else if (rId === rFin?.id) kind = "FIN"
+      else if (match.type === "GROUP_3") kind = "VORRUNDE"
+    }
+
     if (!kind || kind === "VORRUNDE") return true
     const idx = match.originalIdx ?? 0
 

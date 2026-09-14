@@ -23,6 +23,7 @@ export default async function EditCompetitionPage({ params }: EditCompetitionPag
           matches: {
             include: {
               matchPlayers: {
+                orderBy: { id: 'asc' },
                 include: {
                   participant: true
                 }

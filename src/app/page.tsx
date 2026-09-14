@@ -54,7 +54,9 @@ export default async function Home({ searchParams }: HomeProps) {
             },
             matches: {
               include: {
-                matchPlayers: true
+                matchPlayers: {
+                  orderBy: { id: 'asc' }
+                }
               }
             }
           },
@@ -134,7 +136,9 @@ export default async function Home({ searchParams }: HomeProps) {
                 },
                 matches: {
                   include: {
-                    matchPlayers: true
+                    matchPlayers: {
+                      orderBy: { id: 'asc' }
+                    }
                   }
                 }
               },

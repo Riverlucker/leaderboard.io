@@ -1013,8 +1013,36 @@ export function CompetitionClientView({ competition, session, courses = [], user
         p.userId ? p.user?.name : p.dummyName
       ).filter((n: any): n is string => typeof n === 'string' && n.length > 0)
 
-      const team1Players = [players[0], players[1]]
-      const team2Players = [players[2], players[3]]
+      let team1Players: any[] = []
+      let team2Players: any[] = []
+
+      if (competition.teams && competition.teams.length >= 2) {
+        const team1Id = competition.teams[0].id
+        const team2Id = competition.teams[1].id
+        const t1 = players.filter((p: any) => p.teamId === team1Id)
+        const t2 = players.filter((p: any) => p.teamId === team2Id)
+        if (t1.length === 2 && t2.length === 2) {
+          team1Players = t1
+          team2Players = t2
+        }
+      }
+
+      if (team1Players.length !== 2 || team2Players.length !== 2) {
+        const teamIds = Array.from(new Set(players.map((p: any) => p.teamId).filter(Boolean)))
+        if (teamIds.length === 2) {
+          const t1 = players.filter((p: any) => p.teamId === teamIds[0])
+          const t2 = players.filter((p: any) => p.teamId === teamIds[1])
+          if (t1.length === 2 && t2.length === 2) {
+            team1Players = t1
+            team2Players = t2
+          }
+        }
+      }
+
+      if (team1Players.length !== 2 || team2Players.length !== 2) {
+        team1Players = [players[0], players[1]]
+        team2Players = [players[2], players[3]]
+      }
 
       if (team1Players.length !== 2 || team2Players.length !== 2) {
         return { statusText: "Team Division Error", holesPlayed: 0, totalHoles: 18, allowance: 0, player1Name: "Unknown", player2Name: "Unknown", player3Name: "Unknown", player4Name: "Unknown", player1Allowance: 0, player2Allowance: 0, player3Allowance: 0, player4Allowance: 0, isFinished: false, isTeamMatchplay: true, lead: 0 }

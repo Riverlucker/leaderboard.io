@@ -39,11 +39,44 @@ export function MatchplayScorecardModal({
   const pIds = match.matchPlayers.map((mp: any) => mp.participantId)
   const players = pIds.map((id: string) => competition.participants.find((x: any) => x.id === id)).filter(Boolean)
 
-  const team1 = isTeamMatchplay ? competition.teams.find((t: any) => t.id === players[0]?.teamId) : null
-  const team2 = isTeamMatchplay ? competition.teams.find((t: any) => t.id === players[2]?.teamId) : null
+  let team1Players: any[] = []
+  let team2Players: any[] = []
 
-  const team1Idx = isTeamMatchplay ? competition.teams.findIndex((t: any) => t.id === players[0]?.teamId) : 0
-  const team2Idx = isTeamMatchplay ? competition.teams.findIndex((t: any) => t.id === players[2]?.teamId) : 1
+  if (isTeamMatchplay && players.length === 4) {
+    if (competition.teams && competition.teams.length >= 2) {
+      const team1Id = competition.teams[0].id
+      const team2Id = competition.teams[1].id
+      const t1 = players.filter((p: any) => p.teamId === team1Id)
+      const t2 = players.filter((p: any) => p.teamId === team2Id)
+      if (t1.length === 2 && t2.length === 2) {
+        team1Players = t1
+        team2Players = t2
+      }
+    }
+
+    if (team1Players.length !== 2 || team2Players.length !== 2) {
+      const teamIds = Array.from(new Set(players.map((p: any) => p.teamId).filter(Boolean)))
+      if (teamIds.length === 2) {
+        const t1 = players.filter((p: any) => p.teamId === teamIds[0])
+        const t2 = players.filter((p: any) => p.teamId === teamIds[1])
+        if (t1.length === 2 && t2.length === 2) {
+          team1Players = t1
+          team2Players = t2
+        }
+      }
+    }
+
+    if (team1Players.length !== 2 || team2Players.length !== 2) {
+      team1Players = [players[0], players[1]]
+      team2Players = [players[2], players[3]]
+    }
+  }
+
+  const team1 = isTeamMatchplay ? competition.teams.find((t: any) => t.id === team1Players[0]?.teamId) : null
+  const team2 = isTeamMatchplay ? competition.teams.find((t: any) => t.id === team2Players[0]?.teamId) : null
+
+  const team1Idx = isTeamMatchplay ? competition.teams.findIndex((t: any) => t.id === team1Players[0]?.teamId) : 0
+  const team2Idx = isTeamMatchplay ? competition.teams.findIndex((t: any) => t.id === team2Players[0]?.teamId) : 1
 
   const team1Color = isTeamMatchplay && team1 
     ? getTeamColorConfig(team1.color, team1Idx === -1 ? 0 : team1Idx) 
@@ -73,8 +106,6 @@ export function MatchplayScorecardModal({
   let p3 = players[2]
   let p4 = players[3]
 
-  let team1Players: any[] = []
-  let team2Players: any[] = []
   let p1Allowance = 0, p2Allowance = 0, p3Allowance = 0, p4Allowance = 0, allowance = 0
   let strokesMap1: any = {}, strokesMap2: any = {}, strokesMap3: any = {}, strokesMap4: any = {}
 
@@ -98,9 +129,6 @@ export function MatchplayScorecardModal({
   const matchHoles = parseHoleRange(match.holeRange, roundHoles)
 
   if (isTeamMatchplay && players.length === 4) {
-    team1Players = [players[0], players[1]]
-    team2Players = [players[2], players[3]]
-
     p1 = team1Players[0]
     p2 = team1Players[1]
     p3 = team2Players[0]

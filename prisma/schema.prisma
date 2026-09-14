@@ -153,6 +153,7 @@ model Match {
   handicapAllowance Int?
   playUntilEnd  Boolean @default(false)
   holeRange     String? // e.g. "1-18", "1-9", "2-14"
+  scheduledDate DateTime?
   
   matchPlayers  MatchPlayer[]
 }

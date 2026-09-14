@@ -5,6 +5,7 @@ import { MatchplayScorecardModal } from "./components/MatchplayScorecardModal"
 import { PlayerScorecardModal } from "./components/PlayerScorecardModal"
 import { ContextMenu, ContextMenuOption } from "./components/ContextMenu"
 import { PlayerHistoryModal } from "./components/PlayerHistoryModal"
+import { WintercupView } from "./components/WintercupView"
 import { useState, useEffect } from "react"
 import { signIn, signOut } from "next-auth/react"
 import { useRouter } from "next/navigation"
@@ -337,6 +338,10 @@ interface CompetitionClientViewProps {
 }
 
 export function CompetitionClientView({ competition, session, courses = [], users = [] }: CompetitionClientViewProps) {
+  if (competition.type === 'WINTERCUP') {
+    return <WintercupView competition={competition} session={session} />
+  }
+
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<'leaderboard' | 'details' | 'scores' | 'admin'>('leaderboard')
 

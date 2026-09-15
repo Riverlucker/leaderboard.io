@@ -2825,98 +2825,104 @@ export function CompetitionClientView({ competition, session, courses = [], user
           <div className="space-y-6">
             
             {/* Filter controls */}
-            <div className="flex flex-col sm:flex-row gap-4 sm:justify-between sm:items-center bg-white/35 backdrop-blur-sm border border-slate-200 p-4 rounded-2xl shadow-sm">
-              <div className="flex items-center space-x-3">
-                <span className="text-xs font-black text-slate-800 uppercase">View Round</span>
-                <select
-                  value={selectedRoundFilter}
-                  onChange={e => setSelectedRoundFilter(e.target.value)}
-                  className="bg-emerald-50 border-2 border-emerald-300 rounded-lg px-3 py-1.5 text-sm font-black text-emerald-850 focus:ring-emerald-500 focus:outline-none cursor-pointer shadow-sm transition-all"
-                >
-                  <option value="TOTAL">All Rounds (Cumulative)</option>
-                  {competition.rounds.map((round: any) => (
-                    <option key={round.id} value={round.id}>{round.name}</option>
-                  ))}
-                </select>
+            <div className="flex flex-col sm:flex-row gap-4 justify-between sm:items-center bg-white/35 backdrop-blur-sm border border-slate-200 p-4 rounded-2xl shadow-sm">
+              {/* Left: Dropdowns */}
+              <div className="flex flex-wrap items-center gap-4">
+                <div className="flex items-center space-x-3">
+                  <span className="text-xs font-black text-slate-800 uppercase">View Round</span>
+                  <select
+                    value={selectedRoundFilter}
+                    onChange={e => setSelectedRoundFilter(e.target.value)}
+                    className="bg-emerald-50 border-2 border-emerald-300 rounded-lg px-3 py-1.5 text-sm font-black text-emerald-850 focus:ring-emerald-500 focus:outline-none cursor-pointer shadow-sm transition-all"
+                  >
+                    <option value="TOTAL">All Rounds (Cumulative)</option>
+                    {competition.rounds.map((round: any) => (
+                      <option key={round.id} value={round.id}>{round.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Extra Leaderboard Dropdown */}
+                <div className="flex items-center space-x-3">
+                  <span className="text-xs font-black text-slate-800 uppercase">Leaderboard</span>
+                  <select
+                    value={selectedLeaderboardType}
+                    onChange={e => setSelectedLeaderboardType(e.target.value)}
+                    className="bg-emerald-50 border-2 border-emerald-300 rounded-lg px-3 py-1.5 text-sm font-black text-emerald-850 focus:ring-emerald-500 focus:outline-none cursor-pointer shadow-sm transition-all"
+                  >
+                    <option value="MAIN">
+                      {competition.type === 'TEAM_MATCHPLAY'
+                        ? 'Team Matchplay'
+                        : competition.type === 'MATCHPLAY'
+                          ? 'Matchplays'
+                          : `Main Standings (${competition.type === 'NETTO_STABLEFORD' ? 'Stableford Netto' : competition.type})`
+                      }
+                    </option>
+                    {selectedExtraLeaderboards.includes('STROKEPLAY') && competition.type !== 'STROKEPLAY_GROSS' && (
+                      <option value="STROKEPLAY">Strokeplay Gross</option>
+                    )}
+                    {selectedExtraLeaderboards.includes('STABLEFORD_NETTO') && competition.type !== 'NETTO_STABLEFORD' && (
+                      <option value="STABLEFORD_NETTO">Stableford Netto</option>
+                    )}
+                    {selectedExtraLeaderboards.includes('STABLEFORD_BRUTTO') && (
+                      <option value="STABLEFORD_BRUTTO">Stableford Brutto</option>
+                    )}
+                    {selectedExtraLeaderboards.includes('BIRDIE') && (
+                      <option value="BIRDIE">Birdie Leaderboard</option>
+                    )}
+                    {selectedExtraLeaderboards.includes('DOUBLE_BOGEY_PLUS') && (
+                      <option value="DOUBLE_BOGEY_PLUS">Double Bogey+ Leaderboard</option>
+                    )}
+                    {selectedExtraLeaderboards.includes('PAR_PLUS_SERIES') && (
+                      <option value="PAR_PLUS_SERIES">Par+ Series</option>
+                    )}
+                    {isTeamComp && selectedExtraLeaderboards.includes('TEAM_STROKEPLAY') && (
+                      <option value="TEAM_STROKEPLAY">Team Strokeplay</option>
+                    )}
+                    {isTeamComp && selectedExtraLeaderboards.includes('TEAM_STABLEFORD_NETTO') && (
+                      <option value="TEAM_STABLEFORD_NETTO">Team Stableford Netto</option>
+                    )}
+                    {isTeamComp && selectedExtraLeaderboards.includes('TEAM_STABLEFORD_BRUTTO') && (
+                      <option value="TEAM_STABLEFORD_BRUTTO">Team Stableford Brutto</option>
+                    )}
+                    {competition.rounds.some((r: any) => r.matches?.some((m: any) => m.type === "SINGLES")) && competition.type !== 'MATCHPLAY' && (
+                      <option value="MATCHPLAY">Matchplays</option>
+                    )}
+                    {competition.rounds.some((r: any) => r.matches?.some((m: any) => m.type === "TEAM_MATCHPLAY")) && competition.type !== 'TEAM_MATCHPLAY' && (
+                      <option value="TEAM_MATCHPLAY">Team Matchplay</option>
+                    )}
+                    {selectedExtraLeaderboards.includes('MVP') && (
+                      <option value="MVP">MVP Leaderboard</option>
+                    )}
+                  </select>
+                </div>
               </div>
 
-              {/* Extra Leaderboard Dropdown */}
-              <div className="flex items-center space-x-3">
-                <span className="text-xs font-black text-slate-800 uppercase">Leaderboard</span>
-                <select
-                  value={selectedLeaderboardType}
-                  onChange={e => setSelectedLeaderboardType(e.target.value)}
-                  className="bg-emerald-50 border-2 border-emerald-300 rounded-lg px-3 py-1.5 text-sm font-black text-emerald-850 focus:ring-emerald-500 focus:outline-none cursor-pointer shadow-sm transition-all"
+              {/* Right: Share & Refresh Buttons */}
+              <div className="flex items-center space-x-2 sm:ml-auto">
+                {/* Share View Button */}
+                <button
+                  onClick={handleShareView}
+                  className="p-2.5 bg-slate-50 hover:bg-emerald-50 text-slate-500 hover:text-emerald-600 rounded-lg border border-slate-200 transition-colors shadow-sm inline-flex items-center justify-center cursor-pointer"
+                  title="Share Current View"
                 >
-                  <option value="MAIN">
-                    {competition.type === 'TEAM_MATCHPLAY'
-                      ? 'Team Matchplay'
-                      : competition.type === 'MATCHPLAY'
-                        ? 'Matchplays'
-                        : `Main Standings (${competition.type === 'NETTO_STABLEFORD' ? 'Stableford Netto' : competition.type})`
-                    }
-                  </option>
-                  {selectedExtraLeaderboards.includes('STROKEPLAY') && competition.type !== 'STROKEPLAY_GROSS' && (
-                    <option value="STROKEPLAY">Strokeplay Gross</option>
+                  {shareCopied ? (
+                    <CheckCircle size={16} className="text-emerald-600 animate-pulse" />
+                  ) : (
+                    <Share2 size={16} />
                   )}
-                  {selectedExtraLeaderboards.includes('STABLEFORD_NETTO') && competition.type !== 'NETTO_STABLEFORD' && (
-                    <option value="STABLEFORD_NETTO">Stableford Netto</option>
-                  )}
-                  {selectedExtraLeaderboards.includes('STABLEFORD_BRUTTO') && (
-                    <option value="STABLEFORD_BRUTTO">Stableford Brutto</option>
-                  )}
-                  {selectedExtraLeaderboards.includes('BIRDIE') && (
-                    <option value="BIRDIE">Birdie Leaderboard</option>
-                  )}
-                  {selectedExtraLeaderboards.includes('DOUBLE_BOGEY_PLUS') && (
-                    <option value="DOUBLE_BOGEY_PLUS">Double Bogey+ Leaderboard</option>
-                  )}
-                  {selectedExtraLeaderboards.includes('PAR_PLUS_SERIES') && (
-                    <option value="PAR_PLUS_SERIES">Par+ Series</option>
-                  )}
-                  {isTeamComp && selectedExtraLeaderboards.includes('TEAM_STROKEPLAY') && (
-                    <option value="TEAM_STROKEPLAY">Team Strokeplay</option>
-                  )}
-                  {isTeamComp && selectedExtraLeaderboards.includes('TEAM_STABLEFORD_NETTO') && (
-                    <option value="TEAM_STABLEFORD_NETTO">Team Stableford Netto</option>
-                  )}
-                  {isTeamComp && selectedExtraLeaderboards.includes('TEAM_STABLEFORD_BRUTTO') && (
-                    <option value="TEAM_STABLEFORD_BRUTTO">Team Stableford Brutto</option>
-                  )}
-                  {competition.rounds.some((r: any) => r.matches?.some((m: any) => m.type === "SINGLES")) && competition.type !== 'MATCHPLAY' && (
-                    <option value="MATCHPLAY">Matchplays</option>
-                  )}
-                  {competition.rounds.some((r: any) => r.matches?.some((m: any) => m.type === "TEAM_MATCHPLAY")) && competition.type !== 'TEAM_MATCHPLAY' && (
-                    <option value="TEAM_MATCHPLAY">Team Matchplay</option>
-                  )}
-                  {selectedExtraLeaderboards.includes('MVP') && (
-                    <option value="MVP">MVP Leaderboard</option>
-                  )}
-                </select>
+                </button>
+
+                {/* Refresh Leaderboard Button */}
+                <button
+                  onClick={handleRefresh}
+                  disabled={isRefreshing}
+                  className="p-2.5 bg-slate-50 hover:bg-emerald-50 text-slate-500 hover:text-emerald-600 rounded-lg border border-slate-200 transition-colors shadow-sm inline-flex items-center justify-center cursor-pointer"
+                  title="Leaderboard aktualisieren"
+                >
+                  <RefreshCw size={16} className={isRefreshing ? "animate-spin text-emerald-600" : ""} />
+                </button>
               </div>
-
-              {/* Share View Button */}
-              <button
-                onClick={handleShareView}
-                className="p-2.5 bg-slate-50 hover:bg-emerald-50 text-slate-500 hover:text-emerald-600 rounded-lg border border-slate-200 transition-colors shadow-sm inline-flex items-center justify-center cursor-pointer ml-2"
-                title="Share Current View"
-              >
-                {shareCopied ? (
-                  <CheckCircle size={16} className="text-emerald-600 animate-pulse" />
-                ) : (
-                  <Share2 size={16} />
-                )}
-              </button>
-
-              {/* Refresh Leaderboard Button */}
-              <button
-                onClick={handleRefresh}
-                disabled={isRefreshing}
-                className="p-2.5 bg-slate-50 hover:bg-emerald-50 text-slate-500 hover:text-emerald-600 rounded-lg border border-slate-200 transition-colors shadow-sm inline-flex items-center justify-center cursor-pointer ml-1.5"
-                title="Leaderboard aktualisieren"
-              >
-                <RefreshCw size={16} className={isRefreshing ? "animate-spin text-emerald-600" : ""} />
-              </button>
             </div>
 
             {(() => {

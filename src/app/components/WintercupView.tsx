@@ -645,51 +645,56 @@ export function WintercupView({ competition, session }: WintercupViewProps) {
         {activeTab === 'leaderboard' && (
           <div className="space-y-6">
             {/* Filter Controls Bar (Exact layout from user screenshot) */}
-            <div className="flex flex-col sm:flex-row gap-4 sm:justify-between sm:items-center bg-white/35 backdrop-blur-sm border border-slate-200 p-4 rounded-2xl shadow-sm">
-              
-              {/* VIEW ROUND Dropdown */}
-              <div className="flex items-center space-x-3">
-                <span className="text-xs font-black text-slate-800 uppercase tracking-wider">VIEW ROUND</span>
-                <select
-                  value={selectedRoundFilter}
-                  onChange={(e) => setSelectedRoundFilter(e.target.value)}
-                  className="bg-emerald-50 border-2 border-emerald-300 rounded-lg px-3 py-1.5 text-sm font-black text-emerald-850 focus:ring-emerald-500 focus:outline-none cursor-pointer shadow-sm transition-all"
-                >
-                  <option value="TOTAL">All Rounds (Vorrunde Leaderboard)</option>
-                  {vorrundeRounds.map((r: any, idx: number) => (
-                    <option key={r.id} value={`R${idx + 1}`}>
-                      {r.name} ({r.course?.name || "Golfplatz"})
-                    </option>
-                  ))}
-                  {rZwischen && (
-                    <option value="ZW">Zwischenrunde ({rZwischen.course?.name || "Golfplatz"})</option>
-                  )}
-                  {(rAF || rVF || rHF || rFin) && (
-                    <option value="PLAYOFFS">Playoffs ({qual.playoffStages.join(", ")})</option>
-                  )}
-                </select>
+            <div className="flex flex-col sm:flex-row gap-4 justify-between sm:items-center bg-white/35 backdrop-blur-sm border border-slate-200 p-4 rounded-2xl shadow-sm">
+              {/* Left: Dropdowns */}
+              <div className="flex flex-wrap items-center gap-4">
+                {/* VIEW ROUND Dropdown */}
+                <div className="flex items-center space-x-3">
+                  <span className="text-xs font-black text-slate-800 uppercase tracking-wider">VIEW ROUND</span>
+                  <select
+                    value={selectedRoundFilter}
+                    onChange={(e) => setSelectedRoundFilter(e.target.value)}
+                    className="bg-emerald-50 border-2 border-emerald-300 rounded-lg px-3 py-1.5 text-sm font-black text-emerald-850 focus:ring-emerald-500 focus:outline-none cursor-pointer shadow-sm transition-all"
+                  >
+                    <option value="TOTAL">All Rounds (Vorrunde Leaderboard)</option>
+                    {vorrundeRounds.map((r: any, idx: number) => (
+                      <option key={r.id} value={`R${idx + 1}`}>
+                        {r.name} ({r.course?.name || "Golfplatz"})
+                      </option>
+                    ))}
+                    {rZwischen && (
+                      <option value="ZW">Zwischenrunde ({rZwischen.course?.name || "Golfplatz"})</option>
+                    )}
+                    {(rAF || rVF || rHF || rFin) && (
+                      <option value="PLAYOFFS">Playoffs ({qual.playoffStages.join(", ")})</option>
+                    )}
+                  </select>
+                </div>
+
+                {/* LEADERBOARD / VIEW Dropdown */}
+                <div className="flex items-center space-x-3">
+                  <span className="text-xs font-black text-slate-800 uppercase tracking-wider">LEADERBOARD</span>
+                  <select
+                    value={selectedLeaderboardType}
+                    onChange={(e) => setSelectedLeaderboardType(e.target.value)}
+                    className="bg-emerald-50 border-2 border-emerald-300 rounded-lg px-3 py-1.5 text-sm font-black text-emerald-850 focus:ring-emerald-500 focus:outline-none cursor-pointer shadow-sm transition-all"
+                  >
+                    <option value="PAIRINGS">Pairings (Partien & Auslosung)</option>
+                    {(selectedRoundFilter.startsWith("R") || selectedRoundFilter === "TOTAL") && (
+                      <option value="MAIN">Leaderboard (Match-Punkte)</option>
+                    )}
+                    <option value="NETTO">Netto-Leaderboard (NP Points)</option>
+                    <option value="BRUTTO">Brutto-Leaderboard (BP Points)</option>
+                  </select>
+                </div>
               </div>
 
-              {/* LEADERBOARD / VIEW Dropdown */}
-              <div className="flex items-center space-x-3">
-                <span className="text-xs font-black text-slate-800 uppercase tracking-wider">LEADERBOARD</span>
-                <select
-                  value={selectedLeaderboardType}
-                  onChange={(e) => setSelectedLeaderboardType(e.target.value)}
-                  className="bg-emerald-50 border-2 border-emerald-300 rounded-lg px-3 py-1.5 text-sm font-black text-emerald-850 focus:ring-emerald-500 focus:outline-none cursor-pointer shadow-sm transition-all"
-                >
-                  <option value="PAIRINGS">Pairings (Partien & Auslosung)</option>
-                  {(selectedRoundFilter.startsWith("R") || selectedRoundFilter === "TOTAL") && (
-                    <option value="MAIN">Leaderboard (Match-Punkte)</option>
-                  )}
-                  <option value="NETTO">Netto-Leaderboard (NP Points)</option>
-                  <option value="BRUTTO">Brutto-Leaderboard (BP Points)</option>
-                </select>
-
+              {/* Right: Share & Refresh Buttons */}
+              <div className="flex items-center space-x-2 sm:ml-auto">
                 {/* Share Button */}
                 <button
                   onClick={handleShareView}
-                  className="p-2.5 bg-slate-50 hover:bg-emerald-50 text-slate-500 hover:text-emerald-600 rounded-lg border border-slate-200 transition-colors shadow-sm inline-flex items-center justify-center cursor-pointer ml-2"
+                  className="p-2.5 bg-slate-50 hover:bg-emerald-50 text-slate-500 hover:text-emerald-600 rounded-lg border border-slate-200 transition-colors shadow-sm inline-flex items-center justify-center cursor-pointer"
                   title="Share Current View"
                 >
                   {shareCopied ? (
@@ -703,13 +708,12 @@ export function WintercupView({ competition, session }: WintercupViewProps) {
                 <button
                   onClick={handleRefresh}
                   disabled={isRefreshing}
-                  className="p-2.5 bg-slate-50 hover:bg-emerald-50 text-slate-500 hover:text-emerald-600 rounded-lg border border-slate-200 transition-colors shadow-sm inline-flex items-center justify-center cursor-pointer ml-1.5"
+                  className="p-2.5 bg-slate-50 hover:bg-emerald-50 text-slate-500 hover:text-emerald-600 rounded-lg border border-slate-200 transition-colors shadow-sm inline-flex items-center justify-center cursor-pointer"
                   title="Leaderboard aktualisieren"
                 >
                   <RefreshCw size={16} className={isRefreshing ? "animate-spin text-emerald-600" : ""} />
                 </button>
               </div>
-
             </div>
 
             {/* SECTION A: PAIRINGS (DEFAULT VIEW FOR ANY ROUND) */}

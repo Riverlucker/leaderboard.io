@@ -3,6 +3,7 @@
 import React, { useState } from "react"
 import { X, Calendar, Clock, Save, Loader2, AlertCircle } from "lucide-react"
 import { saveWintercupMatchSchedule } from "@/app/actions/wintercup"
+import { getClConfig } from "@/lib/clFormat"
 
 interface WintercupScheduleModalProps {
   match: any
@@ -21,18 +22,27 @@ export function WintercupScheduleModal({
   onClose,
   onSuccess
 }: WintercupScheduleModalProps) {
-  const is3PlayerMatch = match.type === "GROUP_3" || round.name.startsWith("Vorrunde")
-  const durationText = is3PlayerMatch ? "3 Stunden" : "2 Stunden"
+  const clConfig = getClConfig(competition)
+  const isVorrunde = match.type === "GROUP_3" || round.name.startsWith("Vorrunde")
+  const durationHours = isVorrunde ? (clConfig.slotDurationHoursVorrunde || 3) : (clConfig.slotDurationHoursPlayoff || 2)
+  const durationText = `${durationHours} Stunden`
+  const reqDurationMin = durationHours * 60
+
+  const activePeriod = clConfig.roundPeriods?.find(p => p.roundName === round.name)
+  const minDate = activePeriod?.startDate || (competition.startDate ? new Date(competition.startDate).toISOString().split("T")[0] : "2027-01-02")
+  const maxDate = activePeriod?.endDate || (competition.endDate ? new Date(competition.endDate).toISOString().split("T")[0] : "2027-03-31")
 
   // Initial date / time
-  const initialIso = match.scheduledDate ? new Date(match.scheduledDate) : new Date("2027-01-05T12:00:00")
+  const initialIso = match.scheduledDate ? new Date(match.scheduledDate) : new Date(`${minDate}T12:00:00`)
   
   const formatDateVal = (d: Date) => {
+    if (isNaN(d.getTime())) return minDate
     const pad = (n: number) => String(n).padStart(2, '0')
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
   }
 
   const formatTimeVal = (d: Date) => {
+    if (isNaN(d.getTime())) return "12:00"
     const pad = (n: number) => String(n).padStart(2, '0')
     return `${pad(d.getHours())}:${pad(d.getMinutes())}`
   }
@@ -85,23 +95,17 @@ export function WintercupScheduleModal({
 
     const [h, m] = time.split(":").map(Number)
     const reqStartMin = h * 60 + m
-    const reqDurationMin = is3PlayerMatch ? 180 : 120
     const reqEndMin = reqStartMin + reqDurationMin
 
     // 1. Check Admin Blocked Slots
-    let blockedSlots: any[] = []
-    if (competition.cssConfig) {
-      try {
-        const parsed = JSON.parse(competition.cssConfig)
-        if (Array.isArray(parsed.blockedSlots)) blockedSlots = parsed.blockedSlots
-      } catch (_) {}
-    }
+    const blockedSlots = clConfig.blockedSlots || []
 
     for (const slot of blockedSlots) {
       if (slot.date === dateStr) {
         if (slot.isFullDay) {
-          return { isBlocked: true, label: `${time} Uhr (Tag gesperrt)` }
+          return { isBlocked: true, label: `${time} Uhr (Ganzer Tag gesperrt)` }
         }
+
         if (slot.startTime && slot.endTime) {
           const [sH, sM] = slot.startTime.split(":").map(Number)
           const [eH, eM] = slot.endTime.split(":").map(Number)
@@ -109,34 +113,38 @@ export function WintercupScheduleModal({
           const slotEndMin = eH * 60 + eM
 
           if (reqStartMin < slotEndMin && reqEndMin > slotStartMin) {
-            return { isBlocked: true, label: `${time} Uhr (Admin-Sperrzeit)` }
+            return { isBlocked: true, label: `${time} Uhr (Admin-Sperre)` }
           }
         }
       }
     }
 
-    // 2. Check Match Collisions on same date
-    const rounds = competition.rounds || []
-    for (const r of rounds) {
-      const matches = r.matches || []
-      for (const mObj of matches) {
-        if (mObj.id === match.id || !mObj.scheduledDate) continue
-        const mDate = new Date(mObj.scheduledDate)
-        const pad = (n: number) => String(n).padStart(2, '0')
-        const mDateStr = `${mDate.getFullYear()}-${pad(mDate.getMonth() + 1)}-${pad(mDate.getDate())}`
+    // 2. Check Other Matches collisions (if exclusiveScheduling is enabled)
+    if (clConfig.exclusiveScheduling) {
+      const rounds = competition.rounds || []
+      for (const r of rounds) {
+        const matches = r.matches || []
+        for (const mObj of matches) {
+          if (mObj.id === match.id || !mObj.scheduledDate) continue
+          const mDate = new Date(mObj.scheduledDate)
+          const pad = (n: number) => String(n).padStart(2, '0')
+          const mDateStr = `${mDate.getFullYear()}-${pad(mDate.getMonth() + 1)}-${pad(mDate.getDate())}`
 
-        if (mDateStr === dateStr) {
-          const mStartMin = mDate.getHours() * 60 + mDate.getMinutes()
-          const mDurationMin = (mObj.type === "GROUP_3" || r.name.startsWith("Vorrunde") ? 180 : 120)
-          const mEndMin = mStartMin + mDurationMin
+          if (mDateStr === dateStr) {
+            const mStartMin = mDate.getHours() * 60 + mDate.getMinutes()
+            const mIsVorrunde = mObj.type === "GROUP_3" || r.name.startsWith("Vorrunde")
+            const mDurationHours = mIsVorrunde ? (clConfig.slotDurationHoursVorrunde || 3) : (clConfig.slotDurationHoursPlayoff || 2)
+            const mDurationMin = mDurationHours * 60
+            const mEndMin = mStartMin + mDurationMin
 
-          if (reqStartMin < mEndMin && reqEndMin > mStartMin) {
-            const pad = (n: number) => String(n).padStart(2, '0')
-            const mStartStr = `${pad(mDate.getHours())}:${pad(mDate.getMinutes())}`
-            const mEndH = Math.floor(mEndMin / 60)
-            const mEndM = mEndMin % 60
-            const mEndStr = `${pad(mEndH)}:${pad(mEndM)}`
-            return { isBlocked: true, label: `${time} Uhr (Match ${mStartStr}–${mEndStr})` }
+            if (reqStartMin < mEndMin && reqEndMin > mStartMin) {
+              const pad = (n: number) => String(n).padStart(2, '0')
+              const mStartStr = `${pad(mDate.getHours())}:${pad(mDate.getMinutes())}`
+              const mEndH = Math.floor(mEndMin / 60)
+              const mEndM = mEndMin % 60
+              const mEndStr = `${pad(mEndH)}:${pad(mEndM)}`
+              return { isBlocked: true, label: `${time} Uhr (Match ${mStartStr}–${mEndStr})` }
+            }
           }
         }
       }
@@ -153,7 +161,7 @@ export function WintercupScheduleModal({
         <div className="flex justify-between items-start border-b border-slate-200 pb-3">
           <div>
             <span className="text-xs uppercase tracking-wider font-extrabold text-emerald-700">
-              {round.name} • {round.course?.name || "Golfsimulator"}
+              {round.name} • {round.course?.name || "Golfplatz"}
             </span>
             <h3 className="text-lg font-black text-slate-900 mt-0.5 flex items-center space-x-2">
               <Calendar size={18} className="text-emerald-700" />
@@ -162,7 +170,7 @@ export function WintercupScheduleModal({
           </div>
           <button 
             onClick={onClose} 
-            className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-slate-800 transition-colors"
+            className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
           >
             <X size={20} />
           </button>
@@ -178,7 +186,14 @@ export function WintercupScheduleModal({
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-xs text-emerald-900 font-medium space-y-1">
             <p>Spieldauer für diese Partie: <strong>{durationText}</strong></p>
-            <p className="text-[11px] text-emerald-800">Termine: 03. Jan – 15. März 2027 (10:00 – 21:00 Uhr).</p>
+            <p className="text-[11px] text-emerald-800">
+              Zeitraum: {minDate} bis {maxDate} (10:00 – 21:00 Uhr).
+            </p>
+            {clConfig.exclusiveScheduling && (
+              <p className="text-[10px] text-emerald-700 font-bold">
+                Exklusive Terminierung: Überschneidungen mit anderen Matches sind gesperrt.
+              </p>
+            )}
           </div>
 
           <div>
@@ -187,8 +202,8 @@ export function WintercupScheduleModal({
             </label>
             <input
               type="date"
-              min="2027-01-03"
-              max="2027-03-15"
+              min={minDate}
+              max={maxDate}
               value={dateStr}
               onChange={(e) => setDateStr(e.target.value)}
               required
@@ -231,14 +246,14 @@ export function WintercupScheduleModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl border border-slate-300 transition-colors"
+              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl border border-slate-300 transition-colors cursor-pointer"
             >
               Abbrechen
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="flex items-center space-x-2 px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black rounded-xl transition-all shadow-md disabled:opacity-50"
+              className="flex items-center space-x-2 px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black rounded-xl transition-all shadow-md disabled:opacity-50 cursor-pointer"
             >
               {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
               <span>{isSubmitting ? "Terminieren..." : "Termin Speichern"}</span>

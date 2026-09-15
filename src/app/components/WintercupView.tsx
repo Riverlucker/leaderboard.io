@@ -1,16 +1,17 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useTransition } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { signIn, signOut } from "next-auth/react"
 import { 
   Trophy, Home, LogOut, Key, Share2, BookOpen, Settings, Edit, 
-  CheckCircle, CheckCircle2, Edit3, Award, Calendar, Clock, Lock
+  CheckCircle, CheckCircle2, Edit3, Award, Calendar, Clock, Lock, EyeOff, RefreshCw
 } from "lucide-react"
 import { WintercupScoreModal } from "./WintercupScoreModal"
 import { WintercupScheduleModal } from "./WintercupScheduleModal"
 import { WintercupAdminView } from "./WintercupAdminView"
+import { getClConfig, isRoundPairingsAnonymized, getQualificationStructure } from "@/lib/clFormat"
 
 interface WintercupViewProps {
   competition: any
@@ -18,6 +19,8 @@ interface WintercupViewProps {
 }
 
 export function WintercupView({ competition, session }: WintercupViewProps) {
+  const clConfig = getClConfig(competition)
+  const qual = getQualificationStructure(clConfig)
   const router = useRouter()
 
   let primaryColor = "#059669"
@@ -39,10 +42,46 @@ export function WintercupView({ competition, session }: WintercupViewProps) {
   const [matchSortOption, setMatchSortOption] = useState<'MATCH_NUM' | 'PLAYED_FIRST' | 'SOONEST_FIRST'>('MATCH_NUM')
 
   const [shareCopied, setShareCopied] = useState(false)
+  const [manualRefreshing, setManualRefreshing] = useState(false)
+  const [isPending, startTransition] = useTransition()
+
+  const handleRefresh = () => {
+    setManualRefreshing(true)
+    startTransition(() => {
+      router.refresh()
+    })
+    setTimeout(() => {
+      setManualRefreshing(false)
+    }, 600)
+  }
+
+  const isRefreshing = isPending || manualRefreshing
   
   // Modals state
   const [activeModalMatch, setActiveModalMatch] = useState<{ match: any; round: any } | null>(null)
   const [activeScheduleMatch, setActiveScheduleMatch] = useState<{ match: any; round: any } | null>(null)
+
+  // Sync open modals with freshly fetched competition data
+  useEffect(() => {
+    if (activeModalMatch && competition?.rounds) {
+      const freshRound = competition.rounds.find((r: any) => r.id === activeModalMatch.round?.id)
+      if (freshRound) {
+        const freshMatch = freshRound.matches?.find((m: any) => m.id === activeModalMatch.match?.id)
+        if (freshMatch) {
+          setActiveModalMatch({ match: freshMatch, round: freshRound })
+        }
+      }
+    }
+    if (activeScheduleMatch && competition?.rounds) {
+      const freshRound = competition.rounds.find((r: any) => r.id === activeScheduleMatch.round?.id)
+      if (freshRound) {
+        const freshMatch = freshRound.matches?.find((m: any) => m.id === activeScheduleMatch.match?.id)
+        if (freshMatch) {
+          setActiveScheduleMatch({ match: freshMatch, round: freshRound })
+        }
+      }
+    }
+  }, [competition])
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -75,10 +114,15 @@ export function WintercupView({ competition, session }: WintercupViewProps) {
   const participants = competition.participants || []
   const rounds = competition.rounds || []
 
-  const r1 = rounds.find((r: any) => r.name === "Vorrunde 1")
-  const r2 = rounds.find((r: any) => r.name === "Vorrunde 2")
-  const r3 = rounds.find((r: any) => r.name === "Vorrunde 3")
+  const vorrundeRounds = rounds
+    .filter((r: any) => r.name.startsWith("Vorrunde"))
+    .sort((a: any, b: any) => a.name.localeCompare(b.name, undefined, { numeric: true }))
+
+  const r1 = vorrundeRounds[0] || rounds.find((r: any) => r.name === "Vorrunde 1")
+  const r2 = vorrundeRounds[1] || rounds.find((r: any) => r.name === "Vorrunde 2")
+  const r3 = vorrundeRounds[2] || rounds.find((r: any) => r.name === "Vorrunde 3")
   const rZwischen = rounds.find((r: any) => r.name === "Zwischenrunde")
+  const rAF = rounds.find((r: any) => r.name === "Achtelfinale")
   const rVF = rounds.find((r: any) => r.name === "Viertelfinale")
   const rHF = rounds.find((r: any) => r.name === "Halbfinale")
   const rFin = rounds.find((r: any) => r.name === "Finale")
@@ -100,24 +144,20 @@ export function WintercupView({ competition, session }: WintercupViewProps) {
   const getAllMatchesForTotal = () => {
     const list: any[] = []
 
-    if (r1?.matches) {
-      r1.matches.forEach((m: any, idx: number) => {
-        list.push({ ...m, targetRound: r1, roundLabel: "Runde 1", roundOrder: 1, originalIdx: idx, matchKind: "VORRUNDE" })
+    vorrundeRounds.forEach((r: any, rIdx: number) => {
+      (r.matches || []).forEach((m: any, idx: number) => {
+        list.push({ ...m, targetRound: r, roundLabel: r.name, roundOrder: rIdx + 1, originalIdx: idx, matchKind: "VORRUNDE" })
       })
-    }
-    if (r2?.matches) {
-      r2.matches.forEach((m: any, idx: number) => {
-        list.push({ ...m, targetRound: r2, roundLabel: "Runde 2", roundOrder: 2, originalIdx: idx, matchKind: "VORRUNDE" })
-      })
-    }
-    if (r3?.matches) {
-      r3.matches.forEach((m: any, idx: number) => {
-        list.push({ ...m, targetRound: r3, roundLabel: "Runde 3", roundOrder: 3, originalIdx: idx, matchKind: "VORRUNDE" })
-      })
-    }
+    })
+
     if (rZwischen?.matches) {
       rZwischen.matches.forEach((m: any, idx: number) => {
         list.push({ ...m, targetRound: rZwischen, roundLabel: "Zwischenrunde", roundOrder: 4, originalIdx: idx, matchKind: "ZWISCHENRUNDE" })
+      })
+    }
+    if (rAF?.matches) {
+      rAF.matches.forEach((m: any, idx: number) => {
+        list.push({ ...m, targetRound: rAF, roundLabel: "Achtelfinale", roundOrder: 4.5, originalIdx: idx, matchKind: "AF" })
       })
     }
     if (rVF?.matches) {
@@ -263,7 +303,7 @@ export function WintercupView({ competition, session }: WintercupViewProps) {
     return round.matches.every((m: any) => isMatchScoredForRound(m, round.id))
   }
 
-  const isVorrundeComplete = isRoundComplete(r1) && isRoundComplete(r2) && isRoundComplete(r3)
+  const isVorrundeComplete = vorrundeRounds.length > 0 && vorrundeRounds.every((r: any) => isRoundComplete(r))
 
   // Helper to check if a match has scored results
   const isMatchScored = (m: any) => {
@@ -337,9 +377,9 @@ export function WintercupView({ competition, session }: WintercupViewProps) {
     let totalNetto = 0
     let totalBrutto = 0
 
-    const vorrundeRoundIds = [r1?.id, r2?.id, r3?.id].filter(Boolean)
+    const vorrundeRoundIds = vorrundeRounds.map((r: any) => r.id).filter(Boolean)
 
-    vorrundeRoundIds.forEach((rId) => {
+    vorrundeRoundIds.forEach((rId: string) => {
       const s = p.scores?.find((x: any) => x.roundId === rId)
       if (s && s.netStrokes !== null && s.grossStrokes !== null) {
         playedMatches += 1
@@ -447,12 +487,16 @@ export function WintercupView({ competition, session }: WintercupViewProps) {
 
   const isAdminUser = session && (session.user.role === 'ADMIN' || session.user.role === 'SUPER_ADMIN')
 
-  const activeRound = selectedRoundFilter === "R1" ? r1 
-    : selectedRoundFilter === "R2" ? r2 
-    : selectedRoundFilter === "R3" ? r3 
-    : selectedRoundFilter === "ZW" ? rZwischen 
-    : selectedRoundFilter === "PLAYOFFS" ? rVF 
-    : null
+  const getActiveRound = () => {
+    if (selectedRoundFilter.startsWith("R")) {
+      const num = parseInt(selectedRoundFilter.replace("R", ""), 10) - 1
+      return vorrundeRounds[isNaN(num) ? 0 : num] || vorrundeRounds[0] || r1
+    }
+    if (selectedRoundFilter === "ZW") return rZwischen
+    if (selectedRoundFilter === "PLAYOFFS") return rVF || rAF || rHF || rFin
+    return null
+  }
+  const activeRound = getActiveRound()
 
   // Format Scheduled Date (e.g. "Dienstag, 12.01. 12:30")
   const formatScheduledDateDisplay = (dISO: string | Date | null | undefined) => {
@@ -504,9 +548,9 @@ export function WintercupView({ competition, session }: WintercupViewProps) {
         <div className="space-y-0.5">
           <div className="text-[10px] uppercase font-bold tracking-widest text-slate-500">leaderboard.io</div>
           <h1 className="text-sm md:text-xl font-black text-slate-900 flex items-center gap-1.5">
-            <span style={{ color: primaryColor }}>Mattsee Wintercup 27</span>
+            <span style={{ color: primaryColor }}>{competition.name}</span>
             <span className="text-[9px] bg-slate-100 border border-slate-200 text-slate-600 px-1.5 py-0.5 rounded font-mono uppercase tracking-wider">
-              {competition.type}
+              CL-Format
             </span>
           </h1>
         </div>
@@ -612,11 +656,17 @@ export function WintercupView({ competition, session }: WintercupViewProps) {
                   className="bg-emerald-50 border-2 border-emerald-300 rounded-lg px-3 py-1.5 text-sm font-black text-emerald-850 focus:ring-emerald-500 focus:outline-none cursor-pointer shadow-sm transition-all"
                 >
                   <option value="TOTAL">All Rounds (Vorrunde Leaderboard)</option>
-                  <option value="R1">Vorrunde 1 (Adamstal)</option>
-                  <option value="R2">Vorrunde 2 (Schladming)</option>
-                  <option value="R3">Vorrunde 3 (Altentann)</option>
-                  <option value="ZW">Zwischenrunde (Westendorf)</option>
-                  <option value="PLAYOFFS">Playoffs (Viertelfinale bis Finale)</option>
+                  {vorrundeRounds.map((r: any, idx: number) => (
+                    <option key={r.id} value={`R${idx + 1}`}>
+                      {r.name} ({r.course?.name || "Golfplatz"})
+                    </option>
+                  ))}
+                  {rZwischen && (
+                    <option value="ZW">Zwischenrunde ({rZwischen.course?.name || "Golfplatz"})</option>
+                  )}
+                  {(rAF || rVF || rHF || rFin) && (
+                    <option value="PLAYOFFS">Playoffs ({qual.playoffStages.join(", ")})</option>
+                  )}
                 </select>
               </div>
 
@@ -629,7 +679,7 @@ export function WintercupView({ competition, session }: WintercupViewProps) {
                   className="bg-emerald-50 border-2 border-emerald-300 rounded-lg px-3 py-1.5 text-sm font-black text-emerald-850 focus:ring-emerald-500 focus:outline-none cursor-pointer shadow-sm transition-all"
                 >
                   <option value="PAIRINGS">Pairings (Partien & Auslosung)</option>
-                  {(selectedRoundFilter === "R1" || selectedRoundFilter === "R2" || selectedRoundFilter === "R3" || selectedRoundFilter === "TOTAL") && (
+                  {(selectedRoundFilter.startsWith("R") || selectedRoundFilter === "TOTAL") && (
                     <option value="MAIN">Leaderboard (Match-Punkte)</option>
                   )}
                   <option value="NETTO">Netto-Leaderboard (NP Points)</option>
@@ -648,6 +698,16 @@ export function WintercupView({ competition, session }: WintercupViewProps) {
                     <Share2 size={16} />
                   )}
                 </button>
+
+                {/* Refresh Leaderboard Button */}
+                <button
+                  onClick={handleRefresh}
+                  disabled={isRefreshing}
+                  className="p-2.5 bg-slate-50 hover:bg-emerald-50 text-slate-500 hover:text-emerald-600 rounded-lg border border-slate-200 transition-colors shadow-sm inline-flex items-center justify-center cursor-pointer ml-1.5"
+                  title="Leaderboard aktualisieren"
+                >
+                  <RefreshCw size={16} className={isRefreshing ? "animate-spin text-emerald-600" : ""} />
+                </button>
               </div>
 
             </div>
@@ -659,11 +719,21 @@ export function WintercupView({ competition, session }: WintercupViewProps) {
                 {/* ALL ROUNDS PAIRINGS (TOTAL) */}
                 {selectedRoundFilter === "TOTAL" && (
                   <div className="space-y-4">
+                    {isRoundPairingsAnonymized(activeRound?.name || "", clConfig) && (
+                      <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3.5 flex items-center space-x-3 text-amber-900 text-xs font-semibold shadow-xs">
+                        <EyeOff size={18} className="text-amber-600 shrink-0" />
+                        <div>
+                          <span className="font-extrabold block">Paarungen noch verdeckt</span>
+                          <span className="text-amber-700 font-normal">Die Auslosung für {activeRound?.name} wird erst zu Beginn des Spielzeitraums sichtbar geschaltet.</span>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Sub-panel bar with Round title on left, Sort Dropdown on right */}
                     <div className="bg-white/45 backdrop-blur-sm border border-slate-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 text-xs">
                       <div>
                         <span className="font-black text-emerald-700 uppercase tracking-wider block">
-                          Alle Runden • Mattsee Wintercup 27
+                          Alle Runden • {competition.name}
                         </span>
                         <span className="text-slate-600 font-bold text-[11px]">
                           Alle Partien (Vorrunde, Zwischenrunde & Playoffs)
@@ -716,6 +786,7 @@ export function WintercupView({ competition, session }: WintercupViewProps) {
                           }
                           const isScheduled = Boolean(match.scheduledDate)
                           const canEdit = canUserEditMatch(match)
+                          const isAnonymized = isRoundPairingsAnonymized(targetRound?.name || "", clConfig)
 
                           return (
                             <div 
@@ -728,7 +799,12 @@ export function WintercupView({ competition, session }: WintercupViewProps) {
                                   {match.roundLabel} - PARTIE {displayIndex}
                                 </span>
 
-                                {isScored ? (
+                                {isAnonymized ? (
+                                  <span className="inline-flex items-center space-x-1 text-[11px] font-bold text-slate-500 bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded-full">
+                                    <Lock size={12} className="text-slate-400" />
+                                    <span>Auslosung noch verdeckt</span>
+                                  </span>
+                                ) : isScored ? (
                                   <span className="inline-flex items-center space-x-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-300 px-2.5 py-0.5 rounded-full">
                                     <CheckCircle2 size={12} />
                                     <span>{formatPlayedDateDisplay(match.scheduledDate || match.updatedAt || match.createdAt)}</span>
@@ -750,8 +826,8 @@ export function WintercupView({ competition, session }: WintercupViewProps) {
                                 {scoresList.map((item: any, pIdx: number) => {
                                   const p = item.player
                                   const s = item.score
-                                  const pName = p.dummyName || p.user?.name || `Player ${pIdx + 1}`
-                                  const hcp = p.compHandicap !== null && p.compHandicap !== undefined ? p.compHandicap : (pIdx + 1)
+                                  const pName = isAnonymized ? `Spieler ${pIdx + 1}` : (p.dummyName || p.user?.name || `Player ${pIdx + 1}`)
+                                  const hcp = isAnonymized ? "—" : (p.compHandicap !== null && p.compHandicap !== undefined ? p.compHandicap : (pIdx + 1))
 
                                   return (
                                     <div 
@@ -765,7 +841,9 @@ export function WintercupView({ competition, session }: WintercupViewProps) {
                                         </span>
                                       </div>
                                       
-                                      {s && s.netStrokes !== null && s.grossStrokes !== null ? (
+                                      {isAnonymized ? (
+                                        <span className="text-xs text-slate-400 font-mono">—</span>
+                                      ) : s && s.netStrokes !== null && s.grossStrokes !== null ? (
                                         <div className="flex items-center space-x-2 text-xs font-mono">
                                           <span className="text-slate-600">NP: <strong className="text-slate-900">{s.netStrokes}</strong></span>
                                           <span className="text-slate-600">BP: <strong className="text-slate-900">{s.grossStrokes}</strong></span>
@@ -784,13 +862,13 @@ export function WintercupView({ competition, session }: WintercupViewProps) {
                               {/* Card Footer Actions */}
                               <div className="pt-1 flex justify-between items-center text-xs border-t border-slate-100 mt-2">
                                 <span className="text-[11px] font-semibold text-slate-500">
-                                  {canEdit ? (
+                                  {isAnonymized ? "Auslosung wird zum Rundenstart freigeschaltet" : canEdit ? (
                                     isScored ? "Ergebnis eingetragen" : isScheduled ? "Bereit für Score-Eingabe" : "Terminierung erforderlich"
                                   ) : session ? "Nur Beteiligte / Admin" : "Log in zum Scoren/Terminieren"}
                                 </span>
 
                                 <div className="flex items-center space-x-2">
-                                  {canEdit && (
+                                  {!isAnonymized && canEdit && (
                                     <>
                                       {isScored ? (
                                         <button
@@ -982,12 +1060,12 @@ export function WintercupView({ competition, session }: WintercupViewProps) {
                 )}
 
                 {/* Vorrunde Single Round Pairings (R1, R2, R3) */}
-                {(selectedRoundFilter === "R1" || selectedRoundFilter === "R2" || selectedRoundFilter === "R3") && (
+                {(selectedRoundFilter.startsWith("R")) && (
                   <div className="space-y-4">
                     {/* Sub-panel bar with Round title on left, Sort Dropdown on right */}
                     <div className="bg-white/45 backdrop-blur-sm border border-slate-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 text-xs">
                       <span className="font-black text-emerald-700 uppercase tracking-wider">
-                        {activeRound?.name || "Vorrunde 1"} • {activeRound?.course?.name || "Adamstal"}
+                        {activeRound?.name || "Vorrunde"} • {activeRound?.course?.name || "Golfplatz"}
                       </span>
 
                       {/* Right top Sort Dropdown */}
@@ -1035,6 +1113,7 @@ export function WintercupView({ competition, session }: WintercupViewProps) {
                         const isScheduled = Boolean(match.scheduledDate)
                         const canEdit = canUserEditMatch(match)
                         const displayIndex = match.originalIdx !== undefined ? match.originalIdx + 1 : idx + 1
+                        const isAnonymized = isRoundPairingsAnonymized(targetRound?.name || "", clConfig)
 
                         return (
                           <div 
@@ -1047,7 +1126,12 @@ export function WintercupView({ competition, session }: WintercupViewProps) {
                                 PARTIE {displayIndex}
                               </span>
 
-                              {isScored ? (
+                              {isAnonymized ? (
+                                <span className="inline-flex items-center space-x-1 text-[11px] font-bold text-slate-500 bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded-full">
+                                  <Lock size={12} className="text-slate-400" />
+                                  <span>Auslosung noch verdeckt</span>
+                                </span>
+                              ) : isScored ? (
                                 <span className="inline-flex items-center space-x-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-300 px-2.5 py-0.5 rounded-full">
                                   <CheckCircle2 size={12} />
                                   <span>{formatPlayedDateDisplay(match.scheduledDate || match.updatedAt || match.createdAt)}</span>
@@ -1069,8 +1153,8 @@ export function WintercupView({ competition, session }: WintercupViewProps) {
                               {scoresList.map((item: any, pIdx: number) => {
                                 const p = item.player
                                 const s = item.score
-                                const pName = p.dummyName || p.user?.name || `Player ${pIdx + 1}`
-                                const hcp = p.compHandicap !== null && p.compHandicap !== undefined ? p.compHandicap : (pIdx + 1)
+                                const pName = isAnonymized ? `Spieler ${pIdx + 1}` : (p.dummyName || p.user?.name || `Player ${pIdx + 1}`)
+                                const hcp = isAnonymized ? "—" : (p.compHandicap !== null && p.compHandicap !== undefined ? p.compHandicap : (pIdx + 1))
 
                                 return (
                                   <div 
@@ -1084,7 +1168,9 @@ export function WintercupView({ competition, session }: WintercupViewProps) {
                                       </span>
                                     </div>
                                     
-                                    {s && s.netStrokes !== null && s.grossStrokes !== null ? (
+                                    {isAnonymized ? (
+                                      <span className="text-xs text-slate-400 font-mono">—</span>
+                                    ) : s && s.netStrokes !== null && s.grossStrokes !== null ? (
                                       <div className="flex items-center space-x-2 text-xs font-mono">
                                         <span className="text-slate-600">NP: <strong className="text-slate-900">{s.netStrokes}</strong></span>
                                         <span className="text-slate-600">BP: <strong className="text-slate-900">{s.grossStrokes}</strong></span>
@@ -1190,7 +1276,7 @@ export function WintercupView({ competition, session }: WintercupViewProps) {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {sortRoundMatches(rZwischen?.matches || [], rZwischen?.id).map((match: any, idx: number) => {
-                        const seedPairs = [
+                        const seedPairs = qual.zwischenrundePairs.length > 0 ? qual.zwischenrundePairs : [
                           { p1Rank: 5, p2Rank: 12, title: "Zwischenrunde 1 (5. vs 12.)" },
                           { p1Rank: 6, p2Rank: 11, title: "Zwischenrunde 2 (6. vs 11.)" },
                           { p1Rank: 7, p2Rank: 10, title: "Zwischenrunde 3 (7. vs 10.)" },
@@ -1640,7 +1726,10 @@ export function WintercupView({ competition, session }: WintercupViewProps) {
                     Wertung: <strong className="text-slate-900">{selectedLeaderboardType === "MAIN" ? "Match-Punkte (4/2/0)" : selectedLeaderboardType === "NETTO" ? "Netto Stableford (NP)" : "Brutto Stableford (BP)"}</strong>
                   </div>
                   <div>
-                    <span className="text-emerald-700 font-black">Top 4 = Viertelfinale</span> • <span className="text-cyan-700 font-black">5.–12. = Zwischenrunde</span>
+                    <span className="text-emerald-700 font-black">Top {qual.directPlayoffRanks.length} = {qual.playoffStages[0]}</span>
+                    {qual.zwischenrundePairs.length > 0 && (
+                      <span> • <span className="text-cyan-700 font-black">{qual.directPlayoffRanks.length + 1}.–{qual.directPlayoffRanks.length + qual.zwischenrundePairs.length * 2}. = Zwischenrunde</span></span>
+                    )}
                   </div>
                 </div>
 
@@ -1660,14 +1749,14 @@ export function WintercupView({ competition, session }: WintercupViewProps) {
                       </thead>
                       <tbody className="divide-y divide-slate-100 text-sm font-medium text-slate-800">
                         {rankedStandings.map((row: any) => {
-                          const isTop4 = row.originalRank <= 4
-                          const isPlayIn = row.originalRank >= 5 && row.originalRank <= 12
+                          const isDirectPlayoff = row.originalRank <= qual.directPlayoffRanks.length
+                          const isPlayIn = qual.zwischenrundePairs.length > 0 && row.originalRank > qual.directPlayoffRanks.length && row.originalRank <= (qual.directPlayoffRanks.length + qual.zwischenrundePairs.length * 2)
 
                           return (
                             <tr 
                               key={row.participant.id}
                               className={`hover:bg-slate-50 transition-colors ${
-                                isTop4 
+                                isDirectPlayoff 
                                   ? "bg-emerald-50/40 border-l-4 border-l-emerald-500" 
                                   : isPlayIn 
                                   ? "bg-cyan-50/40 border-l-4 border-l-cyan-500" 
@@ -1683,7 +1772,7 @@ export function WintercupView({ competition, session }: WintercupViewProps) {
                               </td>
 
                               <td className="py-3.5 px-4 text-center font-mono text-slate-600">
-                                {row.playedMatches} / 3
+                                {row.playedMatches} / {clConfig.vorrundenCount}
                               </td>
 
                               <td className="py-3.5 px-4 text-center">
@@ -1701,9 +1790,9 @@ export function WintercupView({ competition, session }: WintercupViewProps) {
                               </td>
 
                               <td className="py-3.5 px-4 text-right pr-6 text-xs font-extrabold">
-                                {isTop4 ? (
+                                {isDirectPlayoff ? (
                                   <span className="text-emerald-800 bg-emerald-100 border border-emerald-300 px-2.5 py-1 rounded-full">
-                                    Viertelfinale
+                                    {qual.playoffStages[0]}
                                   </span>
                                 ) : isPlayIn ? (
                                   <span className="text-cyan-800 bg-cyan-100 border border-cyan-300 px-2.5 py-1 rounded-full">

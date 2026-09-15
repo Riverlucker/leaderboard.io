@@ -1,7 +1,7 @@
 "use client"
 
 import React from "react"
-import { X, Share2, CheckCircle } from "lucide-react"
+import { X, Share2, CheckCircle, RefreshCw } from "lucide-react"
 import { getHandicapStrokesOnHole, calculateStablefordPoints, getRoundHoleInfo } from "@/lib/scoring"
 import { getPlayingHandicap } from "../CompetitionClientView"
 
@@ -13,6 +13,8 @@ interface PlayerScorecardModalProps {
   onClose: () => void
   onShare?: () => void
   shareCopied?: boolean
+  onRefresh?: () => void
+  isRefreshing?: boolean
 }
 
 export function PlayerScorecardModal({
@@ -22,25 +24,28 @@ export function PlayerScorecardModal({
   selectedLeaderboardType,
   onClose,
   onShare,
-  shareCopied
+  shareCopied,
+  onRefresh,
+  isRefreshing
 }: PlayerScorecardModalProps) {
+  const currentParticipant = competition.participants?.find((p: any) => p.id === selectedParticipantForScorecard?.id) || selectedParticipantForScorecard
   return (
     <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
       <div className="bg-white border border-slate-200 rounded-2xl max-w-4xl w-full p-6 shadow-2xl space-y-4 overflow-hidden max-h-[90vh] flex flex-col text-slate-800">
         <div className="flex justify-between items-center border-b border-slate-200 pb-3">
           <div>
             <h3 className="text-xl font-bold text-slate-900">
-              {selectedParticipantForScorecard.userId ? (selectedParticipantForScorecard.user?.name || selectedParticipantForScorecard.user?.email) : selectedParticipantForScorecard.dummyName}
+              {currentParticipant.userId ? (currentParticipant.user?.name || currentParticipant.user?.email) : currentParticipant.dummyName}
             </h3>
             <p className="text-xs text-slate-550">
-              Competition Handicap Index: {selectedParticipantForScorecard.compHandicap !== null ? selectedParticipantForScorecard.compHandicap.toFixed(1) : "-"}
+              Competition Handicap Index: {currentParticipant.compHandicap !== null ? currentParticipant.compHandicap.toFixed(1) : "-"}
             </p>
           </div>
           <div className="flex items-center space-x-2">
             {onShare && (
               <button
                 onClick={onShare}
-                className="p-1.5 bg-slate-50 border border-slate-200 text-slate-500 hover:text-emerald-655 rounded-lg hover:bg-emerald-50 transition-colors shadow-sm focus:outline-none cursor-pointer"
+                className="p-1.5 bg-slate-50 border border-slate-200 text-slate-500 hover:text-emerald-600 rounded-lg hover:bg-emerald-50 transition-colors shadow-sm focus:outline-none cursor-pointer"
                 title="Copy Scorecard Share Link"
               >
                 {shareCopied ? (
@@ -48,6 +53,16 @@ export function PlayerScorecardModal({
                 ) : (
                   <Share2 size={16} />
                 )}
+              </button>
+            )}
+            {onRefresh && (
+              <button
+                onClick={onRefresh}
+                disabled={isRefreshing}
+                className="p-1.5 bg-slate-50 border border-slate-200 text-slate-500 hover:text-emerald-600 rounded-lg hover:bg-emerald-50 transition-colors shadow-sm focus:outline-none cursor-pointer"
+                title="Scorekarte aktualisieren"
+              >
+                <RefreshCw size={16} className={isRefreshing ? "animate-spin text-emerald-600" : ""} />
               </button>
             )}
             <button
@@ -69,7 +84,7 @@ export function PlayerScorecardModal({
                           round.course.tees[0]
 
               // Course Handicap
-              const courseHandicap = getPlayingHandicap(selectedParticipantForScorecard, round)
+              const courseHandicap = getPlayingHandicap(currentParticipant, round)
 
               const frontHoleNums = Array.from({ length: 9 }, (_, i) => i + 1)
               const backHoleNums = Array.from({ length: 9 }, (_, i) => i + 10)
@@ -162,7 +177,7 @@ export function PlayerScorecardModal({
 
                             const holePar = adjusted ? adjusted.par : hole.par
 
-                            const score = selectedParticipantForScorecard.scores.find(
+                            const score = (currentParticipant.scores || []).find(
                               (s: any) => s.roundId === round.id && s.holeId === hole.id
                             )
 
@@ -252,7 +267,7 @@ export function PlayerScorecardModal({
                             const holePar = adjusted ? adjusted.par : hole.par
                             const holeStrokeIndex = adjusted ? adjusted.strokeIndex : hole.strokeIndex
 
-                            const score = selectedParticipantForScorecard.scores.find(
+                            const score = currentParticipant.scores?.find(
                               (s: any) => s.roundId === round.id && s.holeId === hole.id
                             )
 

@@ -1,7 +1,7 @@
 "use client"
 
 import React from "react"
-import { X, Share2, CheckCircle } from "lucide-react"
+import { X, Share2, CheckCircle, RefreshCw } from "lucide-react"
 import { getRoundHoleInfo } from "@/lib/scoring"
 import {
   getPlayingHandicap,
@@ -21,6 +21,8 @@ interface MatchplayScorecardModalProps {
   computeMatchplayStatus: (match: any, round: any) => any
   onShare?: () => void
   shareCopied?: boolean
+  onRefresh?: () => void
+  isRefreshing?: boolean
 }
 
 export function MatchplayScorecardModal({
@@ -30,10 +32,12 @@ export function MatchplayScorecardModal({
   onClose,
   computeMatchplayStatus,
   onShare,
-  shareCopied
+  shareCopied,
+  onRefresh,
+  isRefreshing
 }: MatchplayScorecardModalProps) {
-  const round = selectedMatchRoundForScorecard
-  const match = selectedMatchForScorecard
+  const round = competition?.rounds?.find((r: any) => r.id === selectedMatchRoundForScorecard?.id) || selectedMatchRoundForScorecard
+  const match = round?.matches?.find((m: any) => m.id === selectedMatchForScorecard?.id) || selectedMatchForScorecard
 
   const isTeamMatchplay = match.type === 'TEAM_MATCHPLAY'
   const pIds = match.matchPlayers.map((mp: any) => mp.participantId)
@@ -554,7 +558,7 @@ export function MatchplayScorecardModal({
             {onShare && (
               <button
                 onClick={onShare}
-                className="p-1.5 bg-slate-50 border border-slate-200 text-slate-500 hover:text-emerald-655 rounded-lg hover:bg-emerald-50 transition-colors shadow-sm focus:outline-none cursor-pointer"
+                className="p-1.5 bg-slate-50 border border-slate-200 text-slate-500 hover:text-emerald-600 rounded-lg hover:bg-emerald-50 transition-colors shadow-sm focus:outline-none cursor-pointer"
                 title="Copy Scorecard Share Link"
               >
                 {shareCopied ? (
@@ -562,6 +566,16 @@ export function MatchplayScorecardModal({
                 ) : (
                   <Share2 size={16} />
                 )}
+              </button>
+            )}
+            {onRefresh && (
+              <button
+                onClick={onRefresh}
+                disabled={isRefreshing}
+                className="p-1.5 bg-slate-50 border border-slate-200 text-slate-500 hover:text-emerald-600 rounded-lg hover:bg-emerald-50 transition-colors shadow-sm focus:outline-none cursor-pointer"
+                title="Scorekarte aktualisieren"
+              >
+                <RefreshCw size={16} className={isRefreshing ? "animate-spin text-emerald-600" : ""} />
               </button>
             )}
             <button

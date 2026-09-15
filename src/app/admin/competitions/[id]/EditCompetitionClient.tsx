@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { 
   ArrowLeft, Save, Plus, Trash2, Calendar, 
-  Settings, Layers, Users, Users2, ShieldAlert,
+  Settings, Layers, Users, Users2, ShieldAlert, Trophy,
   Edit2, Check, X
 } from "lucide-react"
 import { 
@@ -16,6 +16,7 @@ import {
   addMatch, deleteMatch, updateMatchAllowance, updateMatchPlayUntilEnd, updateMatchHoleRange,
   updateMatchPlayerAllowance
 } from "../actions"
+import { WintercupAdminView } from "@/app/components/WintercupAdminView"
 import { TEAM_COLOR_LIST, getTeamColorConfig } from "@/lib/teamColors"
 import { getPlayingHandicap, getMatchAllowance, getPlayerCalculatedAllowance, parseHoleRangeString, getHoleRangeString } from "@/app/CompetitionClientView"
 
@@ -608,6 +609,20 @@ export function EditCompetitionClient({
           <Calendar size={16} />
           <span>Pairings & Matches</span>
         </button>
+
+        {(competition.type === 'WINTERCUP' || competition.type === 'CL_FORMAT') && (
+          <button
+            onClick={() => setActiveTab('cl_format' as any)}
+            className={`flex items-center space-x-2 px-6 py-3 border-b-2 text-sm font-medium transition-all ${
+              (activeTab as any) === 'cl_format' 
+                ? 'border-emerald-500 text-emerald-400 bg-slate-900/30' 
+                : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-800'
+            }`}
+          >
+            <Trophy size={16} />
+            <span>CL-Format Einstellungen</span>
+          </button>
+        )}
       </div>
 
       {/* Tabs Content */}
@@ -652,6 +667,7 @@ export function EditCompetitionClient({
                       <option value="STROKEPLAY_GROSS">Strokeplay Gross (Strokes count)</option>
                       <option value="NETTO_STABLEFORD">Netto Stableford (Points based on HC)</option>
                       <option value="MATCHPLAY">Matchplay (Ryder Cup style)</option>
+                      <option value="WINTERCUP">CL-Format (Champions League Modus)</option>
                     </select>
                   </div>
 
@@ -1481,6 +1497,14 @@ export function EditCompetitionClient({
                 </button>
               </form>
             </div>
+          </div>
+        )}
+
+        
+        {/* Tab 6: CL-Format Settings */}
+        {(activeTab as any) === 'cl_format' && (
+          <div className="bg-white/5 border border-slate-800 rounded-2xl p-6">
+            <WintercupAdminView competition={competition} />
           </div>
         )}
 

@@ -6,7 +6,7 @@ import { PlayerScorecardModal } from "./components/PlayerScorecardModal"
 import { ContextMenu, ContextMenuOption } from "./components/ContextMenu"
 import { PlayerHistoryModal } from "./components/PlayerHistoryModal"
 import { WintercupView } from "./components/WintercupView"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useTransition } from "react"
 import { signIn, signOut } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { 
@@ -338,7 +338,7 @@ interface CompetitionClientViewProps {
 }
 
 export function CompetitionClientView({ competition, session, courses = [], users = [] }: CompetitionClientViewProps) {
-  if (competition.type === 'WINTERCUP') {
+  if (competition.type === 'WINTERCUP' || competition.type === 'CL_FORMAT') {
     return <WintercupView competition={competition} session={session} />
   }
 
@@ -424,6 +424,20 @@ export function CompetitionClientView({ competition, session, courses = [], user
   const [selectedLeaderboardType, setSelectedLeaderboardType] = useState<string>("MAIN")
 
   const [shareCopied, setShareCopied] = useState(false)
+  const [manualRefreshing, setManualRefreshing] = useState(false)
+  const [isPending, startTransition] = useTransition()
+
+  const handleRefresh = () => {
+    setManualRefreshing(true)
+    startTransition(() => {
+      router.refresh()
+    })
+    setTimeout(() => {
+      setManualRefreshing(false)
+    }, 600)
+  }
+
+  const isRefreshing = isPending || manualRefreshing
 
   const handleShareView = () => {
     if (typeof window !== "undefined") {
@@ -449,6 +463,26 @@ export function CompetitionClientView({ competition, session, courses = [], user
   const [selectedMatchForScorecard, setSelectedMatchForScorecard] = useState<any | null>(null)
   const [selectedMatchRoundForScorecard, setSelectedMatchRoundForScorecard] = useState<any | null>(null)
   const [selectedTeamForScorecard, setSelectedTeamForScorecard] = useState<any | null>(null)
+
+  // Keep open scorecard data in sync when competition updates via refresh
+  useEffect(() => {
+    if (selectedMatchForScorecard && selectedMatchRoundForScorecard) {
+      const freshRound = competition.rounds?.find((r: any) => r.id === selectedMatchRoundForScorecard.id)
+      if (freshRound) {
+        setSelectedMatchRoundForScorecard(freshRound)
+        const freshMatch = freshRound.matches?.find((m: any) => m.id === selectedMatchForScorecard.id)
+        if (freshMatch) setSelectedMatchForScorecard(freshMatch)
+      }
+    }
+    if (selectedParticipantForScorecard) {
+      const freshPart = competition.participants?.find((p: any) => p.id === selectedParticipantForScorecard.id)
+      if (freshPart) setSelectedParticipantForScorecard(freshPart)
+    }
+    if (selectedTeamForScorecard) {
+      const freshTeam = competition.teams?.find((t: any) => t.id === selectedTeamForScorecard.id)
+      if (freshTeam) setSelectedTeamForScorecard(freshTeam)
+    }
+  }, [competition])
 
   // Context Menu & Player History Modal State
   const [contextMenuState, setContextMenuState] = useState<{
@@ -2864,7 +2898,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
               {/* Share View Button */}
               <button
                 onClick={handleShareView}
-                className="p-2.5 bg-slate-50 hover:bg-emerald-50 text-slate-500 hover:text-emerald-655 rounded-lg border border-slate-200 transition-colors shadow-sm inline-flex items-center justify-center cursor-pointer ml-2"
+                className="p-2.5 bg-slate-50 hover:bg-emerald-50 text-slate-500 hover:text-emerald-600 rounded-lg border border-slate-200 transition-colors shadow-sm inline-flex items-center justify-center cursor-pointer ml-2"
                 title="Share Current View"
               >
                 {shareCopied ? (
@@ -2872,6 +2906,16 @@ export function CompetitionClientView({ competition, session, courses = [], user
                 ) : (
                   <Share2 size={16} />
                 )}
+              </button>
+
+              {/* Refresh Leaderboard Button */}
+              <button
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+                className="p-2.5 bg-slate-50 hover:bg-emerald-50 text-slate-500 hover:text-emerald-600 rounded-lg border border-slate-200 transition-colors shadow-sm inline-flex items-center justify-center cursor-pointer ml-1.5"
+                title="Leaderboard aktualisieren"
+              >
+                <RefreshCw size={16} className={isRefreshing ? "animate-spin text-emerald-600" : ""} />
               </button>
             </div>
 
@@ -5357,6 +5401,8 @@ export function CompetitionClientView({ competition, session, courses = [], user
           computeMatchplayStatus={computeMatchplayStatus}
           onShare={handleShareMatchplayScorecard}
           shareCopied={modalShareCopied}
+          onRefresh={handleRefresh}
+          isRefreshing={isRefreshing}
         />
       )}
 
@@ -5375,6 +5421,8 @@ export function CompetitionClientView({ competition, session, courses = [], user
           }}
           onShare={handleSharePlayerScorecard}
           shareCopied={modalShareCopied}
+          onRefresh={handleRefresh}
+          isRefreshing={isRefreshing}
         />
       )}
 
@@ -5389,6 +5437,8 @@ export function CompetitionClientView({ competition, session, courses = [], user
           }}
           onShare={handleShareTeamScorecard}
           shareCopied={modalShareCopied}
+          onRefresh={handleRefresh}
+          isRefreshing={isRefreshing}
         />
       )}
 

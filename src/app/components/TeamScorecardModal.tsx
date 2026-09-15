@@ -1,7 +1,7 @@
 "use client"
 
 import React from "react"
-import { X, Share2, CheckCircle } from "lucide-react"
+import { X, Share2, CheckCircle, RefreshCw } from "lucide-react"
 import { getHandicapStrokesOnHole, calculateStablefordPoints, getRoundHoleInfo } from "@/lib/scoring"
 import { getPlayingHandicap, getCompactName } from "../CompetitionClientView"
 
@@ -11,6 +11,8 @@ interface TeamScorecardModalProps {
   onClose: () => void
   onShare?: () => void
   shareCopied?: boolean
+  onRefresh?: () => void
+  isRefreshing?: boolean
 }
 
 export function TeamScorecardModal({
@@ -18,25 +20,28 @@ export function TeamScorecardModal({
   competition,
   onClose,
   onShare,
-  shareCopied
+  shareCopied,
+  onRefresh,
+  isRefreshing
 }: TeamScorecardModalProps) {
+  const currentTeam = competition?.teams?.find((t: any) => t.id === selectedTeamForScorecard?.id) || selectedTeamForScorecard
   return (
     <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
       <div className="bg-white border border-slate-200 rounded-2xl max-w-4xl w-full p-6 shadow-2xl space-y-4 overflow-hidden max-h-[90vh] flex flex-col text-slate-800">
         <div className="flex justify-between items-center border-b border-slate-200 pb-3">
           <div>
             <h3 className="text-xl font-bold text-slate-900">
-              Team Scorecard: {selectedTeamForScorecard.name}
+              Team Scorecard: {currentTeam.name}
             </h3>
             <p className="text-xs text-slate-550">
-              Members: {competition.participants.filter((p: any) => p.teamId === selectedTeamForScorecard.id).map((p: any) => p.userId ? (p.user?.name || p.user?.email) : p.dummyName).join(" & ")}
+              Members: {competition.participants.filter((p: any) => p.teamId === currentTeam.id).map((p: any) => p.userId ? (p.user?.name || p.user?.email) : p.dummyName).join(" & ")}
             </p>
           </div>
           <div className="flex items-center space-x-2">
             {onShare && (
               <button
                 onClick={onShare}
-                className="p-1.5 bg-slate-50 border border-slate-200 text-slate-500 hover:text-emerald-655 rounded-lg hover:bg-emerald-50 transition-colors shadow-sm focus:outline-none cursor-pointer"
+                className="p-1.5 bg-slate-50 border border-slate-200 text-slate-500 hover:text-emerald-600 rounded-lg hover:bg-emerald-50 transition-colors shadow-sm focus:outline-none cursor-pointer"
                 title="Copy Scorecard Share Link"
               >
                 {shareCopied ? (
@@ -44,6 +49,16 @@ export function TeamScorecardModal({
                 ) : (
                   <Share2 size={16} />
                 )}
+              </button>
+            )}
+            {onRefresh && (
+              <button
+                onClick={onRefresh}
+                disabled={isRefreshing}
+                className="p-1.5 bg-slate-50 border border-slate-200 text-slate-500 hover:text-emerald-600 rounded-lg hover:bg-emerald-50 transition-colors shadow-sm focus:outline-none cursor-pointer"
+                title="Scorekarte aktualisieren"
+              >
+                <RefreshCw size={16} className={isRefreshing ? "animate-spin text-emerald-600" : ""} />
               </button>
             )}
             <button
@@ -58,7 +73,7 @@ export function TeamScorecardModal({
         <div className="flex-1 overflow-y-auto space-y-8 scrollbar-thin">
           {competition.rounds.map((round: any) => {
             const members = competition.participants
-              .filter((p: any) => p.teamId === selectedTeamForScorecard.id)
+              .filter((p: any) => p.teamId === currentTeam.id)
               .sort((a: any, b: any) => getPlayingHandicap(a, round) - getPlayingHandicap(b, round))
 
             if (members.length === 0) return null

@@ -87,7 +87,7 @@ export default function NewCompetitionPage() {
               <option value="STROKEPLAY_GROSS">Strokeplay Gross (Strokes count)</option>
               <option value="NETTO_STABLEFORD">Netto Stableford (Points based on HC)</option>
               <option value="MATCHPLAY">Matchplay (Ryder Cup style)</option>
-              <option value="WINTERCUP">Wintercup (Indoor Simulator 3-Player Vorrunde + Matchplay Playoffs)</option>
+              <option value="WINTERCUP">CL-Format (Champions League Modus: Vorrunde + Zwischenrunde/Playoffs)</option>
             </select>
           </div>
 

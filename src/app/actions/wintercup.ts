@@ -2,6 +2,12 @@
 
 import prisma from "@/lib/prisma"
 import { revalidatePath } from "next/cache"
+import { 
+  BlockedSlot, ClConfig, DEFAULT_CL_CONFIG, getClConfig, 
+  getQualificationStructure, generateVorrundenPairings 
+} from "@/lib/clFormat"
+
+export type { BlockedSlot, ClConfig } from "@/lib/clFormat"
 
 interface PlayerVorrundeScoreInput {
   participantId: string
@@ -23,48 +29,72 @@ export async function saveWintercupVorrundeScore(input: SaveWintercupVorrundeSco
 
   const round = await prisma.round.findUnique({
     where: { id: roundId },
-    include: { course: { include: { holes: { orderBy: { number: 'asc' } } } } }
+    include: { 
+      course: { include: { holes: { orderBy: { number: 'asc' } } } },
+      competition: true
+    }
   })
   if (!round) throw new Error("Round not found")
 
   const defaultHole = round.course.holes[0]
   if (!defaultHole) throw new Error("Course hole not found")
 
-  // Calculate Match Points (4 / 2 / 0 with ties)
+  const clConfig = getClConfig(round.competition)
+
+  // Calculate Match Points
   // Sort scores descending by netPoints
   const sorted = [...scores].sort((a, b) => b.netPoints - a.netPoints)
-  
   const pointsMap = new Map<string, number>()
 
-  if (sorted.length === 3) {
-    const s0 = sorted[0].netPoints
-    const s1 = sorted[1].netPoints
-    const s2 = sorted[2].netPoints
-
-    if (s0 > s1 && s1 > s2) {
-      pointsMap.set(sorted[0].participantId, 4)
-      pointsMap.set(sorted[1].participantId, 2)
-      pointsMap.set(sorted[2].participantId, 0)
-    } else if (s0 === s1 && s1 > s2) {
-      pointsMap.set(sorted[0].participantId, 3)
-      pointsMap.set(sorted[1].participantId, 3)
-      pointsMap.set(sorted[2].participantId, 0)
-    } else if (s0 > s1 && s1 === s2) {
-      pointsMap.set(sorted[0].participantId, 4)
-      pointsMap.set(sorted[1].participantId, 1)
-      pointsMap.set(sorted[2].participantId, 1)
+  if (clConfig.vorrundenModus === "MATCHPLAY" || sorted.length === 2) {
+    // 1v1 Matchplay mode: 1 point for win, 0 for loss, 0.5 for draw
+    if (sorted.length === 2) {
+      if (sorted[0].netPoints > sorted[1].netPoints) {
+        pointsMap.set(sorted[0].participantId, 1)
+        pointsMap.set(sorted[1].participantId, 0)
+      } else if (sorted[0].netPoints < sorted[1].netPoints) {
+        pointsMap.set(sorted[0].participantId, 0)
+        pointsMap.set(sorted[1].participantId, 1)
+      } else {
+        pointsMap.set(sorted[0].participantId, 0.5)
+        pointsMap.set(sorted[1].participantId, 0.5)
+      }
     } else {
-      pointsMap.set(sorted[0].participantId, 2)
-      pointsMap.set(sorted[1].participantId, 2)
-      pointsMap.set(sorted[2].participantId, 2)
+      // Fallback
+      sorted.forEach((item, idx) => pointsMap.set(item.participantId, idx === 0 ? 1 : 0))
     }
-  } else if (sorted.length === 2) {
-    if (sorted[0].netPoints > sorted[1].netPoints) {
-      pointsMap.set(sorted[0].participantId, 4)
-      pointsMap.set(sorted[1].participantId, 0)
-    } else {
-      pointsMap.set(sorted[0].participantId, 2)
-      pointsMap.set(sorted[1].participantId, 2)
+  } else {
+    // 3-Player Vorrunde mode (Wintercup rules: 4 / 2 / 0 with ties)
+    if (sorted.length === 3) {
+      const s0 = sorted[0].netPoints
+      const s1 = sorted[1].netPoints
+      const s2 = sorted[2].netPoints
+
+      if (s0 > s1 && s1 > s2) {
+        pointsMap.set(sorted[0].participantId, 4)
+        pointsMap.set(sorted[1].participantId, 2)
+        pointsMap.set(sorted[2].participantId, 0)
+      } else if (s0 === s1 && s1 > s2) {
+        pointsMap.set(sorted[0].participantId, 3)
+        pointsMap.set(sorted[1].participantId, 3)
+        pointsMap.set(sorted[2].participantId, 0)
+      } else if (s0 > s1 && s1 === s2) {
+        pointsMap.set(sorted[0].participantId, 4)
+        pointsMap.set(sorted[1].participantId, 1)
+        pointsMap.set(sorted[2].participantId, 1)
+      } else {
+        pointsMap.set(sorted[0].participantId, 2)
+        pointsMap.set(sorted[1].participantId, 2)
+        pointsMap.set(sorted[2].participantId, 2)
+      }
+    } else if (sorted.length === 2) {
+      if (sorted[0].netPoints > sorted[1].netPoints) {
+        pointsMap.set(sorted[0].participantId, 4)
+        pointsMap.set(sorted[1].participantId, 0)
+      } else {
+        pointsMap.set(sorted[0].participantId, 2)
+        pointsMap.set(sorted[1].participantId, 2)
+      }
     }
   }
 
@@ -123,7 +153,7 @@ export async function saveWintercupVorrundeScore(input: SaveWintercupVorrundeSco
       data: {
         competitionId: compId,
         action: "SCORE_UPDATE",
-        details: `Mattsee Wintercup match score updated: ${auditDetails.join(" | ")}`,
+        details: `CL-Format Vorrunde score updated: ${auditDetails.join(" | ")}`,
         userId: enteredByUserId,
         userName: enteredByUserName
       }
@@ -197,15 +227,6 @@ export async function saveWintercupPlayoffScore(input: SaveWintercupPlayoffScore
   return { success: true }
 }
 
-export interface BlockedSlot {
-  id: string
-  date: string // YYYY-MM-DD
-  startTime?: string // HH:MM
-  endTime?: string // HH:MM
-  isFullDay: boolean
-  reason?: string
-}
-
 interface ScheduleMatchInput {
   matchId: string
   compId: string
@@ -219,9 +240,20 @@ export async function saveWintercupMatchSchedule(input: ScheduleMatchInput) {
 
   const targetMatch = await prisma.match.findUnique({
     where: { id: matchId },
-    include: { round: true }
+    include: { 
+      round: {
+        include: { competition: true }
+      }
+    }
   })
   if (!targetMatch) throw new Error("Partie nicht gefunden.")
+
+  const comp = targetMatch.round.competition
+  const clConfig = getClConfig(comp)
+
+  if (!clConfig.hasScheduling) {
+    throw new Error("Terminierung ist für diese Competition nicht aktiviert.")
+  }
 
   // Parse ISO components "YYYY-MM-THH:mm..."
   const [datePart, timePartWithZ] = scheduledDateISO.split("T")
@@ -234,9 +266,18 @@ export async function saveWintercupMatchSchedule(input: ScheduleMatchInput) {
 
   if (isNaN(startH) || isNaN(startM)) throw new Error("Ungültige Uhrzeit.")
 
-  // 1. Check Date Range (03. Januar 2027 bis 15. März 2027)
-  if (datePart < "2027-01-03" || datePart > "2027-03-15") {
-    throw new Error("Termine sind nur zwischen 03. Januar und 15. März 2027 möglich.")
+  // 1. Check Date Range using roundPeriods if available
+  const activeRoundPeriod = clConfig.roundPeriods?.find(p => p.roundName === targetMatch.round.name)
+  if (activeRoundPeriod) {
+    if (datePart < activeRoundPeriod.startDate || datePart > activeRoundPeriod.endDate) {
+      throw new Error(`Termine für ${targetMatch.round.name} sind nur im Zeitraum ${activeRoundPeriod.startDate} bis ${activeRoundPeriod.endDate} möglich.`)
+    }
+  } else if (comp.startDate && comp.endDate) {
+    const compStartStr = comp.startDate.toISOString().split("T")[0]
+    const compEndStr = comp.endDate.toISOString().split("T")[0]
+    if (datePart < compStartStr || datePart > compEndStr) {
+      throw new Error(`Termine sind nur im Wettbewerbszeitraum (${compStartStr} bis ${compEndStr}) möglich.`)
+    }
   }
 
   // 2. Check Time Range (10:00 bis 21:00 Uhr)
@@ -244,9 +285,10 @@ export async function saveWintercupMatchSchedule(input: ScheduleMatchInput) {
     throw new Error("Uhrzeiten sind nur von 10:00 bis 21:00 Uhr möglich.")
   }
 
-  // 3. Determine Duration (3-player Vorrunde = 3h / 180m, Playoff 1v1 = 2h / 120m)
-  const is3PlayerMatch = targetMatch.type === "GROUP_3" || targetMatch.round.name.startsWith("Vorrunde")
-  const durationMinutes = is3PlayerMatch ? 180 : 120
+  // 3. Determine Duration from clConfig
+  const isVorrunde = targetMatch.type === "GROUP_3" || targetMatch.round.name.startsWith("Vorrunde")
+  const durationHours = isVorrunde ? (clConfig.slotDurationHoursVorrunde || 3) : (clConfig.slotDurationHoursPlayoff || 2)
+  const durationMinutes = durationHours * 60
   const durationMs = durationMinutes * 60 * 1000
 
   // Construct standard Date for DB storage
@@ -257,43 +299,36 @@ export async function saveWintercupMatchSchedule(input: ScheduleMatchInput) {
   const reqStartMinutes = startH * 60 + startM
   const reqEndMinutes = reqStartMinutes + durationMinutes
 
-  // 4. Check Collisions with other scheduled matches in the competition
-  const allCompMatches = await prisma.match.findMany({
-    where: {
-      round: { competitionId: compId },
-      id: { not: matchId },
-      scheduledDate: { not: null }
-    },
-    include: { round: true }
-  })
+  // 4. Check Collisions with other scheduled matches in the competition (only if exclusiveScheduling is enabled)
+  if (clConfig.exclusiveScheduling) {
+    const allCompMatches = await prisma.match.findMany({
+      where: {
+        round: { competitionId: compId },
+        id: { not: matchId },
+        scheduledDate: { not: null }
+      },
+      include: { round: true }
+    })
 
-  for (const m of allCompMatches) {
-    if (!m.scheduledDate) continue
-    const mStart = new Date(m.scheduledDate)
-    const mDurationMs = (m.type === "GROUP_3" || m.round.name.startsWith("Vorrunde") ? 3 : 2) * 60 * 60 * 1000
-    const mEnd = new Date(mStart.getTime() + mDurationMs)
+    for (const m of allCompMatches) {
+      if (!m.scheduledDate) continue
+      const mStart = new Date(m.scheduledDate)
+      const mIsVorrunde = m.type === "GROUP_3" || m.round.name.startsWith("Vorrunde")
+      const mDurationHours = mIsVorrunde ? (clConfig.slotDurationHoursVorrunde || 3) : (clConfig.slotDurationHoursPlayoff || 2)
+      const mDurationMs = mDurationHours * 60 * 60 * 1000
+      const mEnd = new Date(mStart.getTime() + mDurationMs)
 
-    // Check overlap: (reqStart < mEnd) && (reqEnd > mStart)
-    if (reqStart < mEnd && reqEnd > mStart) {
-      const pad = (n: number) => String(n).padStart(2, '0')
-      const formatTime = (d: Date) => `${pad(d.getHours())}:${pad(d.getMinutes())}`
-      throw new Error(`Terminkollision: In diesem Zeitraum (${formatTime(mStart)} - ${formatTime(mEnd)}) ist bereits eine andere Partie terminiert.`)
+      // Check overlap: (reqStart < mEnd) && (reqEnd > mStart)
+      if (reqStart < mEnd && reqEnd > mStart) {
+        const pad = (n: number) => String(n).padStart(2, '0')
+        const formatTime = (d: Date) => `${pad(d.getHours())}:${pad(d.getMinutes())}`
+        throw new Error(`Terminkollision: In diesem Zeitraum (${formatTime(mStart)} - ${formatTime(mEnd)}) ist bereits eine andere Partie terminiert.`)
+      }
     }
   }
 
   // 5. Check Collisions with Admin Sperrzeiten (Blocked Slots)
-  const comp = await prisma.competition.findUnique({ where: { id: compId } })
-  if (!comp) throw new Error("Competition nicht gefunden.")
-
-  let blockedSlots: BlockedSlot[] = []
-  if (comp.cssConfig) {
-    try {
-      const parsed = JSON.parse(comp.cssConfig)
-      if (Array.isArray(parsed.blockedSlots)) {
-        blockedSlots = parsed.blockedSlots
-      }
-    } catch (_) {}
-  }
+  const blockedSlots: BlockedSlot[] = clConfig.blockedSlots || []
 
   for (const slot of blockedSlots) {
     if (slot.date === datePart) {
@@ -325,7 +360,7 @@ export async function saveWintercupMatchSchedule(input: ScheduleMatchInput) {
     data: {
       competitionId: compId,
       action: "MATCH_SCHEDULE",
-      details: `Match scheduled: ${datePart} ${timePart} (${is3PlayerMatch ? '3h' : '2h'} duration)`,
+      details: `Match scheduled: ${datePart} ${timePart} (${durationHours}h duration)`,
       userId: enteredByUserId,
       userName: enteredByUserName
     }
@@ -354,6 +389,31 @@ export async function saveWintercupBlockedSlots(compId: string, blockedSlots: Bl
   await prisma.competition.update({
     where: { id: compId },
     data: { cssConfig: JSON.stringify(parsedConfig) }
+  })
+
+  revalidatePath(`/admin/competitions/${compId}`)
+  revalidatePath(`/?comp=${comp.uniqueSlug}`)
+  revalidatePath(`/`)
+
+  return { success: true }
+}
+
+export async function saveClConfig(compId: string, config: ClConfig) {
+  const comp = await prisma.competition.findUnique({ where: { id: compId } })
+  if (!comp) throw new Error("Competition nicht gefunden.")
+
+  let currentConfig: Record<string, any> = {}
+  if (comp.cssConfig) {
+    try {
+      currentConfig = JSON.parse(comp.cssConfig)
+    } catch (_) {}
+  }
+
+  const updatedConfig = { ...currentConfig, ...config }
+
+  await prisma.competition.update({
+    where: { id: compId },
+    data: { cssConfig: JSON.stringify(updatedConfig) }
   })
 
   revalidatePath(`/admin/competitions/${compId}`)
@@ -446,7 +506,7 @@ export async function resetWintercupScores(
   } else if (target === 'ZW') {
     roundIdsToDelete = comp.rounds.filter(r => r.name === "Zwischenrunde").map(r => r.id)
   } else if (target === 'PLAYOFFS') {
-    roundIdsToDelete = comp.rounds.filter(r => r.name === "Viertelfinale" || r.name === "Halbfinale" || r.name === "Finale").map(r => r.id)
+    roundIdsToDelete = comp.rounds.filter(r => r.name === "Achtelfinale" || r.name === "Viertelfinale" || r.name === "Halbfinale" || r.name === "Finale").map(r => r.id)
   }
 
   if (roundIdsToDelete.length > 0) {
@@ -469,11 +529,181 @@ export async function resetWintercupScores(
     data: {
       competitionId: compId,
       action: "SCORE_RESET",
-      details: `Wintercup scores reset for target: ${target}`,
+      details: `CL-Format scores reset for target: ${target}`,
       userId: enteredByUserId,
       userName: enteredByUserName
     }
   })
+
+  revalidatePath(`/admin/competitions/${compId}`)
+  revalidatePath(`/?comp=${comp.uniqueSlug}`)
+  revalidatePath(`/`)
+
+  return { success: true }
+}
+
+/**
+ * Pre-seeds all rounds and matches for a CL-Format competition.
+ */
+export async function seedClFormatCompetition(compId: string) {
+  const comp = await prisma.competition.findUnique({
+    where: { id: compId },
+    include: {
+      participants: true,
+      rounds: {
+        include: { matches: true }
+      }
+    }
+  })
+  if (!comp) throw new Error("Competition nicht gefunden.")
+
+  const config = getClConfig(comp)
+  const participantIds = comp.participants.map(p => p.id)
+
+  if (participantIds.length < 2) {
+    throw new Error("Es müssen mindestens 2 Teilnehmer in der Competition vorhanden sein, um Spieltage zu generieren.")
+  }
+
+  // Find a default course
+  const defaultCourse = await prisma.course.findFirst({
+    include: { tees: true, holes: true }
+  })
+  if (!defaultCourse) throw new Error("Kein Golfplatz im System gefunden.")
+  const defaultTee = defaultCourse.tees[0]
+
+  // Check if any existing rounds have scores
+  const roundIds = comp.rounds.map(r => r.id)
+  const hasScores = await prisma.score.count({
+    where: { roundId: { in: roundIds } }
+  })
+  if (hasScores > 0) {
+    throw new Error("Es sind bereits Scores vorhanden. Runden können nicht neu generiert werden.")
+  }
+
+  // Clear existing rounds and matches
+  await prisma.round.deleteMany({
+    where: { competitionId: compId }
+  })
+
+  // 1. Pre-seed Vorrunden
+  const pairingsByRound = generateVorrundenPairings(participantIds, config.vorrundenCount, config.vorrundenModus)
+
+  for (let r = 0; r < config.vorrundenCount; r++) {
+    const rName = `Vorrunde ${r + 1}`
+    const period = config.roundPeriods?.find(p => p.roundName === rName)
+    const startDate = period?.startDate ? new Date(`${period.startDate}T08:00:00Z`) : null
+    const endDate = period?.endDate ? new Date(`${period.endDate}T20:00:00Z`) : null
+
+    const round = await prisma.round.create({
+      data: {
+        competitionId: compId,
+        courseId: defaultCourse.id,
+        teeId: defaultTee?.id || null,
+        name: rName,
+        startDate,
+        endDate,
+        holesPlayed: Array.from({ length: 18 }, (_, i) => i + 1)
+      }
+    })
+
+    const matchesForRound = pairingsByRound[r] || []
+    for (const group of matchesForRound) {
+      const match = await prisma.match.create({
+        data: {
+          roundId: round.id,
+          type: config.vorrundenModus === "GROUP_3" ? "GROUP_3" : "SINGLES",
+          allowanceType: config.vorrundenModus === "GROUP_3" ? null : "0%",
+          handicapAllowance: 0,
+          playUntilEnd: false,
+          holeRange: "1-18"
+        }
+      })
+
+      for (const pId of group) {
+        await prisma.matchPlayer.create({
+          data: {
+            matchId: match.id,
+            participantId: pId,
+            handicapAllowance: 0
+          }
+        })
+      }
+    }
+  }
+
+  // 2. Pre-seed Zwischenrunde (if enabled)
+  const qual = getQualificationStructure(config)
+  if (config.hasZwischenrunde && qual.zwischenrundePairs.length > 0) {
+    const period = config.roundPeriods?.find(p => p.roundName === "Zwischenrunde")
+    const startDate = period?.startDate ? new Date(`${period.startDate}T08:00:00Z`) : null
+    const endDate = period?.endDate ? new Date(`${period.endDate}T20:00:00Z`) : null
+
+    const zwRound = await prisma.round.create({
+      data: {
+        competitionId: compId,
+        courseId: defaultCourse.id,
+        teeId: defaultTee?.id || null,
+        name: "Zwischenrunde",
+        startDate,
+        endDate,
+        holesPlayed: Array.from({ length: 18 }, (_, i) => i + 1)
+      }
+    })
+
+    for (let i = 0; i < qual.zwischenrundePairs.length; i++) {
+      await prisma.match.create({
+        data: {
+          roundId: zwRound.id,
+          type: "MATCHPLAY",
+          allowanceType: null,
+          handicapAllowance: 0,
+          playUntilEnd: true,
+          holeRange: "1-18"
+        }
+      })
+    }
+  }
+
+  // 3. Pre-seed Playoff rounds
+  let currentStageCount = config.playoffCount
+  while (currentStageCount >= 2) {
+    let stageName = "Finale"
+    if (currentStageCount === 16) stageName = "Achtelfinale"
+    else if (currentStageCount === 8) stageName = "Viertelfinale"
+    else if (currentStageCount === 4) stageName = "Halbfinale"
+
+    const period = config.roundPeriods?.find(p => p.roundName === stageName)
+    const startDate = period?.startDate ? new Date(`${period.startDate}T08:00:00Z`) : null
+    const endDate = period?.endDate ? new Date(`${period.endDate}T20:00:00Z`) : null
+
+    const pRound = await prisma.round.create({
+      data: {
+        competitionId: compId,
+        courseId: defaultCourse.id,
+        teeId: defaultTee?.id || null,
+        name: stageName,
+        startDate,
+        endDate,
+        holesPlayed: Array.from({ length: 18 }, (_, i) => i + 1)
+      }
+    })
+
+    const matchCount = currentStageCount / 2
+    for (let i = 0; i < matchCount; i++) {
+      await prisma.match.create({
+        data: {
+          roundId: pRound.id,
+          type: "MATCHPLAY",
+          allowanceType: null,
+          handicapAllowance: 0,
+          playUntilEnd: true,
+          holeRange: "1-18"
+        }
+      })
+    }
+
+    currentStageCount = currentStageCount / 2
+  }
 
   revalidatePath(`/admin/competitions/${compId}`)
   revalidatePath(`/?comp=${comp.uniqueSlug}`)

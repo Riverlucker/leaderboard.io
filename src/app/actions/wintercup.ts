@@ -545,45 +545,56 @@ export async function resetWintercupScores(
 /**
  * Pre-seeds all rounds and matches for a CL-Format competition.
  */
-export async function seedClFormatCompetition(compId: string) {
-  const comp = await prisma.competition.findUnique({
-    where: { id: compId },
-    include: {
-      participants: true,
-      rounds: {
-        include: { matches: true }
+export async function seedClFormatCompetition(compId: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const comp = await prisma.competition.findUnique({
+      where: { id: compId },
+      include: {
+        participants: true,
+        rounds: {
+          include: { matches: true }
+        }
+      }
+    })
+    if (!comp) {
+      return { success: false, error: "Competition nicht gefunden." }
+    }
+
+    const config = getClConfig(comp)
+    const participantIds = comp.participants.map(p => p.id)
+
+    if (participantIds.length < 2) {
+      return {
+        success: false,
+        error: "Es müssen mindestens 2 Teilnehmer in der Competition eingetragen sein, um Spieltage und Auslosungen zu generieren."
       }
     }
-  })
-  if (!comp) throw new Error("Competition nicht gefunden.")
 
-  const config = getClConfig(comp)
-  const participantIds = comp.participants.map(p => p.id)
+    // Find a default course
+    const defaultCourse = await prisma.course.findFirst({
+      include: { tees: true, holes: true }
+    })
+    if (!defaultCourse) {
+      return { success: false, error: "Kein Golfplatz im System gefunden." }
+    }
+    const defaultTee = defaultCourse.tees[0]
 
-  if (participantIds.length < 2) {
-    throw new Error("Es müssen mindestens 2 Teilnehmer in der Competition vorhanden sein, um Spieltage zu generieren.")
-  }
+    // Check if any existing rounds have scores
+    const roundIds = comp.rounds.map(r => r.id)
+    const hasScores = await prisma.score.count({
+      where: { roundId: { in: roundIds } }
+    })
+    if (hasScores > 0) {
+      return {
+        success: false,
+        error: "Es sind bereits Scores in vorhandenen Runden eingetragen. Spieltage können nicht neu generiert werden, ohne zuvor die Scores zurückzusetzen."
+      }
+    }
 
-  // Find a default course
-  const defaultCourse = await prisma.course.findFirst({
-    include: { tees: true, holes: true }
-  })
-  if (!defaultCourse) throw new Error("Kein Golfplatz im System gefunden.")
-  const defaultTee = defaultCourse.tees[0]
-
-  // Check if any existing rounds have scores
-  const roundIds = comp.rounds.map(r => r.id)
-  const hasScores = await prisma.score.count({
-    where: { roundId: { in: roundIds } }
-  })
-  if (hasScores > 0) {
-    throw new Error("Es sind bereits Scores vorhanden. Runden können nicht neu generiert werden.")
-  }
-
-  // Clear existing rounds and matches
-  await prisma.round.deleteMany({
-    where: { competitionId: compId }
-  })
+    // Clear existing rounds and matches
+    await prisma.round.deleteMany({
+      where: { competitionId: compId }
+    })
 
   // 1. Pre-seed Vorrunden
   const pairingsByRound = generateVorrundenPairings(participantIds, config.vorrundenCount, config.vorrundenModus)
@@ -710,4 +721,8 @@ export async function seedClFormatCompetition(compId: string) {
   revalidatePath(`/`)
 
   return { success: true }
+} catch (err: any) {
+  console.error("Error in seedClFormatCompetition:", err)
+  return { success: false, error: err.message || "Fehler beim Generieren der Spieltage." }
+}
 }

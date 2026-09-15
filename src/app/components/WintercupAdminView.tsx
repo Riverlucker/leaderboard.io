@@ -97,6 +97,12 @@ export function WintercupAdminView({ competition, session }: WintercupAdminViewP
 
   // Pre-seed schedule
   const handlePreSeed = async () => {
+    const participantCount = (competition.participants || []).length
+    if (participantCount < 2) {
+      setError("Es müssen mindestens 2 Teilnehmer in der Competition eingetragen sein (im Tab 'Teilnehmer' der Competition-Verwaltung), bevor Spieltage und Paarungen generiert werden können.")
+      return
+    }
+
     if (!window.confirm("Möchtest du wirklich alle Spieltage neu generieren? Vorhandene Runden ohne Scores werden dabei ersetzt.")) {
       return
     }
@@ -106,12 +112,16 @@ export function WintercupAdminView({ competition, session }: WintercupAdminViewP
     setSuccessMsg("")
 
     try {
-      await seedClFormatCompetition(competition.id)
+      const res = await seedClFormatCompetition(competition.id)
+      if (!res.success) {
+        setError(res.error || "Fehler beim Generieren der Spieltage.")
+        return
+      }
       setSuccessMsg("Auslosung & Spieltage wurden erfolgreich pre-geseeded.")
       setTimeout(() => {
         setSuccessMsg("")
         router.refresh()
-      }, 2000)
+      }, 1500)
     } catch (err: any) {
       setError(err.message || "Fehler beim Generieren der Spieltage.")
     } finally {
@@ -529,15 +539,22 @@ export function WintercupAdminView({ competition, session }: WintercupAdminViewP
 
           {/* Action Buttons */}
           <div className="flex flex-wrap justify-between items-center gap-4 pt-2">
-            <button
-              type="button"
-              onClick={handlePreSeed}
-              disabled={isSaving}
-              className="inline-flex items-center space-x-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-black transition-all shadow-sm cursor-pointer disabled:opacity-50"
-            >
-              <PlayCircle size={16} />
-              <span>Auslosung & Spieltage pre-seeden</span>
-            </button>
+            <div className="flex flex-col space-y-1">
+              <button
+                type="button"
+                onClick={handlePreSeed}
+                disabled={isSaving}
+                className="inline-flex items-center space-x-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-black transition-all shadow-sm cursor-pointer disabled:opacity-50"
+              >
+                <PlayCircle size={16} />
+                <span>Auslosung & Spieltage pre-seeden</span>
+              </button>
+              {(competition.participants || []).length < 2 && (
+                <span className="text-[11px] text-amber-600 font-bold">
+                  ⚠️ Mindestens 2 Teilnehmer erforderlich (aktuell {(competition.participants || []).length})
+                </span>
+              )}
+            </div>
 
             <button
               type="submit"

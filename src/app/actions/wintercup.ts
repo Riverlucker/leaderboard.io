@@ -9,6 +9,12 @@ import {
 
 export type { BlockedSlot, ClConfig } from "@/lib/clFormat"
 
+function safeRevalidatePath(path: string) {
+  try {
+    revalidatePath(path)
+  } catch (_) {}
+}
+
 interface PlayerVorrundeScoreInput {
   participantId: string
   netPoints: number // Netto Stableford Points (NP)
@@ -158,9 +164,9 @@ export async function saveWintercupVorrundeScore(input: SaveWintercupVorrundeSco
         userName: enteredByUserName
       }
     })
-    revalidatePath(`/admin/competitions/${compId}`)
-    revalidatePath(`/?comp=${comp.uniqueSlug}`)
-    revalidatePath(`/`)
+    safeRevalidatePath(`/admin/competitions/${compId}`)
+    safeRevalidatePath(`/?comp=${comp.uniqueSlug}`)
+    safeRevalidatePath(`/`)
   }
 
   return { success: true }
@@ -219,9 +225,9 @@ export async function saveWintercupPlayoffScore(input: SaveWintercupPlayoffScore
         userName: enteredByUserName
       }
     })
-    revalidatePath(`/admin/competitions/${compId}`)
-    revalidatePath(`/?comp=${comp.uniqueSlug}`)
-    revalidatePath(`/`)
+    safeRevalidatePath(`/admin/competitions/${compId}`)
+    safeRevalidatePath(`/?comp=${comp.uniqueSlug}`)
+    safeRevalidatePath(`/`)
   }
 
   return { success: true }
@@ -366,9 +372,9 @@ export async function saveWintercupMatchSchedule(input: ScheduleMatchInput) {
     }
   })
 
-  revalidatePath(`/admin/competitions/${compId}`)
-  revalidatePath(`/?comp=${comp.uniqueSlug}`)
-  revalidatePath(`/`)
+  safeRevalidatePath(`/admin/competitions/${compId}`)
+  safeRevalidatePath(`/?comp=${comp.uniqueSlug}`)
+  safeRevalidatePath(`/`)
 
   return { success: true }
 }
@@ -391,9 +397,9 @@ export async function saveWintercupBlockedSlots(compId: string, blockedSlots: Bl
     data: { cssConfig: JSON.stringify(parsedConfig) }
   })
 
-  revalidatePath(`/admin/competitions/${compId}`)
-  revalidatePath(`/?comp=${comp.uniqueSlug}`)
-  revalidatePath(`/`)
+  safeRevalidatePath(`/admin/competitions/${compId}`)
+  safeRevalidatePath(`/?comp=${comp.uniqueSlug}`)
+  safeRevalidatePath(`/`)
 
   return { success: true }
 }
@@ -416,9 +422,9 @@ export async function saveClConfig(compId: string, config: ClConfig) {
     data: { cssConfig: JSON.stringify(updatedConfig) }
   })
 
-  revalidatePath(`/admin/competitions/${compId}`)
-  revalidatePath(`/?comp=${comp.uniqueSlug}`)
-  revalidatePath(`/`)
+  safeRevalidatePath(`/admin/competitions/${compId}`)
+  safeRevalidatePath(`/?comp=${comp.uniqueSlug}`)
+  safeRevalidatePath(`/`)
 
   return { success: true }
 }
@@ -473,9 +479,9 @@ export async function deleteWintercupMatchScore(input: DeleteMatchScoreInput) {
         userName: enteredByUserName
       }
     })
-    revalidatePath(`/admin/competitions/${compId}`)
-    revalidatePath(`/?comp=${comp.uniqueSlug}`)
-    revalidatePath(`/`)
+    safeRevalidatePath(`/admin/competitions/${compId}`)
+    safeRevalidatePath(`/?comp=${comp.uniqueSlug}`)
+    safeRevalidatePath(`/`)
   }
 
   return { success: true }
@@ -535,9 +541,9 @@ export async function resetWintercupScores(
     }
   })
 
-  revalidatePath(`/admin/competitions/${compId}`)
-  revalidatePath(`/?comp=${comp.uniqueSlug}`)
-  revalidatePath(`/`)
+  safeRevalidatePath(`/admin/competitions/${compId}`)
+  safeRevalidatePath(`/?comp=${comp.uniqueSlug}`)
+  safeRevalidatePath(`/`)
 
   return { success: true }
 }
@@ -716,9 +722,9 @@ export async function seedClFormatCompetition(compId: string): Promise<{ success
     currentStageCount = currentStageCount / 2
   }
 
-  revalidatePath(`/admin/competitions/${compId}`)
-  revalidatePath(`/?comp=${comp.uniqueSlug}`)
-  revalidatePath(`/`)
+  safeRevalidatePath(`/admin/competitions/${compId}`)
+  safeRevalidatePath(`/?comp=${comp.uniqueSlug}`)
+  safeRevalidatePath(`/`)
 
   return { success: true }
 } catch (err: any) {

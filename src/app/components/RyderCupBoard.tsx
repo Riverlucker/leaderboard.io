@@ -98,31 +98,31 @@ export function computeRyderCupStatus(match: any, round: any, competition: any, 
     for (let i = 0; i < totalHoles; i++) {
       const holeNum = matchHoles[i]
       const remainingHoles = totalHoles - (i + 1)
+      const hole = round.course?.holes?.find((h: any) => h.number === holeNum)
+      if (!hole) continue
 
-      const s1_1 = t1Players[0].scores?.find((s: any) => s.holeNumber === holeNum && s.roundId === round.id)
-      const s1_2 = t1Players[1].scores?.find((s: any) => s.holeNumber === holeNum && s.roundId === round.id)
-      const s2_1 = t2Players[0].scores?.find((s: any) => s.holeNumber === holeNum && s.roundId === round.id)
-      const s2_2 = t2Players[1].scores?.find((s: any) => s.holeNumber === holeNum && s.roundId === round.id)
+      const s1_1 = t1Players[0]?.scores?.find((s: any) => s.roundId === round.id && (s.holeId === hole.id || s.hole?.number === holeNum))
+      const s1_2 = t1Players[1]?.scores?.find((s: any) => s.roundId === round.id && (s.holeId === hole.id || s.hole?.number === holeNum))
+      const s2_1 = t2Players[0]?.scores?.find((s: any) => s.roundId === round.id && (s.holeId === hole.id || s.hole?.number === holeNum))
+      const s2_2 = t2Players[1]?.scores?.find((s: any) => s.roundId === round.id && (s.holeId === hole.id || s.hole?.number === holeNum))
 
       const gross1_1 = getMatchHoleStrokes(s1_1)
       const gross1_2 = getMatchHoleStrokes(s1_2)
       const gross2_1 = getMatchHoleStrokes(s2_1)
       const gross2_2 = getMatchHoleStrokes(s2_2)
 
-      const t1Played = (gross1_1 !== null && gross1_1 !== undefined) || (gross1_2 !== null && gross1_2 !== undefined)
-      const t2Played = (gross2_1 !== null && gross2_1 !== undefined) || (gross2_2 !== null && gross2_2 !== undefined)
-
-      if (!t1Played && !t2Played) continue
-
-      holesPlayedCount++
-
-      const net1_1 = gross1_1 !== null ? (gross1_1 === 99 ? 99 : gross1_1 - (strokesMap1_1[holeNum] || 0)) : 99
-      const net1_2 = gross1_2 !== null ? (gross1_2 === 99 ? 99 : gross1_2 - (strokesMap1_2[holeNum] || 0)) : 99
-      const net2_1 = gross2_1 !== null ? (gross2_1 === 99 ? 99 : gross2_1 - (strokesMap2_1[holeNum] || 0)) : 99
-      const net2_2 = gross2_2 !== null ? (gross2_2 === 99 ? 99 : gross2_2 - (strokesMap2_2[holeNum] || 0)) : 99
+      const net1_1 = gross1_1 !== null && gross1_1 !== undefined ? (gross1_1 === 99 ? 99 : gross1_1 - (strokesMap1_1[holeNum] || 0)) : 999
+      const net1_2 = gross1_2 !== null && gross1_2 !== undefined ? (gross1_2 === 99 ? 99 : gross1_2 - (strokesMap1_2[holeNum] || 0)) : 999
+      const net2_1 = gross2_1 !== null && gross2_1 !== undefined ? (gross2_1 === 99 ? 99 : gross2_1 - (strokesMap2_1[holeNum] || 0)) : 999
+      const net2_2 = gross2_2 !== null && gross2_2 !== undefined ? (gross2_2 === 99 ? 99 : gross2_2 - (strokesMap2_2[holeNum] || 0)) : 999
 
       const best1 = Math.min(net1_1, net1_2)
       const best2 = Math.min(net2_1, net2_2)
+
+      // Only count hole if both sides have entered at least one score on this hole
+      if (best1 === 999 || best2 === 999) continue
+
+      holesPlayedCount++
 
       if (best1 < best2) t1Up++
       else if (best2 < best1) t2Up++
@@ -139,12 +139,12 @@ export function computeRyderCupStatus(match: any, round: any, competition: any, 
 
     let statusText = "A/S"
     if (lead > 0) {
-      statusText = decidedInfo ? decidedInfo : `${lead} UP`
+      statusText = decidedInfo ? decidedInfo : `${lead}UP`
     } else if (lead < 0) {
       const absLead = Math.abs(lead)
-      statusText = decidedInfo ? decidedInfo : `${absLead} UP`
+      statusText = decidedInfo ? decidedInfo : `${absLead}UP`
     } else {
-      statusText = holesPlayedCount > 0 ? "A/S" : "-"
+      statusText = holesPlayedCount > 0 ? "A/S" : "Not Started"
     }
 
     return {
@@ -167,7 +167,7 @@ export function computeRyderCupStatus(match: any, round: any, competition: any, 
 
     if (players.length < 2) {
       return {
-        statusText: "Setup Pending",
+        statusText: "Not Started",
         holesPlayed: 0,
         totalHoles: 18,
         lead: 0,
@@ -221,19 +221,21 @@ export function computeRyderCupStatus(match: any, round: any, competition: any, 
     for (let i = 0; i < totalHoles; i++) {
       const holeNum = matchHoles[i]
       const remainingHoles = totalHoles - (i + 1)
+      const hole = round.course?.holes?.find((h: any) => h.number === holeNum)
+      if (!hole) continue
 
-      const sD = p1.scores?.find((s: any) => s.holeNumber === holeNum && s.roundId === round.id)
-      const sH = p2.scores?.find((s: any) => s.holeNumber === holeNum && s.roundId === round.id)
+      const sD = p1.scores?.find((s: any) => s.roundId === round.id && (s.holeId === hole.id || s.hole?.number === holeNum))
+      const sH = p2.scores?.find((s: any) => s.roundId === round.id && (s.holeId === hole.id || s.hole?.number === holeNum))
 
       const grossD = getMatchHoleStrokes(sD)
       const grossH = getMatchHoleStrokes(sH)
 
-      if ((grossD === null || grossD === undefined) && (grossH === null || grossH === undefined)) continue
+      if (grossD === null || grossD === undefined || grossH === null || grossH === undefined) continue
 
       holesPlayedCount++
 
-      const netD = grossD !== null ? (grossD === 99 ? 99 : grossD - (strokesMapD[holeNum] || 0)) : 99
-      const netH = grossH !== null ? (grossH === 99 ? 99 : grossH - (strokesMapH[holeNum] || 0)) : 99
+      const netD = grossD === 99 ? 99 : grossD - (strokesMapD[holeNum] || 0)
+      const netH = grossH === 99 ? 99 : grossH - (strokesMapH[holeNum] || 0)
 
       if (netD < netH) dUp++
       else if (netH < netD) hUp++
@@ -250,12 +252,12 @@ export function computeRyderCupStatus(match: any, round: any, competition: any, 
 
     let statusText = "A/S"
     if (lead > 0) {
-      statusText = decidedInfo ? decidedInfo : `${lead} UP`
+      statusText = decidedInfo ? decidedInfo : `${lead}UP`
     } else if (lead < 0) {
       const absLead = Math.abs(lead)
-      statusText = decidedInfo ? decidedInfo : `${absLead} UP`
+      statusText = decidedInfo ? decidedInfo : `${absLead}UP`
     } else {
-      statusText = holesPlayedCount > 0 ? "A/S" : "-"
+      statusText = holesPlayedCount > 0 ? "A/S" : "Not Started"
     }
 
     return {
@@ -604,12 +606,18 @@ export function RyderCupMainStandings({
                     </div>
 
                     {/* Col 2: Diamond Players */}
-                    <div className="flex-1 px-2 sm:px-4 py-2 flex flex-col justify-center items-end text-right min-w-0">
+                    <div className={`flex-1 px-2 sm:px-4 py-2 flex flex-col justify-center items-end text-right min-w-0 transition-colors ${
+                      diamondLead ? "bg-[#3765e9] text-white" : "bg-white text-slate-900"
+                    }`}>
                       {t1Names.map((name: string, i: number) => (
-                        <div key={i} className="truncate uppercase font-extrabold text-slate-900 group-hover:text-blue-700 transition-colors text-xs sm:text-sm tracking-tight leading-snug">
+                        <div key={i} className={`truncate uppercase font-black text-xs sm:text-sm tracking-tight leading-snug ${
+                          diamondLead ? "text-white" : "text-slate-900"
+                        }`}>
                           {name}
                           {status.team1Allowance[i] > 0 && (
-                            <span className="ml-1 text-[10px] font-mono text-blue-600 font-bold">
+                            <span className={`ml-1 text-[10px] font-mono font-bold ${
+                              diamondLead ? "text-blue-200" : "text-blue-600"
+                            }`}>
                               (+{status.team1Allowance[i]})
                             </span>
                           )}
@@ -620,10 +628,10 @@ export function RyderCupMainStandings({
                     {/* Col 3: Center Status Box (Gold #f0cb46) */}
                     <div className="w-12 sm:w-16 shrink-0 bg-[#f0cb46] text-slate-950 font-black flex flex-col items-center justify-center border-x border-amber-300">
                       <span className="text-xs sm:text-base tracking-wider leading-none">
-                        {isFinished ? "F" : holesPlayed > 0 ? `${holesPlayed}` : "0"}
+                        {isFinished ? "F" : holesPlayed > 0 ? `${holesPlayed}` : "-"}
                       </span>
                       <span className="text-[8px] sm:text-[9px] font-mono tracking-tighter uppercase opacity-80 mt-0.5 leading-none">
-                        {isFinished ? "FINAL" : holesPlayed > 0 ? `L${holesPlayed}` : (
+                        {isFinished ? "FINAL" : holesPlayed > 0 ? `Loch ${holesPlayed}` : (
                           match.scheduledDate 
                             ? new Date(match.scheduledDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                             : "TEE 1"
@@ -637,12 +645,18 @@ export function RyderCupMainStandings({
                     </div>
 
                     {/* Col 4: Hearts Players */}
-                    <div className="flex-1 px-2 sm:px-4 py-2 flex flex-col justify-center items-start text-left min-w-0">
+                    <div className={`flex-1 px-2 sm:px-4 py-2 flex flex-col justify-center items-start text-left min-w-0 transition-colors ${
+                      heartsLead ? "bg-[#cb3838] text-white" : "bg-white text-slate-900"
+                    }`}>
                       {t2Names.map((name: string, i: number) => (
-                        <div key={i} className="truncate uppercase font-extrabold text-slate-900 group-hover:text-red-700 transition-colors text-xs sm:text-sm tracking-tight leading-snug">
+                        <div key={i} className={`truncate uppercase font-black text-xs sm:text-sm tracking-tight leading-snug ${
+                          heartsLead ? "text-white" : "text-slate-900"
+                        }`}>
                           {name}
                           {status.team2Allowance[i] > 0 && (
-                            <span className="ml-1 text-[10px] font-mono text-red-600 font-bold">
+                            <span className={`ml-1 text-[10px] font-mono font-bold ${
+                              heartsLead ? "text-red-200" : "text-red-600"
+                            }`}>
                               (+{status.team2Allowance[i]})
                             </span>
                           )}

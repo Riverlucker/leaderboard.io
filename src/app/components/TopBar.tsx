@@ -7,7 +7,8 @@ import { useState } from 'react'
 
 export default function TopBar() {
   const router = useRouter();
-  const { data: session } = useSession();
+  const sessionResult = useSession();
+  const session = sessionResult?.data;
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
 

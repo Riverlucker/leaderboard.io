@@ -268,8 +268,18 @@ export function LiveScoreEntry({
     }
   }
 
+  const lastClickTimeRef = useRef<{ key: string; time: number }>({ key: '', time: 0 })
+
   // 4. Handle score entry click on any hole
   const handleScoreClick = (partId: string, holeId: string, value: string) => {
+    // Prevent double-invocation within 350ms (e.g. pointerup + synthetic click on PC/mobile)
+    const clickKey = `${partId}-${holeId}-${value}`
+    const now = Date.now()
+    if (lastClickTimeRef.current.key === clickKey && now - lastClickTimeRef.current.time < 350) {
+      return
+    }
+    lastClickTimeRef.current = { key: clickKey, time: now }
+
     const currentHoleScores = scoresByHole[holeId] || {}
     const currentVal = currentHoleScores[partId] || ""
     const targetValue = currentVal === value ? "" : value
@@ -321,6 +331,11 @@ export function LiveScoreEntry({
 
   // Touch Swipe Gesture Handlers
   const handleGestureStart = (partId: string, holeId: string, e: React.PointerEvent | React.TouchEvent) => {
+    // On desktop PC with mouse: do not intercept with swipe drag, standard button onClick handles it cleanly
+    if ('pointerType' in e && e.pointerType === 'mouse') {
+      return
+    }
+
     setDraggingPartId(partId)
     activeHoleIdRef.current = holeId
     const clientX = 'touches' in e ? (e as React.TouchEvent).touches[0]?.clientX : (e as React.PointerEvent).clientX
@@ -686,10 +701,6 @@ export function LiveScoreEntry({
                   onPointerMove={handleGestureMove}
                   onPointerUp={handleGestureEnd}
                   onPointerCancel={handleGestureEnd}
-                  onTouchStart={(e) => handleGestureStart(p.id, currentHole.id, e)}
-                  onTouchMove={handleGestureMove}
-                  onTouchEnd={handleGestureEnd}
-                  onTouchCancel={handleGestureEnd}
                   className="grid grid-cols-8 gap-1.5 w-full touch-none select-none"
                 >
                   {columns.map((col, colIdx) => {

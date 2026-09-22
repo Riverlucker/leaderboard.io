@@ -138,18 +138,24 @@ export function LiveScoreEntry({
 
     setOfflineQueue(localQueue)
 
-    // Merge: local cache / queue overwrites server data if newer
-    const mergedMap = { ...serverMap }
+    // Merge: Server data is primary ground truth. Local cache only fills in if server has no score.
+    const mergedMap: Record<string, Record<string, string>> = {}
+    for (const h of course.holes) {
+      mergedMap[h.id] = { ...(serverMap[h.id] || {}) }
+    }
+
     for (const holeId of Object.keys(localCache)) {
       if (!mergedMap[holeId]) mergedMap[holeId] = {}
       for (const partId of Object.keys(localCache[holeId])) {
-        if (localCache[holeId][partId] !== undefined) {
-          mergedMap[holeId][partId] = localCache[holeId][partId]
+        const cached = localCache[holeId][partId]
+        // Never overwrite a valid server score with an empty string or stale cache
+        if (cached && cached !== "" && (!mergedMap[holeId][partId] || mergedMap[holeId][partId] === "")) {
+          mergedMap[holeId][partId] = cached
         }
       }
     }
 
-    // Also apply any queued items in chronological order
+    // Also apply any queued items in chronological order (pending local unsaved edits take highest priority)
     for (const item of localQueue) {
       if (!mergedMap[item.holeId]) mergedMap[item.holeId] = {}
       mergedMap[item.holeId][item.participantId] = item.value
@@ -552,6 +558,50 @@ export function LiveScoreEntry({
         </button>
       </div>
 
+      {/* Interactive Hole Selector Strip */}
+      <div className="bg-white/40 backdrop-blur-sm p-2.5 rounded-xl border border-slate-200/60 flex items-center gap-1.5 overflow-x-auto scrollbar-thin">
+        {activeHoles.map((hNum: number, idx: number) => {
+          const holeObj = course.holes.find((h: any) => h.number === hNum)
+          const holeScores = holeObj ? (scoresByHole[holeObj.id] || {}) : {}
+          const isCurrent = idx === currentHoleIndex
+
+          // Count entered scores for this hole
+          const enteredCount = selectedParticipants.filter(p => holeScores[p.id] && holeScores[p.id] !== "").length
+          const isFullyEntered = enteredCount === selectedParticipants.length && enteredCount > 0
+          const isPartiallyEntered = enteredCount > 0 && !isFullyEntered
+
+          return (
+            <button
+              key={hNum}
+              type="button"
+              onClick={() => {
+                setCurrentHoleIndex(idx)
+                onHoleChange(idx)
+              }}
+              className={`flex-shrink-0 min-w-[38px] sm:min-w-[44px] h-10 sm:h-11 rounded-xl font-mono text-xs font-black flex flex-col items-center justify-center transition-all cursor-pointer border ${
+                isCurrent
+                  ? "bg-emerald-600 text-white border-emerald-600 shadow-md ring-2 ring-emerald-400/40 scale-105 z-10"
+                  : isFullyEntered
+                    ? "bg-emerald-50 text-emerald-850 border-emerald-300 hover:bg-emerald-100"
+                    : isPartiallyEntered
+                      ? "bg-amber-50 text-amber-850 border-amber-300 hover:bg-amber-100"
+                      : "bg-white/70 text-slate-600 border-slate-200 hover:bg-white"
+              }`}
+              title={`Loch ${hNum} (Par ${holeObj?.par || 4}) - ${isFullyEntered ? 'Vollständig erfasst' : isPartiallyEntered ? `${enteredCount}/${selectedParticipants.length} erfasst` : 'Noch keine Scores'}`}
+            >
+              <span className="leading-none">{hNum}</span>
+              {isFullyEntered ? (
+                <span className="text-[9px] leading-none text-emerald-600 font-bold mt-0.5">✓</span>
+              ) : isPartiallyEntered ? (
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-0.5" />
+              ) : (
+                <span className="text-[7px] text-slate-400 font-sans mt-0.5 leading-none">P{holeObj?.par || 4}</span>
+              )}
+            </button>
+          )
+        })}
+      </div>
+
       {/* Players Scoring Rows - Isolated state per hole */}
       <div className="space-y-4">
         {selectedParticipants.map((p, pIdx) => {
@@ -628,6 +678,36 @@ export function LiveScoreEntry({
                         {Array.from({ length: strokesOnCurrentHole }).map(() => "•").join("")}
                       </span>
                     )}
+                    {/* Mini trail of entered scores on other holes (clickable to jump) */}
+                    <div className="hidden sm:flex items-center gap-1 ml-2 flex-wrap">
+                      {activeHoles.map((hNum: number) => {
+                        const h = course.holes.find((x: any) => x.number === hNum)
+                        const val = h ? (scoresByHole[h.id]?.[p.id] || "") : ""
+                        if (!val) return null
+                        const isCurrentH = hNum === currentHoleNum
+                        return (
+                          <button 
+                            key={hNum} 
+                            type="button"
+                            onClick={() => {
+                              const targetIdx = activeHoles.indexOf(hNum)
+                              if (targetIdx !== -1) {
+                                setCurrentHoleIndex(targetIdx)
+                                onHoleChange(targetIdx)
+                              }
+                            }}
+                            className={`text-[9px] font-mono px-1.5 py-0.5 rounded font-black border transition-all cursor-pointer ${
+                              isCurrentH
+                                ? "bg-emerald-600 text-white border-emerald-600 shadow-sm scale-105"
+                                : "bg-white/80 text-slate-700 border-slate-250 hover:bg-slate-100"
+                            }`}
+                            title={`Loch ${hNum}: ${val} (Klicken zum Wechseln)`}
+                          >
+                            L{hNum}:{val}
+                          </button>
+                        )
+                      })}
+                    </div>
                     {isQueued && (
                       <div className="flex items-center space-x-1 text-[10px] text-amber-600 font-bold ml-1">
                         <Save size={11} />

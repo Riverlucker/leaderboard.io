@@ -2723,7 +2723,14 @@ export function CompetitionClientView({ competition, session, courses = [], user
       <header className="border-b border-slate-250 bg-white/45 backdrop-blur-md sticky top-0 z-40 px-4 py-2 md:py-4 shadow-sm flex justify-between items-center h-12 md:h-16 landscape:h-10">
         <div className="space-y-0 md:space-y-0.5">
           <div className="text-[9px] md:text-[10px] uppercase font-bold tracking-widest text-slate-500 landscape:hidden">leaderboard.io</div>
-          <h1 className="text-sm md:text-xl font-black text-slate-900 flex items-center gap-1.5">
+          <h1 className="text-sm md:text-xl font-black text-slate-900 flex items-center gap-2">
+            {competition.type === 'RYDER_CUP' && (
+              <img 
+                src="/trrc.jpg" 
+                alt="TRRC" 
+                className="w-7 h-7 md:w-8 md:h-8 rounded-full border-2 border-amber-400 shadow-sm object-cover shrink-0" 
+              />
+            )}
             <span style={{ color: primaryColor }}>{competition.name}</span>
             <span className="text-[9px] bg-slate-100 border border-slate-200 text-slate-600 px-1.5 py-0.2 rounded font-mono uppercase tracking-wider landscape:hidden">
               {competition.type}

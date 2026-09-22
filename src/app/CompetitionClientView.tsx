@@ -6,6 +6,7 @@ import { PlayerScorecardModal } from "./components/PlayerScorecardModal"
 import { ContextMenu, ContextMenuOption } from "./components/ContextMenu"
 import { PlayerHistoryModal } from "./components/PlayerHistoryModal"
 import { WintercupView } from "./components/WintercupView"
+import { RyderCupView } from "./components/RyderCupView"
 import { useState, useEffect, useTransition } from "react"
 import { signIn, signOut } from "next-auth/react"
 import { useRouter } from "next/navigation"
@@ -340,6 +341,9 @@ interface CompetitionClientViewProps {
 export function CompetitionClientView({ competition, session, courses = [], users = [] }: CompetitionClientViewProps) {
   if (competition.type === 'WINTERCUP' || competition.type === 'CL_FORMAT') {
     return <WintercupView competition={competition} session={session} />
+  }
+  if (competition.type === 'RYDER_CUP' || competition.uniqueSlug === 'TRRC26') {
+    return <RyderCupView competition={competition} session={session} />
   }
 
   const router = useRouter()
@@ -1030,7 +1034,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
 // --- RELOCATED END ---
 
   const computeMatchplayStatus = (match: any, round: any) => {
-    const isTeamMatchplay = match.type === 'TEAM_MATCHPLAY'
+    const isTeamMatchplay = match.type === 'TEAM_MATCHPLAY' || match.type === 'CHAPMAN' || (match.matchPlayers && match.matchPlayers.length === 4)
 
     const getPlayerMPAllowance = (pId: string, defVal: number) => {
       const mp = match.matchPlayers.find((x: any) => x.participantId === pId)

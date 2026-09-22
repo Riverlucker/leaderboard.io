@@ -39,7 +39,7 @@ export function MatchplayScorecardModal({
   const round = competition?.rounds?.find((r: any) => r.id === selectedMatchRoundForScorecard?.id) || selectedMatchRoundForScorecard
   const match = round?.matches?.find((m: any) => m.id === selectedMatchForScorecard?.id) || selectedMatchForScorecard
 
-  const isTeamMatchplay = match.type === 'TEAM_MATCHPLAY'
+  const isTeamMatchplay = match.type === 'TEAM_MATCHPLAY' || match.type === 'CHAPMAN' || (match.matchPlayers && match.matchPlayers.length === 4)
   const pIds = match.matchPlayers.map((mp: any) => mp.participantId)
   const players = pIds.map((id: string) => competition.participants.find((x: any) => x.id === id)).filter(Boolean)
 

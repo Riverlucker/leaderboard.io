@@ -554,43 +554,6 @@ export function WintercupView({ competition, session }: WintercupViewProps) {
             </span>
           </h1>
         </div>
-
-        {/* Header Actions */}
-        <div className="flex items-center space-x-2 md:space-x-3">
-          <button 
-            onClick={() => {
-              if (typeof window !== "undefined") {
-                document.cookie = "last-comp-slug=; path=/; max-age=0; SameSite=Lax"
-                window.location.href = "/"
-              }
-            }}
-            className="p-1.5 bg-slate-50 hover:bg-emerald-50 text-slate-500 hover:text-emerald-600 rounded-lg border border-slate-200 transition-colors shadow-sm inline-flex items-center justify-center cursor-pointer"
-            title="Switch Competition"
-          >
-            <Home size={16} />
-          </button>
-
-          {session ? (
-            <div className="flex items-center space-x-2">
-              <span className="text-xs text-slate-600 font-medium hidden md:inline">Logged in as {session.user.name || session.user.email}</span>
-              <button 
-                onClick={() => signOut({ callbackUrl: `/?comp=${competition.uniqueSlug}` })}
-                className="p-1.5 bg-slate-50 hover:bg-red-50 text-slate-500 hover:text-red-600 rounded-lg border border-slate-200 transition-colors shadow-sm cursor-pointer"
-                title="Log Out"
-              >
-                <LogOut size={16} />
-              </button>
-            </div>
-          ) : (
-            <Link
-              href="/login"
-              className="flex items-center space-x-1.5 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 text-xs font-semibold rounded-lg transition-all shadow-sm cursor-pointer"
-            >
-              <Key size={14} />
-              <span>Login to Score</span>
-            </Link>
-          )}
-        </div>
       </header>
 
       {/* 2. TABS BAR: Leaderboard | Details | Admin (Admin ONLY if admin logged in) */}
@@ -666,7 +629,7 @@ export function WintercupView({ competition, session }: WintercupViewProps) {
                       <option value="ZW">Zwischenrunde ({rZwischen.course?.name || "Golfplatz"})</option>
                     )}
                     {(rAF || rVF || rHF || rFin) && (
-                      <option value="PLAYOFFS">Playoffs ({qual.playoffStages.join(", ")})</option>
+                      <option value="PLAYOFFS">Playoffs</option>
                     )}
                   </select>
                 </div>

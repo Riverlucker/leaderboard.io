@@ -37,11 +37,10 @@ export function RyderCupView({ competition, session }: RyderCupViewProps) {
   const [manualRefreshing, setManualRefreshing] = useState(false)
   const [shareCopied, setShareCopied] = useState(false)
 
-  // Sub-tabs: 'MATCHES' | 'MVP' | 'DONUTS'
-  const [activeTab, setActiveTab] = useState<'MATCHES' | 'MVP' | 'DONUTS'>('MATCHES')
-
-  // Selected Round filter: 'OVERALL' or round.id
-  const [selectedRoundFilter, setSelectedRoundFilter] = useState<string>("OVERALL")
+  // Sub-tabs: 'MAIN' | 'MVP' | 'DONUTS'
+  const [activeTab, setActiveTab] = useState<'MAIN' | 'MVP' | 'DONUTS'>('MAIN')
+  // Selected Day/Session filter: 'ALL' | 'DAY_1' | 'DAY_2' | 'DAY_3' or round.id
+  const [dayFilter, setDayFilter] = useState<string>("ALL")
 
   // Scorecard modal state
   const [selectedMatchForScorecard, setSelectedMatchForScorecard] = useState<any>(null)
@@ -149,70 +148,74 @@ export function RyderCupView({ competition, session }: RyderCupViewProps) {
         return score.grossStrokes
       }
 
-      let lead = 0
+      let t1Up = 0
+      let t2Up = 0
       let holesPlayedCount = 0
-      let decidedInfo: { winnerTeam: string; lead: number; remaining: number } | null = null
+      let decidedHole: number | null = null
+      let decidedInfo: string | null = null
 
-      for (let i = 0; i < matchHoles.length; i++) {
+      const totalHoles = matchHoles.length
+
+      for (let i = 0; i < totalHoles; i++) {
         const holeNum = matchHoles[i]
-        const hole = round.course.holes.find((h: any) => h.number === holeNum)
-        if (!hole) continue
+        const remainingHoles = totalHoles - (i + 1)
 
-        const score1_1 = t1Players[0].scores?.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
-        const score1_2 = t1Players[1].scores?.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
-        const score2_1 = t2Players[0].scores?.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
-        const score2_2 = t2Players[1].scores?.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
+        const s1_1 = t1Players[0].scores?.find((s: any) => s.holeNumber === holeNum && s.roundId === round.id)
+        const s1_2 = t1Players[1].scores?.find((s: any) => s.holeNumber === holeNum && s.roundId === round.id)
+        const s2_1 = t2Players[0].scores?.find((s: any) => s.holeNumber === holeNum && s.roundId === round.id)
+        const s2_2 = t2Players[1].scores?.find((s: any) => s.holeNumber === holeNum && s.roundId === round.id)
 
-        const str1_1 = getMatchHoleStrokes(score1_1)
-        const str1_2 = getMatchHoleStrokes(score1_2)
-        const str2_1 = getMatchHoleStrokes(score2_1)
-        const str2_2 = getMatchHoleStrokes(score2_2)
+        const gross1_1 = getMatchHoleStrokes(s1_1)
+        const gross1_2 = getMatchHoleStrokes(s1_2)
+        const gross2_1 = getMatchHoleStrokes(s2_1)
+        const gross2_2 = getMatchHoleStrokes(s2_2)
 
-        const net1_1 = str1_1 !== null ? str1_1 - (strokesMap1_1[hole.number] || 0) : null
-        const net1_2 = str1_2 !== null ? str1_2 - (strokesMap1_2[hole.number] || 0) : null
-        const net2_1 = str2_1 !== null ? str2_1 - (strokesMap2_1[hole.number] || 0) : null
-        const net2_2 = str2_2 !== null ? str2_2 - (strokesMap2_2[hole.number] || 0) : null
+        const t1Played = (gross1_1 !== null && gross1_1 !== undefined) || (gross1_2 !== null && gross1_2 !== undefined)
+        const t2Played = (gross2_1 !== null && gross2_1 !== undefined) || (gross2_2 !== null && gross2_2 !== undefined)
 
-        const validTeam1 = [net1_1, net1_2].filter((v): v is number => v !== null)
-        const validTeam2 = [net2_1, net2_2].filter((v): v is number => v !== null)
+        if (!t1Played && !t2Played) continue
 
-        if (validTeam1.length > 0 && validTeam2.length > 0) {
-          holesPlayedCount++
-          const best1 = Math.min(...validTeam1)
-          const best2 = Math.min(...validTeam2)
-          if (best1 < best2) lead++
-          else if (best2 < best1) lead--
+        holesPlayedCount++
 
-          const remaining = matchHoles.length - (i + 1)
-          if (Math.abs(lead) > remaining && decidedInfo === null && !match.playUntilEnd) {
-            decidedInfo = {
-              winnerTeam: lead > 0 ? "DIAMOND" : "HEARTS",
-              lead: Math.abs(lead),
-              remaining
-            }
-          }
+        const net1_1 = gross1_1 !== null ? (gross1_1 === 99 ? 99 : gross1_1 - (strokesMap1_1[holeNum] || 0)) : 99
+        const net1_2 = gross1_2 !== null ? (gross1_2 === 99 ? 99 : gross1_2 - (strokesMap1_2[holeNum] || 0)) : 99
+        const net2_1 = gross2_1 !== null ? (gross2_1 === 99 ? 99 : gross2_1 - (strokesMap2_1[holeNum] || 0)) : 99
+        const net2_2 = gross2_2 !== null ? (gross2_2 === 99 ? 99 : gross2_2 - (strokesMap2_2[holeNum] || 0)) : 99
+
+        const best1 = Math.min(net1_1, net1_2)
+        const best2 = Math.min(net2_1, net2_2)
+
+        if (best1 < best2) t1Up++
+        else if (best2 < best1) t2Up++
+
+        const diff = Math.abs(t1Up - t2Up)
+        if (diff > remainingHoles && decidedHole === null) {
+          decidedHole = holeNum
+          decidedInfo = `${diff}&${remainingHoles}`
         }
       }
 
-      let statusDisplay = ""
-      const isFinished = decidedInfo !== null || (holesPlayedCount === matchHoles.length && matchHoles.length > 0)
+      const lead = t1Up - t2Up
+      const isFinished = decidedHole !== null || (holesPlayedCount >= totalHoles && totalHoles > 0)
 
-      if (holesPlayedCount === 0) {
-        statusDisplay = match.scheduledDate 
-          ? new Date(match.scheduledDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          : "Tee Time"
-      } else if (decidedInfo !== null) {
-        statusDisplay = `${decidedInfo.lead}&${decidedInfo.remaining}`
-      } else if (isFinished) {
-        statusDisplay = lead === 0 ? "A/S" : `${Math.abs(lead)} UP`
+      let statusText = "A/S"
+      if (lead > 0) {
+        if (decidedInfo) statusText = decidedInfo
+        else if (isFinished) statusText = `${lead} UP`
+        else statusText = `${lead} UP`
+      } else if (lead < 0) {
+        const absLead = Math.abs(lead)
+        if (decidedInfo) statusText = decidedInfo
+        else if (isFinished) statusText = `${absLead} UP`
+        else statusText = `${absLead} UP`
       } else {
-        statusDisplay = lead === 0 ? "A/S" : `${Math.abs(lead)} UP`
+        statusText = holesPlayedCount > 0 ? "A/S" : "-"
       }
 
       return {
-        statusText: statusDisplay,
+        statusText,
         holesPlayed: holesPlayedCount,
-        totalHoles: matchHoles.length,
+        totalHoles,
         lead,
         isFinished,
         isTeamMatchplay: true,
@@ -223,11 +226,11 @@ export function RyderCupView({ competition, session }: RyderCupViewProps) {
         decidedInfo
       }
     } else {
-      // Singles match
-      const p1 = competition.participants.find((p: any) => p.id === match.matchPlayers?.[0]?.participantId)
-      const p2 = competition.participants.find((p: any) => p.id === match.matchPlayers?.[1]?.participantId)
+      // Singles matchplay
+      const pIds = match.matchPlayers.map((mp: any) => mp.participantId)
+      const players = pIds.map((id: string) => competition.participants.find((p: any) => p.id === id)).filter(Boolean)
 
-      if (!p1 || !p2) {
+      if (players.length < 2) {
         return {
           statusText: "Setup Pending",
           holesPlayed: 0,
@@ -242,21 +245,24 @@ export function RyderCupView({ competition, session }: RyderCupViewProps) {
         }
       }
 
-      // Determine who belongs to Diamond vs Hearts
-      const diamondP = p1.teamId === diamondTeam.id ? p1 : p2
-      const heartsP = p1.teamId === diamondTeam.id ? p2 : p1
+      let p1 = players.find((p: any) => p.teamId === diamondTeam.id) || players[0]
+      let p2 = players.find((p: any) => p.teamId === heartsTeam.id) || players[1]
 
-      const hcpD = getPlayingHandicap(diamondP, round)
-      const hcpH = getPlayingHandicap(heartsP, round)
-
-      const allowance = getMatchAllowance(match, hcpD, hcpH)
-      const allowD = getPlayerMPAllowance(diamondP.id, hcpD > hcpH ? allowance : 0)
-      const allowH = getPlayerMPAllowance(heartsP.id, hcpH > hcpD ? allowance : 0)
+      const hcp1 = getPlayingHandicap(p1, round)
+      const hcp2 = getPlayingHandicap(p2, round)
 
       const roundHoles = round.holesPlayed && round.holesPlayed.length > 0
         ? [...round.holesPlayed].sort((a: number, b: number) => a - b)
         : Array.from({ length: 18 }, (_, i) => i + 1)
       const matchHoles = parseHoleRange(match.holeRange, roundHoles)
+
+      const diffHcp = Math.abs(hcp1 - hcp2)
+      const allowance = getMatchAllowance(diffHcp, match.allowanceType, matchHoles.length)
+
+      let allowD = 0
+      let allowH = 0
+      if (hcp1 > hcp2) allowD = getPlayerMPAllowance(p1.id, allowance)
+      else if (hcp2 > hcp1) allowH = getPlayerMPAllowance(p2.id, allowance)
 
       const strokesMapD = getMatchHoleStrokesMap(matchHoles, round, allowD)
       const strokesMapH = getMatchHoleStrokesMap(matchHoles, round, allowH)
@@ -268,64 +274,67 @@ export function RyderCupView({ competition, session }: RyderCupViewProps) {
         return score.grossStrokes
       }
 
-      let lead = 0 // > 0 means Diamond lead, < 0 means Hearts lead
+      let dUp = 0
+      let hUp = 0
       let holesPlayedCount = 0
-      let decidedInfo: { winnerTeam: string; lead: number; remaining: number } | null = null
+      let decidedHole: number | null = null
+      let decidedInfo: string | null = null
 
-      for (let i = 0; i < matchHoles.length; i++) {
+      const totalHoles = matchHoles.length
+
+      for (let i = 0; i < totalHoles; i++) {
         const holeNum = matchHoles[i]
-        const hole = round.course.holes.find((h: any) => h.number === holeNum)
-        if (!hole) continue
+        const remainingHoles = totalHoles - (i + 1)
 
-        const scoreD = diamondP.scores?.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
-        const scoreH = heartsP.scores?.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
+        const sD = p1.scores?.find((s: any) => s.holeNumber === holeNum && s.roundId === round.id)
+        const sH = p2.scores?.find((s: any) => s.holeNumber === holeNum && s.roundId === round.id)
 
-        const strD = getMatchHoleStrokes(scoreD)
-        const strH = getMatchHoleStrokes(scoreH)
+        const grossD = getMatchHoleStrokes(sD)
+        const grossH = getMatchHoleStrokes(sH)
 
-        const netD = strD !== null ? strD - (strokesMapD[hole.number] || 0) : null
-        const netH = strH !== null ? strH - (strokesMapH[hole.number] || 0) : null
+        if ((grossD === null || grossD === undefined) && (grossH === null || grossH === undefined)) continue
 
-        if (netD !== null && netH !== null) {
-          holesPlayedCount++
-          if (netD < netH) lead++
-          else if (netH < netD) lead--
+        holesPlayedCount++
 
-          const remaining = matchHoles.length - (i + 1)
-          if (Math.abs(lead) > remaining && decidedInfo === null && !match.playUntilEnd) {
-            decidedInfo = {
-              winnerTeam: lead > 0 ? "DIAMOND" : "HEARTS",
-              lead: Math.abs(lead),
-              remaining
-            }
-          }
+        const netD = grossD !== null ? (grossD === 99 ? 99 : grossD - (strokesMapD[holeNum] || 0)) : 99
+        const netH = grossH !== null ? (grossH === 99 ? 99 : grossH - (strokesMapH[holeNum] || 0)) : 99
+
+        if (netD < netH) dUp++
+        else if (netH < netD) hUp++
+
+        const diff = Math.abs(dUp - hUp)
+        if (diff > remainingHoles && decidedHole === null) {
+          decidedHole = holeNum
+          decidedInfo = `${diff}&${remainingHoles}`
         }
       }
 
-      let statusDisplay = ""
-      const isFinished = decidedInfo !== null || (holesPlayedCount === matchHoles.length && matchHoles.length > 0)
+      const lead = dUp - hUp
+      const isFinished = decidedHole !== null || (holesPlayedCount >= totalHoles && totalHoles > 0)
 
-      if (holesPlayedCount === 0) {
-        statusDisplay = match.scheduledDate 
-          ? new Date(match.scheduledDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          : "Tee Time"
-      } else if (decidedInfo !== null) {
-        statusDisplay = `${decidedInfo.lead}&${decidedInfo.remaining}`
-      } else if (isFinished) {
-        statusDisplay = lead === 0 ? "A/S" : `${Math.abs(lead)} UP`
+      let statusText = "A/S"
+      if (lead > 0) {
+        if (decidedInfo) statusText = decidedInfo
+        else if (isFinished) statusText = `${lead} UP`
+        else statusText = `${lead} UP`
+      } else if (lead < 0) {
+        const absLead = Math.abs(lead)
+        if (decidedInfo) statusText = decidedInfo
+        else if (isFinished) statusText = `${absLead} UP`
+        else statusText = `${absLead} UP`
       } else {
-        statusDisplay = lead === 0 ? "A/S" : `${Math.abs(lead)} UP`
+        statusText = holesPlayedCount > 0 ? "A/S" : "-"
       }
 
       return {
-        statusText: statusDisplay,
+        statusText,
         holesPlayed: holesPlayedCount,
-        totalHoles: matchHoles.length,
+        totalHoles,
         lead,
         isFinished,
         isTeamMatchplay: false,
-        team1Players: [diamondP],
-        team2Players: [heartsP],
+        team1Players: [p1],
+        team2Players: [p2],
         team1Allowance: [allowD],
         team2Allowance: [allowH],
         decidedInfo
@@ -335,7 +344,14 @@ export function RyderCupView({ competition, session }: RyderCupViewProps) {
 
   // Weight of match points: 0.5 for singles in VM/NM, 1.0 for all others
   const getMatchWeight = (match: any, round: any) => {
-    if (match.type === "SINGLES" && (round.name.includes("VM") || round.name.includes("NM") || match.holeRange === "1-9")) {
+    if (match.weight !== undefined && match.weight !== null) return match.weight
+    if (match.type === "SINGLES" && (
+      round.name.includes("VM") || 
+      round.name.includes("NM") || 
+      round.name.includes("Vormittag") || 
+      round.name.includes("Nachmittag") ||
+      match.holeRange === "1-9"
+    )) {
       return 0.5
     }
     return 1.0
@@ -375,10 +391,20 @@ export function RyderCupView({ competition, session }: RyderCupViewProps) {
     })
   })
 
-  // Filter matches based on selectedRoundFilter
-  const displayedRounds = selectedRoundFilter === "OVERALL"
-    ? rounds
-    : rounds.filter((r: any) => r.id === selectedRoundFilter)
+  // Filter rounds by selected Day/Session
+  const displayedRounds = rounds.filter((r: any) => {
+    if (dayFilter === "ALL") return true
+    if (dayFilter === "DAY_1") {
+      return r.name.toLowerCase().includes("tag 1") || r.course?.name?.toLowerCase().includes("palma")
+    }
+    if (dayFilter === "DAY_2") {
+      return r.name.toLowerCase().includes("tag 2") || r.course?.name?.toLowerCase().includes("gual")
+    }
+    if (dayFilter === "DAY_3") {
+      return r.name.toLowerCase().includes("final") || r.name.toLowerCase().includes("tag 3") || r.course?.name?.toLowerCase().includes("calvia")
+    }
+    return r.id === dayFilter
+  })
 
   // Calculate MVP Stats across all matches
   const mvpStats: Record<string, { participant: any; teamId: string; points: number; matches: number; wins: number; ties: number; losses: number }> = {};
@@ -439,43 +465,19 @@ export function RyderCupView({ competition, session }: RyderCupViewProps) {
     })
   })
 
+  // MVP: Most points first
   const sortedMvp = Object.values(mvpStats).sort((a, b) => {
     if (b.points !== a.points) return b.points - a.points
     if (b.wins !== a.wins) return b.wins - a.wins
     return a.matches - b.matches
   })
 
-  // Calculate Donut Stats (Streicher / WIPED / Double Bogey or worse)
-  const donutStats: Record<string, { participant: any; teamId: string; donuts: number; holesPlayed: number }> = {}
-  
-  ;(competition.participants || []).forEach((p: any) => {
-    let donuts = 0
-    let holesPlayed = 0
-    ;(p.scores || []).forEach((s: any) => {
-      if (s.grossStrokes !== null || s.status === 'WIPED') {
-        holesPlayed++
-        if (s.status === 'WIPED') {
-          donuts++
-        } else if (s.grossStrokes !== null) {
-          const round = rounds.find((r: any) => r.id === s.roundId)
-          const hole = round?.course?.holes?.find((h: any) => h.id === s.holeId)
-          if (hole && s.grossStrokes - hole.par >= 2) {
-            donuts++
-          }
-        }
-      }
-    })
-    donutStats[p.id] = {
-      participant: p,
-      teamId: p.teamId,
-      donuts,
-      holesPlayed
-    }
-  })
-
-  const sortedDonuts = Object.values(donutStats).sort((a, b) => {
-    if (b.donuts !== a.donuts) return b.donuts - a.donuts
-    return b.holesPlayed - a.holesPlayed
+  // Donut-Wertung: Das GEGENTEIL von MVP!
+  // Wer hat die WENIGSTEN Punkte fürs Team in den 5 Runden geholt? (0 Punkte = absoluter Donut 🍩)
+  const sortedDonuts = Object.values(mvpStats).sort((a, b) => {
+    if (a.points !== b.points) return a.points - b.points // Wenigste Punkte zuerst!
+    if (b.losses !== a.losses) return b.losses - a.losses // Meiste Niederlagen zuerst
+    return b.matches - a.matches // Meiste gespielte Matches zuerst
   })
 
   return (
@@ -541,7 +543,7 @@ export function RyderCupView({ competition, session }: RyderCupViewProps) {
           </div>
         </div>
 
-        {/* HERO RYDER CUP BANNER (Inspired by Bild 2 & Official Logo Bild 4) */}
+        {/* HERO RYDER CUP BANNER */}
         <div className="bg-gradient-to-b from-slate-900/90 via-slate-900/95 to-slate-950/95 rounded-3xl border border-slate-800/90 shadow-2xl overflow-hidden backdrop-blur-xl">
           
           {/* Top Gold Ribbon */}
@@ -578,7 +580,6 @@ export function RyderCupView({ competition, session }: RyderCupViewProps) {
                       alt="TRRC Logo" 
                       className="w-full h-full object-cover object-center rounded-full group-hover:scale-105 transition-transform duration-300"
                       onError={(e) => {
-                        // Fallback if image path differs
                         (e.target as HTMLElement).style.display = 'none'
                       }}
                     />
@@ -646,42 +647,70 @@ export function RyderCupView({ competition, session }: RyderCupViewProps) {
         {/* NAVIGATION & FILTER CONTROLS BAR */}
         <div className="bg-slate-900/90 backdrop-blur-xl border border-slate-800/90 rounded-2xl p-3 sm:p-4 shadow-xl flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
           
-          {/* Left: Round / Session Dropdown */}
-          <div className="flex items-center space-x-3">
-            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">
-              Session:
-            </label>
-            <select
-              value={selectedRoundFilter}
-              onChange={(e) => setSelectedRoundFilter(e.target.value)}
-              className="bg-slate-950 text-white font-semibold text-xs sm:text-sm px-3.5 py-2.5 rounded-xl border border-slate-700/80 focus:ring-2 focus:ring-amber-400 outline-none w-full md:w-auto shadow-inner cursor-pointer"
+          {/* Left: Quick Day Filter Tabs */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mr-1 hidden sm:inline">
+              Filter:
+            </span>
+            <button
+              onClick={() => setDayFilter("ALL")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                dayFilter === "ALL"
+                  ? "bg-amber-400 text-slate-950 shadow-md"
+                  : "bg-slate-950/80 text-slate-300 hover:text-white border border-slate-800"
+              }`}
             >
-              <option value="OVERALL">⚡ Alle Matches (Overall)</option>
-              {rounds.map((r: any) => (
-                <option key={r.id} value={r.id}>
-                  {r.name} ({r.course?.name || "Golf Course"})
-                </option>
-              ))}
-            </select>
+              Alle Spieltage
+            </button>
+            <button
+              onClick={() => setDayFilter("DAY_1")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                dayFilter === "DAY_1"
+                  ? "bg-amber-400 text-slate-950 shadow-md"
+                  : "bg-slate-950/80 text-slate-300 hover:text-white border border-slate-800"
+              }`}
+            >
+              Tag 1 (Sa · Palma)
+            </button>
+            <button
+              onClick={() => setDayFilter("DAY_2")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                dayFilter === "DAY_2"
+                  ? "bg-amber-400 text-slate-950 shadow-md"
+                  : "bg-slate-950/80 text-slate-300 hover:text-white border border-slate-800"
+              }`}
+            >
+              Tag 2 (So · Son Gual)
+            </button>
+            <button
+              onClick={() => setDayFilter("DAY_3")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                dayFilter === "DAY_3"
+                  ? "bg-amber-400 text-slate-950 shadow-md"
+                  : "bg-slate-950/80 text-slate-300 hover:text-white border border-slate-800"
+              }`}
+            >
+              Tag 3 (Mo · Calviá)
+            </button>
           </div>
 
-          {/* Right: Sub-Leaderboard Tabs (Matches, MVP, Donuts) */}
-          <div className="flex items-center bg-slate-950/80 p-1 rounded-xl border border-slate-800/80 self-center sm:self-auto w-full sm:w-auto justify-center">
+          {/* Right: Sub-Leaderboard Tabs (Main Standings, MVP, Donuts) */}
+          <div className="flex items-center bg-slate-950/90 p-1 rounded-xl border border-slate-800 self-center sm:self-auto w-full sm:w-auto justify-center">
             <button
-              onClick={() => setActiveTab('MATCHES')}
+              onClick={() => setActiveTab('MAIN')}
               className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                activeTab === 'MATCHES'
-                  ? 'bg-amber-400 text-slate-950 shadow-md'
+                activeTab === 'MAIN'
+                  ? 'bg-amber-400 text-slate-950 shadow-md font-extrabold'
                   : 'text-slate-400 hover:text-white'
               }`}
             >
-              Matches (Ryder Cup)
+              Main Standings
             </button>
             <button
               onClick={() => setActiveTab('MVP')}
               className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                 activeTab === 'MVP'
-                  ? 'bg-amber-400 text-slate-950 shadow-md'
+                  ? 'bg-amber-400 text-slate-950 shadow-md font-extrabold'
                   : 'text-slate-400 hover:text-white'
               }`}
             >
@@ -691,7 +720,7 @@ export function RyderCupView({ competition, session }: RyderCupViewProps) {
               onClick={() => setActiveTab('DONUTS')}
               className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                 activeTab === 'DONUTS'
-                  ? 'bg-amber-400 text-slate-950 shadow-md'
+                  ? 'bg-amber-400 text-slate-950 shadow-md font-extrabold'
                   : 'text-slate-400 hover:text-white'
               }`}
             >
@@ -701,9 +730,9 @@ export function RyderCupView({ competition, session }: RyderCupViewProps) {
 
         </div>
 
-        {/* TAB CONTENT: 1. MATCHES (RYDER CUP BROADCAST BOARD) */}
-        {activeTab === 'MATCHES' && (
-          <div className="space-y-6">
+        {/* TAB CONTENT: 1. MAIN STANDINGS (RYDER CUP BROADCAST BOARD) */}
+        {activeTab === 'MAIN' && (
+          <div className="space-y-8">
             {displayedRounds.map((round: any) => {
               const matches = round.matches || []
               if (matches.length === 0) return null
@@ -727,46 +756,44 @@ export function RyderCupView({ competition, session }: RyderCupViewProps) {
               return (
                 <div 
                   key={round.id} 
-                  className="bg-slate-900/90 backdrop-blur-xl rounded-2xl border border-slate-800/90 shadow-2xl overflow-hidden"
+                  className="bg-white rounded-2xl shadow-2xl border border-stone-200 overflow-hidden"
                 >
-                  {/* Session Header Banner (Styled like Bild 2 yellow bar) */}
-                  <div className="bg-gradient-to-r from-amber-400 via-amber-300 to-amber-400 text-slate-950 px-4 py-2.5 flex items-center justify-between font-black uppercase text-xs sm:text-sm tracking-widest shadow-sm">
+                  {/* Session Header Banner (Yellow/Gold Bar from Ryder Cup Broadcast) */}
+                  <div className="bg-[#f0cb46] text-slate-950 px-5 sm:px-6 py-3.5 flex items-center justify-between font-black uppercase text-base sm:text-xl tracking-wider shadow-sm">
                     <div className="flex items-center gap-2">
-                      <Calendar size={15} className="text-slate-900" />
+                      <Calendar size={18} className="text-slate-950" />
                       <span>{round.name.toUpperCase()}</span>
-                      <span className="text-[11px] font-bold text-slate-800 lowercase">
-                        · {round.course?.name} ({round.holesPlayed?.length || 18} Loch)
-                      </span>
                     </div>
-                    <div className="text-[11px] font-mono bg-slate-950 text-amber-300 px-2 py-0.5 rounded font-extrabold">
-                      {matches.length} MATCHES
+                    <div className="text-xs sm:text-sm font-extrabold text-slate-900 tracking-normal normal-case">
+                      {round.course?.name} · {round.holesPlayed?.length || 18} Loch
                     </div>
                   </div>
 
-                  {/* Team Sub-Header (EUROPE / UNITED STATES style from Bild 2) */}
-                  <div className="grid grid-cols-2 text-xs font-black uppercase tracking-wider border-b border-slate-800">
-                    <div className="bg-blue-900/80 text-white px-4 py-2 flex items-center justify-between border-r border-slate-800">
-                      <span className="flex items-center gap-1.5">
-                        <span className="text-blue-400 text-sm">♦</span>
-                        <span>DIAMOND</span>
-                      </span>
-                      <span className="bg-amber-400 text-slate-950 px-2.5 py-0.5 rounded font-black text-sm">
+                  {/* Team Sub-Header (EUROPE 6 | 6 UNITED STATES Style) */}
+                  <div className="grid grid-cols-2 gap-2 sm:gap-4 p-2 sm:p-3 bg-stone-100 border-b border-stone-200">
+                    {/* Left: Diamond */}
+                    <div className="flex items-stretch rounded-md overflow-hidden shadow-sm">
+                      <div className="flex-1 bg-[#3765e9] text-white font-black text-xs sm:text-lg py-2 px-3 sm:px-4 uppercase tracking-wider flex items-center">
+                        <span>♦ DIAMONDS</span>
+                      </div>
+                      <div className="bg-[#f0cb46] text-slate-950 font-black text-base sm:text-2xl px-3 sm:px-5 py-2 min-w-[42px] sm:min-w-[56px] flex items-center justify-center">
                         {formatCupScore(rDiamondPts)}
-                      </span>
+                      </div>
                     </div>
-                    <div className="bg-red-900/80 text-white px-4 py-2 flex items-center justify-between">
-                      <span className="bg-amber-400 text-slate-950 px-2.5 py-0.5 rounded font-black text-sm">
+
+                    {/* Right: Hearts */}
+                    <div className="flex items-stretch rounded-md overflow-hidden shadow-sm">
+                      <div className="bg-[#f0cb46] text-slate-950 font-black text-base sm:text-2xl px-3 sm:px-5 py-2 min-w-[42px] sm:min-w-[56px] flex items-center justify-center">
                         {formatCupScore(rHeartsPts)}
-                      </span>
-                      <span className="flex items-center gap-1.5">
-                        <span>HEARTS</span>
-                        <span className="text-red-400 text-sm">♥</span>
-                      </span>
+                      </div>
+                      <div className="flex-1 bg-[#cb3838] text-white font-black text-xs sm:text-lg py-2 px-3 sm:px-4 uppercase tracking-wider flex items-center justify-end">
+                        <span>HEARTS ♥</span>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Matches List (Pixel-exact adaptation of Bild 2) */}
-                  <div className="divide-y divide-slate-800/80">
+                  {/* Matches List (Clean Broadcast Rows with 5 Columns) */}
+                  <div className="divide-y divide-stone-200 bg-white">
                     {matches.map((match: any, mIdx: number) => {
                       const status = computeMatchplayStatus(match, round)
                       const weight = getMatchWeight(match, round)
@@ -788,82 +815,82 @@ export function RyderCupView({ competition, session }: RyderCupViewProps) {
                             setSelectedMatchForScorecard(match)
                             setSelectedMatchRoundForScorecard(round)
                           }}
-                          className="grid grid-cols-12 items-center hover:bg-slate-800/40 transition-colors cursor-pointer text-xs sm:text-sm font-semibold select-none group"
+                          className="flex items-stretch min-h-[50px] sm:min-h-[56px] hover:bg-stone-50 transition-colors cursor-pointer select-none group"
                         >
-                          {/* Col 1-2: Left Standing (Diamond) */}
-                          <div className="col-span-2 sm:col-span-2 h-14 sm:h-16 flex items-center justify-center font-black">
+                          {/* Col 1: Left Score / Lead (Diamond) */}
+                          <div className="w-14 sm:w-20 shrink-0 flex items-center justify-center font-black text-xs sm:text-base">
                             {diamondLead ? (
-                              <div className="w-full h-full bg-blue-600 text-white flex items-center justify-center font-mono font-black text-xs sm:text-sm tracking-wider shadow-inner">
+                              <div className="w-full h-full bg-[#3765e9] text-white flex items-center justify-center font-black tracking-wider">
                                 {status.statusText}
                               </div>
                             ) : isAllSquare ? (
-                              <div className="w-full h-full bg-slate-800 text-amber-300 border-r border-slate-700 flex items-center justify-center font-mono font-bold text-xs">
+                              <div className="w-full h-full bg-white text-slate-950 flex items-center justify-center font-black tracking-wider border-r border-stone-200">
                                 A/S
                               </div>
                             ) : (
-                              <div className="w-full h-full bg-slate-950/40 text-slate-600 flex items-center justify-center">
-                                -
-                              </div>
+                              <div className="w-full h-full bg-white border-r border-stone-100" />
                             )}
                           </div>
 
-                          {/* Col 3-5: Diamond Players */}
-                          <div className="col-span-3 sm:col-span-3 px-2 sm:px-4 py-2 text-right">
+                          {/* Col 2: Diamond Players */}
+                          <div className="flex-1 px-2 sm:px-4 py-2 flex flex-col justify-center items-end text-right min-w-0">
                             {t1Names.map((name: string, i: number) => (
-                              <div key={i} className="truncate uppercase font-bold text-slate-200 group-hover:text-blue-300 transition-colors text-[11px] sm:text-xs leading-tight">
+                              <div key={i} className="truncate uppercase font-extrabold text-slate-900 group-hover:text-blue-700 transition-colors text-xs sm:text-sm tracking-tight leading-snug">
                                 {name}
                                 {status.team1Allowance[i] > 0 && (
-                                  <span className="ml-1 text-[10px] text-blue-400 font-mono">({status.team1Allowance[i]})</span>
+                                  <span className="ml-1 text-[10px] font-mono text-blue-600 font-bold">
+                                    (+{status.team1Allowance[i]})
+                                  </span>
                                 )}
                               </div>
                             ))}
                           </div>
 
-                          {/* Col 6-7: Center Status Pill (Gold / Yellow background like Bild 2) */}
-                          <div className="col-span-2 sm:col-span-2 h-14 sm:h-16 flex flex-col items-center justify-center bg-amber-400 text-slate-950 font-black border-x border-amber-500">
-                            <span className="text-xs sm:text-sm tracking-wider">
+                          {/* Col 3: Center Status Box (Gold #f0cb46) */}
+                          <div className="w-12 sm:w-16 shrink-0 bg-[#f0cb46] text-slate-950 font-black flex flex-col items-center justify-center border-x border-amber-300">
+                            <span className="text-xs sm:text-base tracking-wider leading-none">
                               {isFinished ? "F" : holesPlayed > 0 ? `${holesPlayed}` : "0"}
                             </span>
-                            <span className="text-[9px] font-mono tracking-tighter opacity-80 uppercase">
-                              {isFinished ? "FINAL" : holesPlayed > 0 ? `THRU ${holesPlayed}` : (
+                            <span className="text-[8px] sm:text-[9px] font-mono tracking-tighter uppercase opacity-80 mt-0.5 leading-none">
+                              {isFinished ? "FINAL" : holesPlayed > 0 ? `L${holesPlayed}` : (
                                 match.scheduledDate 
                                   ? new Date(match.scheduledDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                                   : "TEE 1"
                               )}
                             </span>
                             {weight < 1.0 && (
-                              <span className="text-[8px] bg-slate-950 text-amber-300 px-1 rounded-sm mt-0.5">
+                              <span className="text-[8px] bg-slate-950 text-amber-300 px-1 rounded-sm mt-0.5 leading-none">
                                 0.5 PT
                               </span>
                             )}
                           </div>
 
-                          {/* Col 8-10: Hearts Players */}
-                          <div className="col-span-3 sm:col-span-3 px-2 sm:px-4 py-2 text-left">
+                          {/* Col 4: Hearts Players */}
+                          <div className="flex-1 px-2 sm:px-4 py-2 flex flex-col justify-center items-start text-left min-w-0">
                             {t2Names.map((name: string, i: number) => (
-                              <div key={i} className="truncate uppercase font-bold text-slate-200 group-hover:text-red-300 transition-colors text-[11px] sm:text-xs leading-tight">
+                              <div key={i} className="truncate uppercase font-extrabold text-slate-900 group-hover:text-red-700 transition-colors text-xs sm:text-sm tracking-tight leading-snug">
                                 {name}
                                 {status.team2Allowance[i] > 0 && (
-                                  <span className="ml-1 text-[10px] text-red-400 font-mono">({status.team2Allowance[i]})</span>
+                                  <span className="ml-1 text-[10px] font-mono text-red-600 font-bold">
+                                    (+{status.team2Allowance[i]})
+                                  </span>
                                 )}
                               </div>
                             ))}
                           </div>
 
-                          {/* Col 11-12: Right Standing (Hearts) */}
-                          <div className="col-span-2 sm:col-span-2 h-14 sm:h-16 flex items-center justify-center font-black">
+                          {/* Col 5: Right Score / Lead (Hearts) */}
+                          <div className="w-14 sm:w-20 shrink-0 flex items-center justify-center font-black text-xs sm:text-base">
                             {heartsLead ? (
-                              <div className="w-full h-full bg-red-600 text-white flex items-center justify-center font-mono font-black text-xs sm:text-sm tracking-wider shadow-inner">
+                              <div className="w-full h-full bg-[#cb3838] text-white flex items-center justify-center font-black tracking-wider">
                                 {status.statusText}
                               </div>
                             ) : isAllSquare ? (
-                              <div className="w-full h-full bg-slate-800 text-amber-300 border-l border-slate-700 flex items-center justify-center font-mono font-bold text-xs">
+                              <div className="w-full h-full bg-white text-slate-950 flex items-center justify-center font-black tracking-wider border-l border-stone-200">
                                 A/S
                               </div>
                             ) : (
-                              <div className="w-full h-full bg-slate-950/40 text-slate-600 flex items-center justify-center">
-                                -
-                              </div>
+                              <div className="w-full h-full bg-white border-l border-stone-100" />
                             )}
                           </div>
 
@@ -878,7 +905,7 @@ export function RyderCupView({ competition, session }: RyderCupViewProps) {
           </div>
         )}
 
-        {/* TAB CONTENT: 2. MVP WERTUNG */}
+        {/* TAB CONTENT: 2. MVP WERTUNG (MOST TEAM POINTS) */}
         {activeTab === 'MVP' && (
           <div className="bg-slate-900/90 backdrop-blur-xl rounded-2xl border border-slate-800/90 shadow-2xl overflow-hidden p-4 sm:p-6">
             <div className="flex items-center justify-between mb-4 border-b border-slate-800 pb-3">
@@ -887,7 +914,7 @@ export function RyderCupView({ competition, session }: RyderCupViewProps) {
                   <Award size={20} className="text-amber-400" />
                   <span>MVP LEADERBOARD · MOST VALUABLE PLAYER</span>
                 </h2>
-                <p className="text-xs text-slate-400">Punkteverteilung: Sieg = 1.0 (oder 0.5 im Einzel VM/NM), Geteilt = halbe Punkte.</p>
+                <p className="text-xs text-slate-400">Wer hat die meisten Punkte fürs Team geholt? (Sieg = 1.0 bzw. 0.5 im Einzel VM/NM, Geteilt = halbe Punkte).</p>
               </div>
             </div>
 
@@ -900,7 +927,7 @@ export function RyderCupView({ competition, session }: RyderCupViewProps) {
                     <th className="py-3 px-3">Team</th>
                     <th className="py-3 px-3 text-center">Matches</th>
                     <th className="py-3 px-3 text-center">W - L - T</th>
-                    <th className="py-3 px-4 text-right font-black text-amber-400">Punkte</th>
+                    <th className="py-3 px-4 text-right font-black text-amber-400">Punkte fürs Team</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60 font-semibold">
@@ -928,7 +955,7 @@ export function RyderCupView({ competition, session }: RyderCupViewProps) {
                           <span className="text-emerald-400 font-bold">{item.wins}</span> - <span className="text-red-400 font-bold">{item.losses}</span> - <span className="text-amber-400 font-bold">{item.ties}</span>
                         </td>
                         <td className="py-3 px-4 text-right font-mono font-black text-amber-400 text-sm sm:text-base">
-                          {formatCupScore(item.points)}
+                          {formatCupScore(item.points)} Pkt
                         </td>
                       </tr>
                     )
@@ -939,16 +966,18 @@ export function RyderCupView({ competition, session }: RyderCupViewProps) {
           </div>
         )}
 
-        {/* TAB CONTENT: 3. DONUT-WERTUNG (🍩) */}
+        {/* TAB CONTENT: 3. DONUT-WERTUNG (GEGENTEIL VON MVP: WENIGSTE TEAMPUNKTE) */}
         {activeTab === 'DONUTS' && (
           <div className="bg-slate-900/90 backdrop-blur-xl rounded-2xl border border-slate-800/90 shadow-2xl overflow-hidden p-4 sm:p-6">
             <div className="flex items-center justify-between mb-4 border-b border-slate-800 pb-3">
               <div>
                 <h2 className="text-base sm:text-lg font-black text-white flex items-center gap-2">
                   <span className="text-2xl">🍩</span>
-                  <span>DONUT-WERTUNG · DIE STREICHER-TABELLE</span>
+                  <span>DONUT-WERTUNG · DIE WENIGSTEN TEAM-PUNKTE</span>
                 </h2>
-                <p className="text-xs text-slate-400">Gezählt werden gestrichene Löcher (WIPED) sowie Double-Bogey oder schlechter.</p>
+                <p className="text-xs text-slate-400">
+                  Das Gegenteil vom MVP: Wer hat in den 5 Runden die wenigsten Punkte für sein Team geholt? 0 Punkte = Der absolute Donut-König 🍩👑.
+                </p>
               </div>
             </div>
 
@@ -959,18 +988,23 @@ export function RyderCupView({ competition, session }: RyderCupViewProps) {
                     <th className="py-3 px-3">Rang</th>
                     <th className="py-3 px-4">Spieler</th>
                     <th className="py-3 px-3">Team</th>
-                    <th className="py-3 px-3 text-center">Gespielte Löcher</th>
-                    <th className="py-3 px-4 text-right font-black text-pink-400">🍩 Donuts</th>
+                    <th className="py-3 px-3 text-center">Matches</th>
+                    <th className="py-3 px-3 text-center">W - L - T</th>
+                    <th className="py-3 px-4 text-right font-black text-pink-400">Punkte fürs Team</th>
+                    <th className="py-3 px-4 text-right">Donut-Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60 font-semibold">
                   {sortedDonuts.map((item, idx) => {
                     const isDiamond = item.teamId === diamondTeam.id
                     const name = item.participant.userId ? item.participant.user?.name : item.participant.dummyName || "Spieler"
+                    const isDonutKing = idx === 0 && item.points === 0
+                    const isZero = item.points === 0
+
                     return (
                       <tr key={item.participant.id} className="hover:bg-slate-800/30 transition-colors">
                         <td className="py-3 px-3 font-mono font-bold text-slate-400">
-                          {idx === 0 ? "👑 1" : `${idx + 1}`}
+                          {isDonutKing ? "🍩👑 1" : isZero ? `🍩 ${idx + 1}` : `${idx + 1}`}
                         </td>
                         <td className="py-3 px-4 text-white font-bold">
                           {name}
@@ -983,9 +1017,31 @@ export function RyderCupView({ competition, session }: RyderCupViewProps) {
                             {isDiamond ? "♦ Diamond" : "♥ Hearts"}
                           </span>
                         </td>
-                        <td className="py-3 px-3 text-center font-mono">{item.holesPlayed}</td>
+                        <td className="py-3 px-3 text-center font-mono">{item.matches}</td>
+                        <td className="py-3 px-3 text-center font-mono text-slate-300">
+                          <span className="text-emerald-400 font-bold">{item.wins}</span> - <span className="text-red-400 font-bold">{item.losses}</span> - <span className="text-amber-400 font-bold">{item.ties}</span>
+                        </td>
                         <td className="py-3 px-4 text-right font-mono font-black text-pink-400 text-sm sm:text-base">
-                          {item.donuts}
+                          {formatCupScore(item.points)} Pkt
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          {isDonutKing ? (
+                            <span className="px-2.5 py-1 rounded-full bg-pink-500/20 text-pink-300 font-black border border-pink-500/40 text-[10px] sm:text-[11px] shadow-sm animate-pulse">
+                              🍩 DONUT-KÖNIG (0 Pkt)
+                            </span>
+                          ) : isZero ? (
+                            <span className="px-2.5 py-1 rounded-full bg-pink-500/10 text-pink-400 font-bold border border-pink-500/30 text-[10px] sm:text-[11px]">
+                              🍩 0 Punkte
+                            </span>
+                          ) : item.points === 0.5 ? (
+                            <span className="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300 font-semibold border border-amber-500/30 text-[10px]">
+                              ½ Punkt
+                            </span>
+                          ) : (
+                            <span className="text-slate-400 text-xs font-mono">
+                              {formatCupScore(item.points)} Pkt
+                            </span>
+                          )}
                         </td>
                       </tr>
                     )

@@ -5,8 +5,13 @@ import { MatchplayScorecardModal } from "./components/MatchplayScorecardModal"
 import { PlayerScorecardModal } from "./components/PlayerScorecardModal"
 import { ContextMenu, ContextMenuOption } from "./components/ContextMenu"
 import { PlayerHistoryModal } from "./components/PlayerHistoryModal"
+import { 
+  RyderCupHeroBanner, 
+  RyderCupMainStandings, 
+  RyderCupMvpStandings, 
+  RyderCupDonutStandings 
+} from "./components/RyderCupBoard"
 import { WintercupView } from "./components/WintercupView"
-import { RyderCupView } from "./components/RyderCupView"
 import { useState, useEffect, useTransition } from "react"
 import { signIn, signOut } from "next-auth/react"
 import { useRouter } from "next/navigation"
@@ -341,9 +346,6 @@ interface CompetitionClientViewProps {
 export function CompetitionClientView({ competition, session, courses = [], users = [] }: CompetitionClientViewProps) {
   if (competition.type === 'WINTERCUP' || competition.type === 'CL_FORMAT') {
     return <WintercupView competition={competition} session={session} />
-  }
-  if (competition.type === 'RYDER_CUP' || competition.uniqueSlug === 'TRRC26') {
-    return <RyderCupView competition={competition} session={session} />
   }
 
   const router = useRouter()
@@ -940,7 +942,11 @@ export function CompetitionClientView({ competition, session, courses = [], user
       if (typeParam) {
         setSelectedLeaderboardType(typeParam)
       } else if (savedLeaderboard) {
-        setSelectedLeaderboardType(savedLeaderboard)
+        if (competition.type === 'RYDER_CUP' && !['MAIN', 'MVP', 'DONUTS'].includes(savedLeaderboard)) {
+          setSelectedLeaderboardType('MAIN')
+        } else {
+          setSelectedLeaderboardType(savedLeaderboard)
+        }
       }
 
       if (roundParam) {
@@ -2827,6 +2833,11 @@ export function CompetitionClientView({ competition, session, courses = [], user
         {/* Tab 1: Leaderboard */}
         {activeTab === 'leaderboard' && (
           <div className="space-y-6">
+
+            {/* Ryder Cup Hero Score Banner */}
+            {competition.type === 'RYDER_CUP' && (
+              <RyderCupHeroBanner competition={competition} />
+            )}
             
             {/* Filter controls */}
             <div className="flex flex-col sm:flex-row gap-4 justify-between sm:items-center bg-white/35 backdrop-blur-sm border border-slate-200 p-4 rounded-2xl shadow-sm">
@@ -2840,6 +2851,13 @@ export function CompetitionClientView({ competition, session, courses = [], user
                     className="bg-emerald-50 border-2 border-emerald-300 rounded-lg px-3 py-1.5 text-sm font-black text-emerald-850 focus:ring-emerald-500 focus:outline-none cursor-pointer shadow-sm transition-all"
                   >
                     <option value="TOTAL">All Rounds (Cumulative)</option>
+                    {competition.type === 'RYDER_CUP' && (
+                      <>
+                        <option value="DAY_1">📅 Tag 1 (T-Golf Palma)</option>
+                        <option value="DAY_2">📅 Tag 2 (Golf Son Gual)</option>
+                        <option value="DAY_3">📅 Tag 3 (T-Golf Calvia)</option>
+                      </>
+                    )}
                     {competition.rounds.map((round: any) => (
                       <option key={round.id} value={round.id}>{round.name}</option>
                     ))}
@@ -2855,47 +2873,55 @@ export function CompetitionClientView({ competition, session, courses = [], user
                     className="bg-emerald-50 border-2 border-emerald-300 rounded-lg px-3 py-1.5 text-sm font-black text-emerald-850 focus:ring-emerald-500 focus:outline-none cursor-pointer shadow-sm transition-all"
                   >
                     <option value="MAIN">
-                      {competition.type === 'TEAM_MATCHPLAY'
-                        ? 'Team Matchplay'
-                        : competition.type === 'MATCHPLAY'
-                          ? 'Matchplays'
-                          : `Main Standings (${competition.type === 'NETTO_STABLEFORD' ? 'Stableford Netto' : competition.type})`
+                      {competition.type === 'RYDER_CUP'
+                        ? 'Main Standings (Ryder Cup)'
+                        : competition.type === 'TEAM_MATCHPLAY'
+                          ? 'Team Matchplay'
+                          : competition.type === 'MATCHPLAY'
+                            ? 'Matchplays'
+                            : `Main Standings (${competition.type === 'NETTO_STABLEFORD' ? 'Stableford Netto' : competition.type})`
                       }
                     </option>
-                    {selectedExtraLeaderboards.includes('STROKEPLAY') && competition.type !== 'STROKEPLAY_GROSS' && (
+                    {competition.type === 'RYDER_CUP' && (
+                      <>
+                        <option value="MVP">MVP Leaderboard</option>
+                        <option value="DONUTS">🍩 Donut-Wertung</option>
+                      </>
+                    )}
+                    {competition.type !== 'RYDER_CUP' && selectedExtraLeaderboards.includes('STROKEPLAY') && competition.type !== 'STROKEPLAY_GROSS' && (
                       <option value="STROKEPLAY">Strokeplay Gross</option>
                     )}
-                    {selectedExtraLeaderboards.includes('STABLEFORD_NETTO') && competition.type !== 'NETTO_STABLEFORD' && (
+                    {competition.type !== 'RYDER_CUP' && selectedExtraLeaderboards.includes('STABLEFORD_NETTO') && competition.type !== 'NETTO_STABLEFORD' && (
                       <option value="STABLEFORD_NETTO">Stableford Netto</option>
                     )}
-                    {selectedExtraLeaderboards.includes('STABLEFORD_BRUTTO') && (
+                    {competition.type !== 'RYDER_CUP' && selectedExtraLeaderboards.includes('STABLEFORD_BRUTTO') && (
                       <option value="STABLEFORD_BRUTTO">Stableford Brutto</option>
                     )}
-                    {selectedExtraLeaderboards.includes('BIRDIE') && (
+                    {competition.type !== 'RYDER_CUP' && selectedExtraLeaderboards.includes('BIRDIE') && (
                       <option value="BIRDIE">Birdie Leaderboard</option>
                     )}
-                    {selectedExtraLeaderboards.includes('DOUBLE_BOGEY_PLUS') && (
+                    {competition.type !== 'RYDER_CUP' && selectedExtraLeaderboards.includes('DOUBLE_BOGEY_PLUS') && (
                       <option value="DOUBLE_BOGEY_PLUS">Double Bogey+ Leaderboard</option>
                     )}
-                    {selectedExtraLeaderboards.includes('PAR_PLUS_SERIES') && (
+                    {competition.type !== 'RYDER_CUP' && selectedExtraLeaderboards.includes('PAR_PLUS_SERIES') && (
                       <option value="PAR_PLUS_SERIES">Par+ Series</option>
                     )}
-                    {isTeamComp && selectedExtraLeaderboards.includes('TEAM_STROKEPLAY') && (
+                    {competition.type !== 'RYDER_CUP' && isTeamComp && selectedExtraLeaderboards.includes('TEAM_STROKEPLAY') && (
                       <option value="TEAM_STROKEPLAY">Team Strokeplay</option>
                     )}
-                    {isTeamComp && selectedExtraLeaderboards.includes('TEAM_STABLEFORD_NETTO') && (
+                    {competition.type !== 'RYDER_CUP' && isTeamComp && selectedExtraLeaderboards.includes('TEAM_STABLEFORD_NETTO') && (
                       <option value="TEAM_STABLEFORD_NETTO">Team Stableford Netto</option>
                     )}
-                    {isTeamComp && selectedExtraLeaderboards.includes('TEAM_STABLEFORD_BRUTTO') && (
+                    {competition.type !== 'RYDER_CUP' && isTeamComp && selectedExtraLeaderboards.includes('TEAM_STABLEFORD_BRUTTO') && (
                       <option value="TEAM_STABLEFORD_BRUTTO">Team Stableford Brutto</option>
                     )}
-                    {competition.rounds.some((r: any) => r.matches?.some((m: any) => m.type === "SINGLES")) && competition.type !== 'MATCHPLAY' && (
+                    {competition.type !== 'RYDER_CUP' && competition.rounds.some((r: any) => r.matches?.some((m: any) => m.type === "SINGLES")) && competition.type !== 'MATCHPLAY' && (
                       <option value="MATCHPLAY">Matchplays</option>
                     )}
-                    {competition.rounds.some((r: any) => r.matches?.some((m: any) => m.type === "TEAM_MATCHPLAY")) && competition.type !== 'TEAM_MATCHPLAY' && (
+                    {competition.type !== 'RYDER_CUP' && competition.rounds.some((r: any) => r.matches?.some((m: any) => m.type === "TEAM_MATCHPLAY")) && competition.type !== 'TEAM_MATCHPLAY' && (
                       <option value="TEAM_MATCHPLAY">Team Matchplay</option>
                     )}
-                    {selectedExtraLeaderboards.includes('MVP') && (
+                    {competition.type !== 'RYDER_CUP' && selectedExtraLeaderboards.includes('MVP') && (
                       <option value="MVP">MVP Leaderboard</option>
                     )}
                   </select>
@@ -2930,6 +2956,26 @@ export function CompetitionClientView({ competition, session, courses = [], user
             </div>
 
             {(() => {
+              // For Ryder Cup competitions:
+              if (competition.type === 'RYDER_CUP') {
+                if (selectedLeaderboardType === 'MVP') {
+                  return <RyderCupMvpStandings competition={competition} />
+                }
+                if (selectedLeaderboardType === 'DONUTS') {
+                  return <RyderCupDonutStandings competition={competition} />
+                }
+                return (
+                  <RyderCupMainStandings
+                    competition={competition}
+                    selectedRoundFilter={selectedRoundFilter}
+                    onSelectMatch={(m: any, r: any) => {
+                      setSelectedMatchForScorecard(m)
+                      setSelectedMatchRoundForScorecard(r)
+                    }}
+                  />
+                )
+              }
+
               const isViewingTeamMatchplay = selectedLeaderboardType === 'TEAM_MATCHPLAY' || (selectedLeaderboardType === 'MAIN' && competition.type === 'TEAM_MATCHPLAY')
               const isViewingSinglesMatchplay = selectedLeaderboardType === 'MATCHPLAY' || (selectedLeaderboardType === 'MAIN' && competition.type === 'MATCHPLAY')
 

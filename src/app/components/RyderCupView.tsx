@@ -572,12 +572,19 @@ export function RyderCupView({ competition, session }: RyderCupViewProps) {
               </div>
 
               {/* Center Logo & Match Status */}
-              <div className="flex flex-col items-center justify-center text-center order-first md:order-none py-2 px-1">
-                <div className="relative group">
-                  {/* Outer Golden Glow Aura */}
-                  <div className="absolute -inset-1.5 rounded-full bg-gradient-to-tr from-amber-500 via-amber-300 to-amber-600 opacity-75 blur-md group-hover:opacity-100 transition duration-300"></div>
+              <div className="flex flex-col items-center justify-center text-center order-first md:order-none py-1 px-1">
+                {/* Top Target Pill */}
+                <div className="mb-2 inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-slate-950/90 border border-amber-400/60 text-[11px] sm:text-xs text-slate-200 font-bold shadow-lg">
+                  <span className="text-amber-400 font-black tracking-wide">🏆 11 PKT ZUM SIEG</span>
+                  <span className="text-slate-500">·</span>
+                  <span className="text-slate-300 font-medium">21 Gesamt</span>
+                </div>
 
-                  <div className="relative w-28 h-28 sm:w-36 sm:h-36 md:w-40 md:h-40 rounded-full overflow-hidden border-4 border-amber-400 shadow-2xl bg-slate-950 flex items-center justify-center p-1">
+                <div className="relative group my-1">
+                  {/* Outer Golden Glow Aura */}
+                  <div className="absolute -inset-2 rounded-full bg-gradient-to-tr from-amber-500 via-amber-300 to-amber-600 opacity-85 blur-lg group-hover:opacity-100 transition duration-300"></div>
+
+                  <div className="relative w-36 h-36 sm:w-48 sm:h-48 md:w-56 md:h-56 rounded-full overflow-hidden border-4 sm:border-[5px] border-amber-400 shadow-2xl bg-slate-950 flex items-center justify-center p-1">
                     <img 
                       src="/trrc.jpg" 
                       alt="TRRC Logo" 
@@ -587,15 +594,9 @@ export function RyderCupView({ competition, session }: RyderCupViewProps) {
                       }}
                     />
                   </div>
-                  <div className="absolute -bottom-3 inset-x-0 mx-auto w-max px-3.5 py-1 bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 text-slate-950 text-[11px] font-black uppercase tracking-wider rounded-full shadow-lg border border-amber-200">
+                  <div className="absolute -bottom-3 inset-x-0 mx-auto w-max px-4 py-1 bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 text-slate-950 text-xs sm:text-sm font-black uppercase tracking-wider rounded-full shadow-xl border-2 border-amber-200">
                     TRRC 2026
                   </div>
-                </div>
-
-                <div className="mt-4 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-950/90 border border-amber-400/50 text-[12px] text-slate-200 font-semibold shadow-inner">
-                  <span className="text-amber-400 font-extrabold tracking-wide">🏆 11 PKT ZUM SIEG</span>
-                  <span className="text-slate-500">·</span>
-                  <span className="text-slate-300 font-medium">21 Gesamt</span>
                 </div>
               </div>
 

@@ -11,6 +11,7 @@ import {
   RyderCupMvpStandings, 
   RyderCupDonutStandings 
 } from "./components/RyderCupBoard"
+import { RyderCupAgendaTab, RyderCupRulesTab } from "./components/RyderCupAgendaRules"
 import { WintercupView } from "./components/WintercupView"
 import { useState, useEffect, useTransition } from "react"
 import { signIn, signOut } from "next-auth/react"
@@ -18,7 +19,8 @@ import { useRouter } from "next/navigation"
 import { 
   Trophy, BookOpen, Key, LogOut, CheckCircle, 
   Settings, ChevronRight, Users, Play, Edit, 
-  HelpCircle, Eye, RefreshCw, X, Loader2, Save, Trash2, ShieldAlert, Home, Plus, Share2
+  HelpCircle, Eye, RefreshCw, X, Loader2, Save, Trash2, ShieldAlert, Home, Plus, Share2,
+  Calendar, FileText
 } from "lucide-react"
 
 import { 
@@ -349,7 +351,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
   }
 
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState<'leaderboard' | 'details' | 'scores' | 'admin'>('leaderboard')
+  const [activeTab, setActiveTab] = useState<'leaderboard' | 'scores' | 'agenda' | 'rules' | 'details' | 'admin'>('leaderboard')
 
   // parse cssConfig for primaryColor
   let primaryColor = "#059669" // default emerald-600
@@ -2777,10 +2779,10 @@ export function CompetitionClientView({ competition, session, courses = [], user
 
       {/* Tabs */}
       <div className="bg-white/35 backdrop-blur-md border-b border-slate-200 sticky top-12 md:top-16 landscape:top-10 z-30 flex justify-center shadow-sm h-10 md:h-14 landscape:h-8.5">
-        <div className="flex w-full max-w-7xl px-4 h-full">
+        <div className="flex w-full max-w-7xl px-2 sm:px-4 h-full overflow-x-auto scrollbar-none">
           <button
             onClick={() => setActiveTab('leaderboard')}
-            className={`flex-1 py-2 md:py-4 text-center text-xs md:text-sm font-bold border-b-2 transition-all flex items-center justify-center space-x-1.5 md:space-x-2 landscape:py-1 ${
+            className={`flex-1 min-w-[90px] py-2 md:py-4 text-center text-xs md:text-sm font-bold border-b-2 transition-all flex items-center justify-center space-x-1.5 md:space-x-2 landscape:py-1 ${
               activeTab === 'leaderboard'
                 ? 'text-emerald-500 bg-emerald-500/20 font-black'
                 : 'border-transparent text-slate-700 hover:text-slate-950 font-black'
@@ -2793,7 +2795,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
 
           <button
             onClick={() => setActiveTab('scores')}
-            className={`flex-1 py-2 md:py-4 text-center text-xs md:text-sm font-bold border-b-2 transition-all flex items-center justify-center space-x-1.5 md:space-x-2 landscape:py-1 ${
+            className={`flex-1 min-w-[95px] py-2 md:py-4 text-center text-xs md:text-sm font-bold border-b-2 transition-all flex items-center justify-center space-x-1.5 md:space-x-2 landscape:py-1 ${
               activeTab === 'scores'
                 ? 'text-emerald-500 bg-emerald-500/20 font-black'
                 : 'border-transparent text-slate-700 hover:text-slate-950 font-black'
@@ -2805,8 +2807,34 @@ export function CompetitionClientView({ competition, session, courses = [], user
           </button>
 
           <button
+            onClick={() => setActiveTab('agenda')}
+            className={`flex-1 min-w-[80px] py-2 md:py-4 text-center text-xs md:text-sm font-bold border-b-2 transition-all flex items-center justify-center space-x-1.5 md:space-x-2 landscape:py-1 ${
+              activeTab === 'agenda'
+                ? 'text-emerald-500 bg-emerald-500/20 font-black'
+                : 'border-transparent text-slate-700 hover:text-slate-950 font-black'
+            }`}
+            style={{ borderBottomColor: activeTab === 'agenda' ? primaryColor : 'transparent' }}
+          >
+            <Calendar size={16} className="landscape:w-3.5 landscape:h-3.5" />
+            <span>Agenda</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('rules')}
+            className={`flex-1 min-w-[80px] py-2 md:py-4 text-center text-xs md:text-sm font-bold border-b-2 transition-all flex items-center justify-center space-x-1.5 md:space-x-2 landscape:py-1 ${
+              activeTab === 'rules'
+                ? 'text-emerald-500 bg-emerald-500/20 font-black'
+                : 'border-transparent text-slate-700 hover:text-slate-950 font-black'
+            }`}
+            style={{ borderBottomColor: activeTab === 'rules' ? primaryColor : 'transparent' }}
+          >
+            <FileText size={16} className="landscape:w-3.5 landscape:h-3.5" />
+            <span>Regeln</span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('details')}
-            className={`flex-1 py-2 md:py-4 text-center text-xs md:text-sm font-bold border-b-2 transition-all flex items-center justify-center space-x-1.5 md:space-x-2 landscape:py-1 ${
+            className={`flex-1 min-w-[75px] py-2 md:py-4 text-center text-xs md:text-sm font-bold border-b-2 transition-all flex items-center justify-center space-x-1.5 md:space-x-2 landscape:py-1 ${
               activeTab === 'details'
                 ? 'text-emerald-500 bg-emerald-500/20 font-black'
                 : 'border-transparent text-slate-700 hover:text-slate-950 font-black'
@@ -2820,7 +2848,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
           {isAdminUser && (
             <button
               onClick={() => setActiveTab('admin')}
-              className={`flex-1 py-2 md:py-4 text-center text-xs md:text-sm font-bold border-b-2 transition-all flex items-center justify-center space-x-1.5 md:space-x-2 landscape:py-1 ${
+              className={`flex-1 min-w-[75px] py-2 md:py-4 text-center text-xs md:text-sm font-bold border-b-2 transition-all flex items-center justify-center space-x-1.5 md:space-x-2 landscape:py-1 ${
                 activeTab === 'admin'
                   ? 'text-emerald-500 bg-emerald-500/20 font-black'
                   : 'border-transparent text-slate-700 hover:text-slate-950 font-black'
@@ -3841,6 +3869,16 @@ export function CompetitionClientView({ competition, session, courses = [], user
               </div>
             )}
           </div>
+        )}
+
+        {/* Tab: Agenda */}
+        {activeTab === 'agenda' && (
+          <RyderCupAgendaTab competition={competition} />
+        )}
+
+        {/* Tab: Regeln */}
+        {activeTab === 'rules' && (
+          <RyderCupRulesTab />
         )}
 
         {/* Tab 4: Admin Controls */}

@@ -411,27 +411,34 @@ export function RyderCupHeroBanner({ competition }: { competition: any }) {
       <div className="p-4 sm:p-6">
         <div className="grid grid-cols-1 md:grid-cols-3 items-center gap-4 sm:gap-6">
           {/* Diamond (Blue) */}
-          <div className="flex items-center justify-between md:justify-end gap-3 bg-blue-950/80 p-3.5 sm:p-4 rounded-xl border border-blue-500/40 shadow-inner">
+          <div className="flex items-center justify-between md:justify-end gap-3 bg-blue-950/80 p-3.5 sm:p-5 rounded-2xl border border-blue-500/40 shadow-inner">
             <div className="text-left md:text-right">
-              <div className="flex items-center md:justify-end gap-1.5 text-blue-400 font-black text-sm tracking-wide uppercase">
+              <div className="flex items-center md:justify-end gap-1.5 text-blue-400 font-black text-sm sm:text-base tracking-wide uppercase">
                 <span>♦</span>
                 <span>TEAM DIAMOND</span>
               </div>
-              <div className="text-[11px] text-slate-400 font-medium">7 Spieler · Blau</div>
+              <div className="text-xs text-slate-400 font-medium">7 Spieler · Blau</div>
             </div>
-            <div className="bg-blue-600 text-white font-black text-2xl sm:text-3xl min-w-[56px] sm:min-w-[68px] h-[48px] sm:h-[56px] rounded-lg flex items-center justify-center shadow tracking-wider">
+            <div className="bg-blue-600 text-white font-black text-3xl sm:text-4xl md:text-5xl min-w-[70px] sm:min-w-[84px] h-[60px] sm:h-[72px] rounded-xl flex items-center justify-center shadow-lg tracking-wider border border-blue-400/40">
               {formatCupScore(diamondPoints)}
             </div>
           </div>
 
-          {/* Center Logo & Target */}
-          <div className="flex flex-col items-center justify-center text-center order-first md:order-none py-2 px-1">
-            <div className="relative group">
+          {/* Center Logo & Target (Prominent Hero Display) */}
+          <div className="flex flex-col items-center justify-center text-center order-first md:order-none py-1 px-1">
+            {/* Top Target Pill */}
+            <div className="mb-2 inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-slate-950/90 border border-amber-400/60 text-[11px] sm:text-xs text-slate-200 font-bold shadow-lg">
+              <span className="text-amber-400 font-black tracking-wide">🏆 11 PKT ZUM SIEG</span>
+              <span className="text-slate-500">·</span>
+              <span className="text-slate-300 font-medium">21 Gesamt</span>
+            </div>
+
+            <div className="relative group my-1">
               {/* Outer Golden Glow Aura */}
-              <div className="absolute -inset-1.5 rounded-full bg-gradient-to-tr from-amber-500 via-amber-300 to-amber-600 opacity-75 blur-md group-hover:opacity-100 transition duration-300"></div>
+              <div className="absolute -inset-2 rounded-full bg-gradient-to-tr from-amber-500 via-amber-300 to-amber-600 opacity-85 blur-lg group-hover:opacity-100 transition duration-300"></div>
               
               {/* Main Prominent Circular Frame */}
-              <div className="relative w-28 h-28 sm:w-36 sm:h-36 md:w-40 md:h-40 rounded-full overflow-hidden border-4 border-amber-400 shadow-2xl bg-slate-950 flex items-center justify-center p-1">
+              <div className="relative w-36 h-36 sm:w-48 sm:h-48 md:w-56 md:h-56 rounded-full overflow-hidden border-4 sm:border-[5px] border-amber-400 shadow-2xl bg-slate-950 flex items-center justify-center p-1">
                 <img 
                   src="/trrc.jpg" 
                   alt="TRRC Logo" 
@@ -441,29 +448,23 @@ export function RyderCupHeroBanner({ competition }: { competition: any }) {
               </div>
 
               {/* Tournament Badge underneath circular logo */}
-              <div className="absolute -bottom-3 inset-x-0 mx-auto w-max px-3.5 py-1 bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 text-slate-950 text-[11px] font-black uppercase tracking-wider rounded-full shadow-lg border border-amber-200">
+              <div className="absolute -bottom-3 inset-x-0 mx-auto w-max px-4 py-1 bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 text-slate-950 text-xs sm:text-sm font-black uppercase tracking-wider rounded-full shadow-xl border-2 border-amber-200">
                 TRRC 2026
               </div>
-            </div>
-
-            <div className="mt-4 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-950/90 border border-amber-400/50 text-[12px] text-slate-200 font-semibold shadow-inner">
-              <span className="text-amber-400 font-extrabold tracking-wide">🏆 11 PKT ZUM SIEG</span>
-              <span className="text-slate-500">·</span>
-              <span className="text-slate-300 font-medium">21 Gesamt</span>
             </div>
           </div>
 
           {/* Hearts (Red) */}
-          <div className="flex items-center justify-between gap-3 bg-red-950/80 p-3.5 sm:p-4 rounded-xl border border-red-500/40 shadow-inner">
-            <div className="bg-red-600 text-white font-black text-2xl sm:text-3xl min-w-[56px] sm:min-w-[68px] h-[48px] sm:h-[56px] rounded-lg flex items-center justify-center shadow tracking-wider order-last md:order-first">
+          <div className="flex items-center justify-between gap-3 bg-red-950/80 p-3.5 sm:p-5 rounded-2xl border border-red-500/40 shadow-inner">
+            <div className="bg-red-600 text-white font-black text-3xl sm:text-4xl md:text-5xl min-w-[70px] sm:min-w-[84px] h-[60px] sm:h-[72px] rounded-xl flex items-center justify-center shadow-lg tracking-wider border border-red-400/40 order-last md:order-first">
               {formatCupScore(heartsPoints)}
             </div>
             <div className="text-right md:text-left">
-              <div className="flex items-center md:justify-start justify-end gap-1.5 text-red-400 font-black text-sm tracking-wide uppercase">
+              <div className="flex items-center md:justify-start justify-end gap-1.5 text-red-400 font-black text-sm sm:text-base tracking-wide uppercase">
                 <span>TEAM HEARTS</span>
                 <span>♥</span>
               </div>
-              <div className="text-[11px] text-slate-400 font-medium">7 Spieler · Rot</div>
+              <div className="text-xs text-slate-400 font-medium">7 Spieler · Rot</div>
             </div>
           </div>
         </div>
@@ -484,6 +485,28 @@ export function RyderCupHeroBanner({ competition }: { competition: any }) {
       </div>
     </div>
   )
+}
+
+// Helper to check if round pairings are anonymous
+export function isRoundPairingsAnonymous(round: any): boolean {
+  if (!round || !round.name) return false
+  const name = round.name.toLowerCase()
+  if (name.includes("tag 1 nm") || name.includes("tag 1 nachmittag")) return true
+  if (name.includes("tag 2")) return true
+  return false
+}
+
+// Helper to determine match tee time
+export function getMatchTeeTime(match: any, round: any, mIdx: number): string {
+  if (match?.scheduledDate) {
+    return new Date(match.scheduledDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  }
+  if (round?.startDate) {
+    const baseDate = new Date(round.startDate)
+    const matchDate = new Date(baseDate.getTime() + mIdx * 10 * 60 * 1000)
+    return matchDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  }
+  return "TEE"
 }
 
 // 2. MAIN STANDINGS (Exact TV Broadcast Layout from Screenshot)
@@ -543,6 +566,9 @@ export function RyderCupMainStandings({
           }
         })
 
+        const isRoundAnon = isRoundPairingsAnonymous(round)
+        const showRoundStandings = selectedRoundFilter !== "TOTAL" && Boolean(selectedRoundFilter)
+
         return (
           <div 
             key={round.id} 
@@ -559,34 +585,35 @@ export function RyderCupMainStandings({
               </div>
             </div>
 
-            {/* Team Score Sub-Header (EUROPE 6 | 6 UNITED STATES Style) */}
-            <div className="grid grid-cols-2 gap-2 sm:gap-4 p-2.5 sm:p-3 bg-stone-100 border-b border-stone-200">
-              {/* Left: Diamonds */}
-              <div className="flex items-stretch rounded-md overflow-hidden shadow-sm">
-                <div className="flex-1 bg-[#3765e9] text-white font-black text-xs sm:text-base py-2 px-3 uppercase tracking-wider flex items-center">
-                  <span>♦ DIAMONDS</span>
+            {/* Team Score Sub-Header (Only shown if a specific round/day is selected, skipped on 'All Rounds (Cum)') */}
+            {showRoundStandings && (
+              <div className="grid grid-cols-2 gap-2 sm:gap-4 p-2.5 sm:p-3 bg-stone-100 border-b border-stone-200">
+                {/* Left: Diamonds */}
+                <div className="flex items-stretch rounded-md overflow-hidden shadow-sm">
+                  <div className="flex-1 bg-[#3765e9] text-white font-black text-xs sm:text-base py-2 px-3 uppercase tracking-wider flex items-center">
+                    <span>♦ DIAMONDS</span>
+                  </div>
+                  <div className="bg-[#f0cb46] text-slate-950 font-black text-base sm:text-xl px-3 sm:px-4 py-2 min-w-[42px] sm:min-w-[52px] flex items-center justify-center">
+                    {formatCupScore(rDiamondPts)}
+                  </div>
                 </div>
-                <div className="bg-[#f0cb46] text-slate-950 font-black text-base sm:text-xl px-3 sm:px-4 py-2 min-w-[42px] sm:min-w-[52px] flex items-center justify-center">
-                  {formatCupScore(rDiamondPts)}
-                </div>
-              </div>
 
-              {/* Right: Hearts */}
-              <div className="flex items-stretch rounded-md overflow-hidden shadow-sm">
-                <div className="bg-[#f0cb46] text-slate-950 font-black text-base sm:text-xl px-3 sm:px-4 py-2 min-w-[42px] sm:min-w-[52px] flex items-center justify-center">
-                  {formatCupScore(rHeartsPts)}
-                </div>
-                <div className="flex-1 bg-[#cb3838] text-white font-black text-xs sm:text-base py-2 px-3 uppercase tracking-wider flex items-center justify-end">
-                  <span>HEARTS ♥</span>
+                {/* Right: Hearts */}
+                <div className="flex items-stretch rounded-md overflow-hidden shadow-sm">
+                  <div className="bg-[#f0cb46] text-slate-950 font-black text-base sm:text-xl px-3 sm:px-4 py-2 min-w-[42px] sm:min-w-[52px] flex items-center justify-center">
+                    {formatCupScore(rHeartsPts)}
+                  </div>
+                  <div className="flex-1 bg-[#cb3838] text-white font-black text-xs sm:text-base py-2 px-3 uppercase tracking-wider flex items-center justify-end">
+                    <span>HEARTS ♥</span>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
             {/* 5-Column Match Rows (Clean White Design from Screenshot) */}
             <div className="divide-y divide-stone-200 bg-white">
-              {matches.map((match: any) => {
+              {matches.map((match: any, mIdx: number) => {
                 const status = computeRyderCupStatus(match, round, competition, diamondTeam.id, heartsTeam.id)
-                const weight = getRyderCupMatchWeight(match, round)
                 const isFinished = status.isFinished
                 const lead = status.lead
                 const holesPlayed = status.holesPlayed
@@ -595,14 +622,25 @@ export function RyderCupMainStandings({
                 const heartsLead = lead < 0
                 const isAllSquare = holesPlayed > 0 && lead === 0
 
-                const t1Names = status.team1Players.map((p: any) => p.userId ? p.user?.name : p.dummyName || "Spieler")
-                const t2Names = status.team2Players.map((p: any) => p.userId ? p.user?.name : p.dummyName || "Spieler")
+                // Anonymize player names for Tag 1 NM and entire Tag 2
+                const t1Names = isRoundAnon
+                  ? (match.type === 'SINGLES' ? ['Spieler (TBD)'] : ['Spieler (TBD)', 'Spieler (TBD)'])
+                  : status.team1Players.map((p: any) => p.userId ? p.user?.name : p.dummyName || "Spieler")
+                
+                const t2Names = isRoundAnon
+                  ? (match.type === 'SINGLES' ? ['Spieler (TBD)'] : ['Spieler (TBD)', 'Spieler (TBD)'])
+                  : status.team2Players.map((p: any) => p.userId ? p.user?.name : p.dummyName || "Spieler")
+
+                const teeTime = getMatchTeeTime(match, round, mIdx)
 
                 return (
                   <div
                     key={match.id}
-                    onClick={() => onSelectMatch(match, round)}
-                    className="flex items-stretch min-h-[50px] sm:min-h-[56px] hover:bg-stone-50 transition-colors cursor-pointer select-none group"
+                    onClick={isRoundAnon ? undefined : () => onSelectMatch(match, round)}
+                    className={`flex items-stretch min-h-[50px] sm:min-h-[56px] hover:bg-stone-50 transition-colors select-none group ${
+                      isRoundAnon ? "cursor-default" : "cursor-pointer"
+                    }`}
+                    title={isRoundAnon ? "Paarungen werden noch bekanntgegeben" : "Scorecard anzeigen"}
                   >
                     {/* Col 1: Left Standing (Diamond) */}
                     <div className="w-14 sm:w-20 shrink-0 flex items-center justify-center font-black text-xs sm:text-base">
@@ -628,7 +666,7 @@ export function RyderCupMainStandings({
                           diamondLead ? "text-white" : "text-slate-900"
                         }`}>
                           {name}
-                          {status.team1Allowance[i] > 0 && (
+                          {!isRoundAnon && status.team1Allowance[i] > 0 && (
                             <span className={`ml-1 text-[10px] font-mono font-bold ${
                               diamondLead ? "text-blue-200" : "text-blue-600"
                             }`}>
@@ -639,24 +677,20 @@ export function RyderCupMainStandings({
                       ))}
                     </div>
 
-                    {/* Col 3: Center Status Box (Gold #f0cb46) */}
-                    <div className="w-12 sm:w-16 shrink-0 bg-[#f0cb46] text-slate-950 font-black flex flex-col items-center justify-center border-x border-amber-300">
-                      <span className="text-xs sm:text-base tracking-wider leading-none">
-                        {isFinished ? "F" : holesPlayed > 0 ? `${holesPlayed}` : "-"}
-                      </span>
-                      <span className="text-[8px] sm:text-[9px] font-mono tracking-tighter uppercase opacity-80 mt-0.5 leading-none">
-                        {isFinished ? "FINAL" : holesPlayed > 0 ? `Loch ${holesPlayed}` : (
-                          match.scheduledDate 
-                            ? new Date(match.scheduledDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                            : "TEE 1"
-                        )}
-                      </span>
-                      {weight < 1.0 && (
-                        <span className="text-[8px] bg-slate-950 text-amber-300 px-1 rounded-sm mt-0.5 leading-none">
-                          0.5 PT
-                        </span>
-                      )}
-                    </div>
+                    {/* Col 3: Center Status Box (Clean TV Style) */}
+                    {isFinished ? (
+                      <div className="w-12 sm:w-16 shrink-0 bg-[#f0cb46] text-slate-950 font-black flex items-center justify-center border-x border-amber-300 text-sm sm:text-lg">
+                        <span>F</span>
+                      </div>
+                    ) : holesPlayed > 0 ? (
+                      <div className="w-12 sm:w-16 shrink-0 bg-[#f0cb46] text-slate-950 font-black flex items-center justify-center border-x border-amber-300 text-sm sm:text-lg">
+                        <span>{holesPlayed}</span>
+                      </div>
+                    ) : (
+                      <div className="w-12 sm:w-16 shrink-0 bg-stone-200 text-stone-700 font-extrabold flex items-center justify-center border-x border-stone-300 text-xs sm:text-sm font-mono">
+                        <span>{teeTime}</span>
+                      </div>
+                    )}
 
                     {/* Col 4: Hearts Players */}
                     <div className={`flex-1 px-2 sm:px-4 py-2 flex flex-col justify-center items-start text-left min-w-0 transition-colors ${
@@ -667,7 +701,7 @@ export function RyderCupMainStandings({
                           heartsLead ? "text-white" : "text-slate-900"
                         }`}>
                           {name}
-                          {status.team2Allowance[i] > 0 && (
+                          {!isRoundAnon && status.team2Allowance[i] > 0 && (
                             <span className={`ml-1 text-[10px] font-mono font-bold ${
                               heartsLead ? "text-red-200" : "text-red-600"
                             }`}>

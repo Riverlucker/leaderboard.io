@@ -2747,10 +2747,10 @@ export function CompetitionClientView({ competition, session, courses = [], user
       }}
     >
       {/* Top Header */}
-      <header className="border-b border-slate-250 bg-white/45 backdrop-blur-md sticky top-0 z-40 px-4 py-2 md:py-4 shadow-sm flex justify-between items-center h-12 md:h-16 landscape:h-10">
-        <div className="space-y-0 md:space-y-0.5">
-          <div className="text-[9px] md:text-[10px] uppercase font-bold tracking-widest text-slate-500 landscape:hidden">leaderboard.io</div>
-          <h1 className="text-sm md:text-xl font-black text-slate-900 flex items-center gap-2">
+      <header className="border-b border-slate-250 bg-white/45 backdrop-blur-md sticky top-0 z-40 px-3 sm:px-4 py-1.5 md:py-2 shadow-sm flex justify-between items-center h-14 md:h-16 landscape:h-11">
+        <div className="flex flex-col justify-center">
+          <div className="text-[9px] md:text-[10px] uppercase font-bold tracking-widest text-slate-500 leading-none mb-1 landscape:hidden">leaderboard.io</div>
+          <h1 className="text-sm md:text-xl font-black text-slate-900 flex items-center gap-2 leading-none">
             {competition.type === 'RYDER_CUP' && (
               <img 
                 src="/trrc.png" 
@@ -2766,13 +2766,13 @@ export function CompetitionClientView({ competition, session, courses = [], user
           </h1>
         </div>
 
-        <div className="flex flex-col items-end justify-center space-y-0.5 md:space-y-1">
+        <div className="flex flex-col items-end justify-center">
           {/* Top-Right: Build Timestamp at the height of leaderboard.io */}
-          <div className="text-[7.5px] md:text-[8px] font-mono text-slate-400 select-none tracking-tight leading-none">
+          <div className="text-[7.5px] md:text-[8.5px] font-mono text-slate-400 select-none tracking-tight leading-none mb-1">
             {process.env.NEXT_PUBLIC_BUILD_TIME || "Live"}
           </div>
 
-          <div className="flex items-center space-x-1.5 md:space-x-2.5">
+          <div className="flex items-center space-x-1.5 md:space-x-2">
             {/* Home / Switch Competition */}
             <button 
               onClick={() => {
@@ -2838,7 +2838,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
       </header>
 
       {/* Tabs */}
-      <div className="bg-white/35 backdrop-blur-md border-b border-slate-200 sticky top-12 md:top-16 landscape:top-10 z-30 flex justify-center shadow-sm h-10 md:h-14 landscape:h-8.5">
+      <div className="bg-white/35 backdrop-blur-md border-b border-slate-200 sticky top-14 md:top-16 landscape:top-11 z-30 flex justify-center shadow-sm h-10 md:h-14 landscape:h-8.5">
         <div className="flex w-full max-w-7xl px-2 sm:px-4 h-full overflow-x-auto scrollbar-none">
           <button
             onClick={() => handleTabChange('leaderboard')}

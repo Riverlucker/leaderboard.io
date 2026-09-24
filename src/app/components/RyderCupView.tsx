@@ -544,13 +544,13 @@ export function RyderCupView({ competition, session }: RyderCupViewProps) {
         </div>
 
         {/* HERO RYDER CUP BANNER */}
-        <div className="bg-gradient-to-b from-slate-900/90 via-slate-900/95 to-slate-950/95 rounded-3xl border border-slate-800/90 shadow-2xl overflow-hidden backdrop-blur-xl">
+        <div className="bg-white/45 backdrop-blur-md rounded-2xl border border-slate-250 shadow-sm overflow-hidden mb-4">
           
           {/* Top Gold Ribbon */}
-          <div className="bg-gradient-to-r from-amber-600 via-amber-400 to-amber-600 text-slate-950 font-black tracking-widest text-center py-2 text-xs sm:text-sm uppercase shadow-md flex items-center justify-center gap-2">
-            <Sparkles size={16} className="text-slate-900" />
+          <div className="bg-gradient-to-r from-amber-100 via-amber-200 to-amber-100 text-amber-950 font-black tracking-widest text-center py-1.5 text-[11px] sm:text-xs uppercase border-b border-amber-300/50 flex items-center justify-center gap-2">
+            <Sparkles size={13} className="text-amber-700" />
             <span>THE REAL RYDER CUP · OFFICIAL SCOREBOARD</span>
-            <Sparkles size={16} className="text-slate-900" />
+            <Sparkles size={13} className="text-amber-700" />
           </div>
 
           {/* Main Team Standings Banner */}
@@ -559,15 +559,15 @@ export function RyderCupView({ competition, session }: RyderCupViewProps) {
             <div className="flex flex-col md:flex-row items-center justify-center gap-2 sm:gap-4 md:gap-6 max-w-4xl mx-auto">
               
               {/* Team Diamond (Blue) */}
-              <div className="w-full md:w-auto md:flex-1 max-w-[310px] flex items-center justify-between gap-3 bg-gradient-to-r from-blue-950/90 to-blue-900/90 p-3 sm:p-4 rounded-2xl border-2 border-blue-500/50 shadow-lg shadow-blue-950/50">
+              <div className="w-full md:w-auto md:flex-1 max-w-[310px] flex items-center justify-between gap-3 bg-blue-50/80 p-3 sm:p-4 rounded-2xl border border-blue-200/80 shadow-xs">
                 <div className="text-left md:text-right flex-1">
-                  <div className="flex items-center md:justify-end gap-1.5 text-blue-400 font-extrabold text-sm sm:text-base tracking-wider uppercase">
+                  <div className="flex items-center md:justify-end gap-1.5 text-blue-700 font-black text-sm sm:text-base tracking-wide uppercase">
                     <span className="text-lg">♦</span>
                     <span>TEAM DIAMOND</span>
                   </div>
-                  <div className="text-[11px] text-slate-300 font-medium">7 Spieler · Blau</div>
+                  <div className="text-xs text-blue-600/70 font-medium">7 Spieler · Blau</div>
                 </div>
-                <div className="bg-blue-600 text-white font-black text-3xl sm:text-4xl min-w-[64px] sm:min-w-[74px] h-[56px] sm:h-[64px] rounded-xl flex items-center justify-center shadow-inner tracking-wider border border-blue-400/40 shrink-0">
+                <div className="bg-blue-600 text-white font-black text-3xl sm:text-4xl min-w-[64px] sm:min-w-[74px] h-[56px] sm:h-[64px] rounded-xl flex items-center justify-center shadow-md tracking-wider border border-blue-500 shrink-0">
                   {formatCupScore(diamondPoints)}
                 </div>
               </div>
@@ -575,14 +575,14 @@ export function RyderCupView({ competition, session }: RyderCupViewProps) {
               {/* Center Logo & Match Status (Tight Centerpiece) */}
               <div className="flex flex-col items-center justify-center text-center order-first md:order-none shrink-0">
                 {/* Top Target Pill */}
-                <div className="mb-1 inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-slate-950/90 border border-amber-400/60 text-[11px] sm:text-xs text-slate-200 font-bold shadow-lg">
-                  <span className="text-amber-400 font-black tracking-wide">🏆 11 PKT ZUM SIEG</span>
-                  <span className="text-slate-500">·</span>
-                  <span className="text-slate-300 font-medium">21 Gesamt</span>
+                <div className="mb-1 inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-white/90 border border-amber-300 text-[11px] sm:text-xs text-slate-700 font-bold shadow-xs">
+                  <span className="text-amber-600 font-black tracking-wide">🏆 11 PKT ZUM SIEG</span>
+                  <span className="text-slate-300">·</span>
+                  <span className="text-slate-500 font-medium">21 Gesamt</span>
                 </div>
 
                 {/* Clean Transparent TRRC Emblem */}
-                <div className="w-48 h-48 sm:w-60 sm:h-60 md:w-72 md:h-72 lg:w-80 lg:h-80 flex items-center justify-center transition-transform duration-300 hover:scale-105 filter drop-shadow-[0_15px_35px_rgba(0,0,0,0.95)]">
+                <div className="w-48 h-48 sm:w-60 sm:h-60 md:w-72 md:h-72 lg:w-80 lg:h-80 flex items-center justify-center transition-transform duration-300 hover:scale-105 filter drop-shadow-[0_10px_25px_rgba(0,0,0,0.12)]">
                   <img 
                     src="/trrc.png" 
                     alt="TRRC Logo" 
@@ -600,44 +600,44 @@ export function RyderCupView({ competition, session }: RyderCupViewProps) {
               </div>
 
               {/* Team Hearts (Red) */}
-              <div className="w-full md:w-auto md:flex-1 max-w-[310px] flex items-center justify-between gap-3 bg-gradient-to-r from-red-900/90 to-red-950/90 p-3 sm:p-4 rounded-2xl border-2 border-red-500/50 shadow-lg shadow-red-950/50">
-                <div className="bg-red-600 text-white font-black text-3xl sm:text-4xl min-w-[64px] sm:min-w-[74px] h-[56px] sm:h-[64px] rounded-xl flex items-center justify-center shadow-inner tracking-wider border border-red-400/40 order-last md:order-first shrink-0">
+              <div className="w-full md:w-auto md:flex-1 max-w-[310px] flex items-center justify-between gap-3 bg-red-50/80 p-3 sm:p-4 rounded-2xl border border-red-200/80 shadow-xs">
+                <div className="bg-red-600 text-white font-black text-3xl sm:text-4xl min-w-[64px] sm:min-w-[74px] h-[56px] sm:h-[64px] rounded-xl flex items-center justify-center shadow-md tracking-wider border border-red-500 order-last md:order-first shrink-0">
                   {formatCupScore(heartsPoints)}
                 </div>
                 <div className="text-right md:text-left flex-1">
-                  <div className="flex items-center md:justify-start justify-end gap-1.5 text-red-400 font-extrabold text-sm sm:text-base tracking-wider uppercase">
+                  <div className="flex items-center md:justify-start justify-end gap-1.5 text-red-700 font-black text-sm sm:text-base tracking-wide uppercase">
                     <span>TEAM HEARTS</span>
                     <span className="text-lg">♥</span>
                   </div>
-                  <div className="text-[11px] text-slate-300 font-medium">7 Spieler · Rot</div>
+                  <div className="text-xs text-red-600/70 font-medium">7 Spieler · Rot</div>
                 </div>
               </div>
 
             </div>
 
             {/* Cup Progress Bar */}
-            <div className="mt-2 pt-2 border-t border-slate-800/80 max-w-4xl mx-auto">
-              <div className="flex justify-between items-center text-xs font-bold text-slate-400 mb-2">
-                <span className="text-blue-400 flex items-center gap-1">
+            <div className="mt-2 pt-2 border-t border-slate-200/80 max-w-4xl mx-auto">
+              <div className="flex justify-between items-center text-xs font-bold text-slate-600 mb-2">
+                <span className="text-blue-600 flex items-center gap-1">
                   <span>♦ Diamond:</span>
-                  <span className="text-white font-mono">{diamondPoints} Pkt</span>
+                  <span className="font-mono">{diamondPoints} Pkt</span>
                 </span>
-                <span className="text-amber-400/90 font-mono text-[11px]">
+                <span className="text-amber-700 font-mono text-[11px]">
                   {21 - (diamondPoints + heartsPoints)} Punkte noch offen
                 </span>
-                <span className="text-red-400 flex items-center gap-1">
-                  <span className="text-white font-mono">{heartsPoints} Pkt</span>
+                <span className="text-red-600 flex items-center gap-1">
+                  <span className="font-mono">{heartsPoints} Pkt</span>
                   <span>:Hearts ♥</span>
                 </span>
               </div>
 
-              <div className="w-full h-3 bg-slate-950 rounded-full overflow-hidden flex p-0.5 border border-slate-800">
+              <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden flex p-0.5 border border-slate-200 shadow-inner">
                 <div 
                   className="bg-blue-600 rounded-l-full transition-all duration-500" 
                   style={{ width: `${(diamondPoints / 21) * 100}%` }}
                 />
                 <div 
-                  className="bg-slate-800 transition-all duration-500 flex-1"
+                  className="bg-slate-200 transition-all duration-500 flex-1"
                 />
                 <div 
                   className="bg-red-600 rounded-r-full transition-all duration-500" 
@@ -645,7 +645,6 @@ export function RyderCupView({ competition, session }: RyderCupViewProps) {
                 />
               </div>
             </div>
-
           </div>
         </div>
 

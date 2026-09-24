@@ -400,27 +400,27 @@ export function RyderCupHeroBanner({ competition }: { competition: any }) {
   const { diamondPoints, heartsPoints } = calculateRyderCupPoints(competition)
 
   return (
-    <div className="bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 rounded-2xl border border-slate-800 shadow-xl overflow-hidden mb-4">
+    <div className="bg-white/45 backdrop-blur-md rounded-2xl border border-slate-250 shadow-sm overflow-hidden mb-4">
       {/* Top Gold Ribbon */}
-      <div className="bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 text-slate-950 font-black tracking-widest text-center py-1.5 text-xs uppercase shadow-md flex items-center justify-center gap-2">
-        <Sparkles size={14} className="text-slate-900" />
+      <div className="bg-gradient-to-r from-amber-100 via-amber-200 to-amber-100 text-amber-950 font-black tracking-widest text-center py-1.5 text-[11px] sm:text-xs uppercase border-b border-amber-300/50 flex items-center justify-center gap-2">
+        <Sparkles size={13} className="text-amber-700" />
         <span>THE REAL RYDER CUP 2026 · OFFICIAL SCOREBOARD</span>
-        <Sparkles size={14} className="text-slate-900" />
+        <Sparkles size={13} className="text-amber-700" />
       </div>
 
       <div className="p-3 sm:p-4">
         {/* Compact Centered Layout - Tight Spacing */}
         <div className="flex flex-col md:flex-row items-center justify-center gap-2 sm:gap-4 md:gap-6 max-w-4xl mx-auto">
           {/* Diamond (Blue) */}
-          <div className="w-full md:w-auto md:flex-1 max-w-[310px] flex items-center justify-between gap-3 bg-blue-950/80 p-3 sm:p-4 rounded-2xl border border-blue-500/40 shadow-inner">
+          <div className="w-full md:w-auto md:flex-1 max-w-[310px] flex items-center justify-between gap-3 bg-blue-50/80 p-3 sm:p-4 rounded-2xl border border-blue-200/80 shadow-xs">
             <div className="text-left md:text-right flex-1">
-              <div className="flex items-center md:justify-end gap-1.5 text-blue-400 font-black text-sm sm:text-base tracking-wide uppercase">
+              <div className="flex items-center md:justify-end gap-1.5 text-blue-700 font-black text-sm sm:text-base tracking-wide uppercase">
                 <span>♦</span>
                 <span>TEAM DIAMOND</span>
               </div>
-              <div className="text-xs text-slate-400 font-medium">7 Spieler · Blau</div>
+              <div className="text-xs text-blue-600/70 font-medium">7 Spieler · Blau</div>
             </div>
-            <div className="bg-blue-600 text-white font-black text-3xl sm:text-4xl min-w-[64px] sm:min-w-[74px] h-[56px] sm:h-[64px] rounded-xl flex items-center justify-center shadow-lg tracking-wider border border-blue-400/40 shrink-0">
+            <div className="bg-blue-600 text-white font-black text-3xl sm:text-4xl min-w-[64px] sm:min-w-[74px] h-[56px] sm:h-[64px] rounded-xl flex items-center justify-center shadow-md tracking-wider border border-blue-500 shrink-0">
               {formatCupScore(diamondPoints)}
             </div>
           </div>
@@ -428,14 +428,14 @@ export function RyderCupHeroBanner({ competition }: { competition: any }) {
           {/* Center Logo & Target (Tight & Large Centerpiece) */}
           <div className="flex flex-col items-center justify-center text-center order-first md:order-none shrink-0">
             {/* Top Target Pill */}
-            <div className="mb-1 inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-slate-950/90 border border-amber-400/60 text-[11px] sm:text-xs text-slate-200 font-bold shadow-lg">
-              <span className="text-amber-400 font-black tracking-wide">🏆 11 PKT ZUM SIEG</span>
-              <span className="text-slate-500">·</span>
-              <span className="text-slate-300 font-medium">21 Gesamt</span>
+            <div className="mb-1 inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-white/90 border border-amber-300 text-[11px] sm:text-xs text-slate-700 font-bold shadow-xs">
+              <span className="text-amber-600 font-black tracking-wide">🏆 11 PKT ZUM SIEG</span>
+              <span className="text-slate-300">·</span>
+              <span className="text-slate-500 font-medium">21 Gesamt</span>
             </div>
 
             {/* Large Transparent TRRC Emblem tightly placed */}
-            <div className="w-48 h-48 sm:w-60 sm:h-60 md:w-72 md:h-72 lg:w-80 lg:h-80 flex items-center justify-center transition-transform duration-300 hover:scale-105 filter drop-shadow-[0_15px_35px_rgba(0,0,0,0.95)]">
+            <div className="w-48 h-48 sm:w-60 sm:h-60 md:w-72 md:h-72 lg:w-80 lg:h-80 flex items-center justify-center transition-transform duration-300 hover:scale-105 filter drop-shadow-[0_10px_25px_rgba(0,0,0,0.12)]">
               <img 
                 src="/trrc.png" 
                 alt="TRRC Logo" 
@@ -453,30 +453,30 @@ export function RyderCupHeroBanner({ competition }: { competition: any }) {
           </div>
 
           {/* Hearts (Red) */}
-          <div className="w-full md:w-auto md:flex-1 max-w-[310px] flex items-center justify-between gap-3 bg-red-950/80 p-3 sm:p-4 rounded-2xl border border-red-500/40 shadow-inner">
-            <div className="bg-red-600 text-white font-black text-3xl sm:text-4xl min-w-[64px] sm:min-w-[74px] h-[56px] sm:h-[64px] rounded-xl flex items-center justify-center shadow-lg tracking-wider border border-red-400/40 order-last md:order-first shrink-0">
+          <div className="w-full md:w-auto md:flex-1 max-w-[310px] flex items-center justify-between gap-3 bg-red-50/80 p-3 sm:p-4 rounded-2xl border border-red-200/80 shadow-xs">
+            <div className="bg-red-600 text-white font-black text-3xl sm:text-4xl min-w-[64px] sm:min-w-[74px] h-[56px] sm:h-[64px] rounded-xl flex items-center justify-center shadow-md tracking-wider border border-red-500 order-last md:order-first shrink-0">
               {formatCupScore(heartsPoints)}
             </div>
             <div className="text-right md:text-left flex-1">
-              <div className="flex items-center md:justify-start justify-end gap-1.5 text-red-400 font-black text-sm sm:text-base tracking-wide uppercase">
+              <div className="flex items-center md:justify-start justify-end gap-1.5 text-red-700 font-black text-sm sm:text-base tracking-wide uppercase">
                 <span>TEAM HEARTS</span>
                 <span>♥</span>
               </div>
-              <div className="text-xs text-slate-400 font-medium">7 Spieler · Rot</div>
+              <div className="text-xs text-red-600/70 font-medium">7 Spieler · Rot</div>
             </div>
           </div>
         </div>
 
         {/* Progress Bar */}
-        <div className="mt-2 pt-2 border-t border-slate-800/80 max-w-4xl mx-auto">
-          <div className="flex justify-between items-center text-[11px] font-bold text-slate-400 mb-1 font-mono">
-            <span className="text-blue-400">♦ Diamond: {diamondPoints} Pkt</span>
-            <span className="text-amber-400">{21 - (diamondPoints + heartsPoints)} Pkt offen</span>
-            <span className="text-red-400">{heartsPoints} Pkt :Hearts ♥</span>
+        <div className="mt-2 pt-2 border-t border-slate-200/80 max-w-4xl mx-auto">
+          <div className="flex justify-between items-center text-[11px] font-bold text-slate-600 mb-1 font-mono">
+            <span className="text-blue-600">♦ Diamond: {diamondPoints} Pkt</span>
+            <span className="text-amber-700 font-semibold">{21 - (diamondPoints + heartsPoints)} Pkt offen</span>
+            <span className="text-red-600">{heartsPoints} Pkt :Hearts ♥</span>
           </div>
-          <div className="w-full h-2 bg-slate-950 rounded-full overflow-hidden flex p-0.5 border border-slate-800">
+          <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden flex p-0.5 border border-slate-200 shadow-inner">
             <div className="bg-blue-600 rounded-l-full transition-all duration-500" style={{ width: `${(diamondPoints / 21) * 100}%` }} />
-            <div className="bg-slate-800 flex-1 transition-all duration-500" />
+            <div className="bg-slate-200 flex-1 transition-all duration-500" />
             <div className="bg-red-600 rounded-r-full transition-all duration-500" style={{ width: `${(heartsPoints / 21) * 100}%` }} />
           </div>
         </div>

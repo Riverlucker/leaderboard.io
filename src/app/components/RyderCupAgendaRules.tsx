@@ -1,197 +1,374 @@
 import React from "react"
-import { Calendar, Clock, MapPin, Award, Shield, FileText, CheckCircle2, AlertCircle, Sparkles } from "lucide-react"
+import { Calendar, Clock, MapPin, Award, Shield, FileText, CheckCircle2, AlertTriangle, Sparkles, Bus } from "lucide-react"
 
 export function RyderCupAgendaTab({ competition }: { competition: any }) {
-  const rounds = competition?.rounds || []
+  const scheduleRows = [
+    {
+      session: "Tag 1 VM",
+      date: "Fr, 18.12.",
+      course: "Son Muntaner",
+      courseType: "Proberunde (Einspielrunde)",
+      flights: "4 × 4",
+      shuttle: "09:30 - 17:00",
+      teeTimes: "11:00 / 11:10 / 11:20 / 11:30",
+      holes: "18 Loch",
+      estEnd: "~15:30",
+      isPractice: true,
+      badgeColor: "bg-slate-100 text-slate-800 border-slate-300"
+    },
+    {
+      session: "Tag 2 VM",
+      date: "Sa, 19.12.",
+      course: "T Club Palma",
+      courseType: "Wettkampf: Best Ball (3.5 Pkt)",
+      flights: "4 × 4",
+      shuttle: "07:40 - 17:30",
+      teeTimes: "08:50 / 09:00 / 09:10 / 09:20",
+      holes: "18 Loch",
+      estEnd: "~13:30",
+      isPractice: false,
+      badgeColor: "bg-blue-100 text-blue-900 border-blue-300"
+    },
+    {
+      session: "Tag 2 NM",
+      date: "Sa, 19.12.",
+      course: "T Club Palma",
+      courseType: "Wettkampf: Chapman 4er (3.5 Pkt)",
+      flights: "4 × 4",
+      shuttle: "Vor Ort (Pause & Lunch)",
+      teeTimes: "14:10 / 14:20 / 14:30 / 14:40",
+      holes: "9 Loch",
+      estEnd: "~17:00",
+      isPractice: false,
+      badgeColor: "bg-blue-100 text-blue-900 border-blue-300"
+    },
+    {
+      session: "Tag 3 VM",
+      date: "So, 20.12.",
+      course: "Son Gual",
+      courseType: "Wettkampf: Best Ball (3.5 Pkt)",
+      flights: "4 × 4",
+      shuttle: "07:40 - 17:30",
+      teeTimes: "08:50 / 09:00 / 09:10 / 09:20",
+      holes: "18 Loch",
+      estEnd: "~13:30",
+      isPractice: false,
+      badgeColor: "bg-emerald-100 text-emerald-900 border-emerald-300"
+    },
+    {
+      session: "Tag 3 NM",
+      date: "So, 20.12.",
+      course: "Son Gual",
+      courseType: "Wettkampf: Chapman 4er (3.5 Pkt)",
+      flights: "4 × 4",
+      shuttle: "Vor Ort (Pause & Lunch)",
+      teeTimes: "14:10 / 14:20 / 14:30 / 14:40",
+      holes: "9 Loch",
+      estEnd: "~17:00",
+      isPractice: false,
+      badgeColor: "bg-emerald-100 text-emerald-900 border-emerald-300"
+    },
+    {
+      session: "Tag 4 VM",
+      date: "Mo, 21.12.",
+      course: "T Club Calviá",
+      courseType: "Final Day Singles (7.0 Pkt)",
+      flights: "4 × 4",
+      shuttle: "09:30 - 21:00",
+      teeTimes: "11:00 / 11:10 / 11:20 / 11:30",
+      holes: "18 Loch",
+      estEnd: "~15:30",
+      isPractice: false,
+      badgeColor: "bg-amber-100 text-amber-950 border-amber-300"
+    },
+  ]
 
   return (
     <div className="space-y-6">
-      {/* Hero Banner */}
+      {/* Hero Header */}
       <div className="bg-gradient-to-r from-slate-900 via-slate-850 to-slate-900 rounded-2xl p-6 border border-slate-800 shadow-xl text-white">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
           <div>
             <div className="flex items-center gap-2 text-amber-400 font-black text-xs uppercase tracking-widest mb-1">
               <Sparkles size={14} />
-              <span>THE REAL RYDER CUP 2026 · SCHEDULE</span>
+              <span>THE REAL RYDER CUP 2026 · OFFIZIELLER ZEITPLAN</span>
             </div>
-            <h2 className="text-2xl sm:text-3xl font-black tracking-tight">Turnier-Agenda & Spielplan</h2>
+            <h2 className="text-2xl sm:text-3xl font-black tracking-tight">Turnier-Agenda & Vollständiger Tagesplan</h2>
           </div>
           <div className="inline-flex items-center gap-2 bg-amber-400/10 border border-amber-400/30 px-3.5 py-1.5 rounded-full text-xs font-bold text-amber-400">
-            <span>3 Tage · 5 Runden · 21 Punkte</span>
+            <span>4 Tage (18.–21. Dez) · 6 Runden · 21 Cup-Punkte</span>
           </div>
         </div>
 
-        <p className="text-xs sm:text-sm text-slate-300 mt-3 leading-relaxed max-w-3xl">
-          Willkommen beim TRRC 2026. Drei Tage Spitzen-Matchplay auf Mallorca. Alle 7 Spieler jedes Teams sind in jeder Runde im Einsatz. Für den Cup-Sieg werden 11 Punkte benötigt.
+        <p className="text-xs sm:text-sm text-slate-300 mt-3 leading-relaxed max-w-4xl">
+          Vollständiger Ablaufplan für den TRRC 2026 auf Mallorca: Beginnend mit der offiziellen Proberunde auf Son Muntaner am Freitag (18.12.), gefolgt von den drei Ryder-Cup Wettkampftagen (19.–21.12.) auf T-Club Palma, Son Gual und T-Club Calviá.
         </p>
       </div>
 
-      {/* Days Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {/* Official Spreadsheet Table: VOLLSTÄNDIGER TAGESPLAN */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-md overflow-hidden">
+        {/* Table Title Bar */}
+        <div className="bg-[#1f3f2d] text-white px-5 py-3 font-black text-sm sm:text-base uppercase tracking-wider flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Calendar size={18} className="text-emerald-400" />
+            <span>VOLLSTÄNDIGER TAGESPLAN</span>
+          </div>
+          <span className="text-xs font-mono font-medium text-emerald-200">Dezember 2026</span>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs sm:text-sm border-collapse">
+            <thead>
+              <tr className="bg-[#87af96] text-slate-950 font-black text-xs uppercase border-b border-slate-300">
+                <th className="py-2.5 px-3 sm:px-4">Session</th>
+                <th className="py-2.5 px-3 sm:px-4">Datum</th>
+                <th className="py-2.5 px-3 sm:px-4">Platz</th>
+                <th className="py-2.5 px-2 sm:px-3 text-center">Flights</th>
+                <th className="py-2.5 px-3 sm:px-4">Shuttle</th>
+                <th className="py-2.5 px-3 sm:px-4 text-center">Tee Times</th>
+                <th className="py-2.5 px-2 sm:px-3 text-center">Runde</th>
+                <th className="py-2.5 px-3 sm:px-4 text-right">Est. Ende</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200 font-medium">
+              {scheduleRows.map((row, idx) => (
+                <tr 
+                  key={idx} 
+                  className={`hover:bg-slate-50/80 transition-colors ${
+                    row.isPractice ? "bg-slate-50/60" : "bg-white"
+                  }`}
+                >
+                  <td className="py-3 px-3 sm:px-4 font-black">
+                    <span className={`inline-block px-2 py-0.5 rounded border text-xs ${row.badgeColor}`}>
+                      {row.session}
+                    </span>
+                    {row.isPractice && (
+                      <span className="ml-1.5 text-[10px] bg-slate-200 text-slate-700 font-bold px-1.5 py-0.5 rounded">
+                        Proberunde
+                      </span>
+                    )}
+                  </td>
+                  <td className="py-3 px-3 sm:px-4 font-bold text-slate-900 whitespace-nowrap">
+                    {row.date}
+                  </td>
+                  <td className="py-3 px-3 sm:px-4 font-extrabold text-slate-800">
+                    <div>{row.course}</div>
+                    <div className="text-[11px] font-normal text-slate-500">{row.courseType}</div>
+                  </td>
+                  <td className="py-3 px-2 sm:px-3 text-center font-mono text-slate-600 font-bold">
+                    {row.flights}
+                  </td>
+                  <td className="py-3 px-3 sm:px-4 text-slate-650 font-mono text-xs whitespace-nowrap">
+                    <div className="flex items-center gap-1.5">
+                      <Bus size={13} className="text-slate-400 shrink-0" />
+                      <span>{row.shuttle}</span>
+                    </div>
+                  </td>
+                  <td className="py-3 px-3 sm:px-4 text-center">
+                    <span className="inline-block bg-[#d1fae5] text-[#065f46] font-mono font-black px-2.5 py-1 rounded-md text-xs border border-emerald-300">
+                      {row.teeTimes}
+                    </span>
+                  </td>
+                  <td className="py-3 px-2 sm:px-3 text-center font-bold text-slate-800">
+                    {row.holes}
+                  </td>
+                  <td className="py-3 px-3 sm:px-4 text-right font-mono font-bold text-slate-700">
+                    {row.estEnd}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Daylight Alert Notice (From Screenshot) */}
+        <div className="bg-[#fef9c3] border-t border-[#fef08a] px-4 py-3 text-xs text-[#854d0e] flex items-start gap-2.5">
+          <AlertTriangle size={16} className="text-amber-600 shrink-0 mt-0.5" />
+          <div>
+            <span className="font-black">Hinweis Tageslicht: </span>
+            Die Nachmittagsrunden an Tag 2 und 3 (9 Loch ab 14:10 Uhr) enden schätzungsweise gegen 17:00 Uhr. Sonnenuntergang ~17:26 Uhr – ausreichend Licht vorhanden.
+          </div>
+        </div>
+      </div>
+
+      {/* 4 Days Detail Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
         
-        {/* TAG 1 */}
+        {/* TAG 1 (FR, 18.12.) - Proberunde */}
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+          <div className="bg-slate-800 text-white p-4">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-black uppercase tracking-wider text-slate-300">Tag 1 · Freitag</span>
+              <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded font-mono font-bold">18. Dez 2026</span>
+            </div>
+            <h3 className="text-lg font-black mt-1">Son Muntaner</h3>
+            <div className="text-xs text-slate-300 flex items-center gap-1.5 mt-0.5">
+              <MapPin size={12} />
+              <span>Golf Son Muntaner</span>
+            </div>
+          </div>
+
+          <div className="p-4 space-y-3 flex-1 flex flex-col justify-between">
+            <div className="space-y-2.5">
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
+                <div className="flex items-center justify-between text-xs font-bold text-slate-500 mb-1">
+                  <span className="flex items-center gap-1 font-mono">
+                    <Clock size={12} className="text-emerald-600" /> 11:00 - 11:30
+                  </span>
+                  <span className="bg-slate-200 text-slate-800 text-[10px] px-2 py-0.5 rounded font-black font-mono">18 Loch</span>
+                </div>
+                <div className="font-black text-slate-900 text-sm">Offizielle Proberunde</div>
+                <div className="text-xs text-slate-600 mt-1 leading-snug">
+                  Einspielen, Platzbesichtigung & Vorbereitung auf die Wettkampftage. 4 Flights à 4 Spieler.
+                </div>
+              </div>
+
+              <div className="text-xs text-slate-500 flex items-center gap-1.5 bg-slate-50 p-2 rounded-lg border border-slate-200">
+                <Bus size={13} className="text-slate-600" />
+                <span>Shuttle: 09:30 - 17:00 Uhr</span>
+              </div>
+            </div>
+
+            <div className="pt-2 border-t border-slate-200 flex justify-between items-center text-xs font-bold text-slate-500">
+              <span>Keine Cup-Wertung</span>
+              <span className="text-slate-400 font-mono">Ende ~15:30</span>
+            </div>
+          </div>
+        </div>
+
+        {/* TAG 2 (SA, 19.12.) - TRRC Tag 1 */}
         <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
           <div className="bg-[#3765e9] text-white p-4">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-black uppercase tracking-wider text-blue-200">Tag 1 · Freitag</span>
+              <span className="text-xs font-black uppercase tracking-wider text-blue-200">Tag 2 · Samstag</span>
               <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded font-mono font-bold">19. Dez 2026</span>
             </div>
-            <h3 className="text-xl font-black mt-1">T-Club Palma</h3>
-            <div className="text-xs text-blue-100 flex items-center gap-1.5 mt-1">
-              <MapPin size={13} />
-              <span>T-Golf & Country Club Palma</span>
+            <h3 className="text-lg font-black mt-1">T-Club Palma</h3>
+            <div className="text-xs text-blue-100 flex items-center gap-1.5 mt-0.5">
+              <MapPin size={12} />
+              <span>T-Golf Palma</span>
             </div>
           </div>
 
-          <div className="p-4 space-y-4 flex-1 flex flex-col justify-between">
-            <div className="space-y-3">
-              {/* Session 1 */}
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
+          <div className="p-4 space-y-3 flex-1 flex flex-col justify-between">
+            <div className="space-y-2.5">
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-2.5">
                 <div className="flex items-center justify-between text-xs font-bold text-slate-500 mb-1">
-                  <span className="flex items-center gap-1">
-                    <Clock size={12} className="text-emerald-600" /> 09:02 Uhr
-                  </span>
-                  <span className="bg-emerald-100 text-emerald-800 text-[10px] px-2 py-0.5 rounded font-black font-mono">18 Loch</span>
+                  <span className="font-mono text-emerald-700">VM 08:50 - 09:20</span>
+                  <span className="bg-emerald-100 text-emerald-800 text-[10px] px-1.5 py-0.5 rounded font-black font-mono">18 Loch</span>
                 </div>
-                <div className="font-black text-slate-900 text-sm">Vormittag: Best Ball Matchplay</div>
-                <div className="text-xs text-slate-600 mt-1 leading-snug">
-                  85% Vorgabe (Bester Spieler auf 0). 3x Best Ball Matches (je 1.0 Pkt) + 1x Einzel-Matchplay (0.5 Pkt).
-                </div>
-                <div className="text-[11px] font-black text-amber-600 mt-2">
-                  Gesamt Session: 3.5 Punkte
+                <div className="font-black text-slate-900 text-xs">Best Ball Matchplay (3.5 Pkt)</div>
+                <div className="text-[11px] text-slate-600 mt-0.5">
+                  85% Vorgabe · 3 Matches (1.0 Pkt) + 1 Einzel (0.5 Pkt)
                 </div>
               </div>
 
-              {/* Session 2 */}
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-2.5">
                 <div className="flex items-center justify-between text-xs font-bold text-slate-500 mb-1">
-                  <span className="flex items-center gap-1">
-                    <Clock size={12} className="text-emerald-600" /> 14:22 Uhr
-                  </span>
-                  <span className="bg-cyan-100 text-cyan-800 text-[10px] px-2 py-0.5 rounded font-black font-mono">9 Loch (Front 9)</span>
+                  <span className="font-mono text-cyan-700">NM 14:10 - 14:40</span>
+                  <span className="bg-cyan-100 text-cyan-800 text-[10px] px-1.5 py-0.5 rounded font-black font-mono">9 Loch</span>
                 </div>
-                <div className="font-black text-slate-900 text-sm">Nachmittag: Chapman-Vierer</div>
-                <div className="text-xs text-slate-600 mt-1 leading-snug">
-                  Pinehurst 60/40 Formel. 3x Chapman Matches (je 1.0 Pkt) + 1x Einzel-Matchplay über 9 Loch (0.5 Pkt).
-                </div>
-                <div className="text-[11px] font-black text-amber-600 mt-2">
-                  Gesamt Session: 3.5 Punkte
+                <div className="font-black text-slate-900 text-xs">Chapman-Vierer (3.5 Pkt)</div>
+                <div className="text-[11px] text-slate-600 mt-0.5">
+                  Pinehurst 60/40 · 3 Matches + 1 Einzel
                 </div>
               </div>
             </div>
 
             <div className="pt-2 border-t border-slate-200 flex justify-between items-center text-xs font-black">
-              <span className="text-slate-500">Tageswertung Tag 1:</span>
-              <span className="bg-slate-900 text-white px-2 py-0.5 rounded font-mono">7.0 Punkte</span>
+              <span className="text-slate-500">Tagespunkte:</span>
+              <span className="bg-blue-600 text-white px-2 py-0.5 rounded font-mono">7.0 Pkt</span>
             </div>
           </div>
         </div>
 
-        {/* TAG 2 */}
+        {/* TAG 3 (SO, 20.12.) - TRRC Tag 2 */}
         <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
           <div className="bg-[#1e293b] text-white p-4">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-black uppercase tracking-wider text-slate-300">Tag 2 · Samstag</span>
+              <span className="text-xs font-black uppercase tracking-wider text-slate-300">Tag 3 · Sonntag</span>
               <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded font-mono font-bold">20. Dez 2026</span>
             </div>
-            <h3 className="text-xl font-black mt-1">Golf Son Gual</h3>
-            <div className="text-xs text-slate-300 flex items-center gap-1.5 mt-1">
-              <MapPin size={13} />
-              <span>Golf Son Gual Mallorca</span>
+            <h3 className="text-lg font-black mt-1">Golf Son Gual</h3>
+            <div className="text-xs text-slate-300 flex items-center gap-1.5 mt-0.5">
+              <MapPin size={12} />
+              <span>Golf Son Gual</span>
             </div>
           </div>
 
-          <div className="p-4 space-y-4 flex-1 flex flex-col justify-between">
-            <div className="space-y-3">
-              {/* Session 1 */}
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
+          <div className="p-4 space-y-3 flex-1 flex flex-col justify-between">
+            <div className="space-y-2.5">
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-2.5">
                 <div className="flex items-center justify-between text-xs font-bold text-slate-500 mb-1">
-                  <span className="flex items-center gap-1">
-                    <Clock size={12} className="text-emerald-600" /> 09:02 Uhr
-                  </span>
-                  <span className="bg-emerald-100 text-emerald-800 text-[10px] px-2 py-0.5 rounded font-black font-mono">18 Loch</span>
+                  <span className="font-mono text-emerald-700">VM 08:50 - 09:20</span>
+                  <span className="bg-emerald-100 text-emerald-800 text-[10px] px-1.5 py-0.5 rounded font-black font-mono">18 Loch</span>
                 </div>
-                <div className="font-black text-slate-900 text-sm">Vormittag: Best Ball Matchplay</div>
-                <div className="text-xs text-slate-600 mt-1 leading-snug">
-                  85% Vorgabe. 3x Best Ball Matches (je 1.0 Pkt) + 1x Einzel-Matchplay (0.5 Pkt).
-                </div>
-                <div className="text-[11px] font-black text-amber-600 mt-2">
-                  Gesamt Session: 3.5 Punkte
+                <div className="font-black text-slate-900 text-xs">Best Ball Matchplay (3.5 Pkt)</div>
+                <div className="text-[11px] text-slate-600 mt-0.5">
+                  85% Vorgabe · 3 Matches (1.0 Pkt) + 1 Einzel (0.5 Pkt)
                 </div>
               </div>
 
-              {/* Session 2 */}
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-2.5">
                 <div className="flex items-center justify-between text-xs font-bold text-slate-500 mb-1">
-                  <span className="flex items-center gap-1">
-                    <Clock size={12} className="text-emerald-600" /> 14:22 Uhr
-                  </span>
-                  <span className="bg-cyan-100 text-cyan-800 text-[10px] px-2 py-0.5 rounded font-black font-mono">9 Loch (Front 9)</span>
+                  <span className="font-mono text-cyan-700">NM 14:10 - 14:40</span>
+                  <span className="bg-cyan-100 text-cyan-800 text-[10px] px-1.5 py-0.5 rounded font-black font-mono">9 Loch</span>
                 </div>
-                <div className="font-black text-slate-900 text-sm">Nachmittag: Chapman-Vierer</div>
-                <div className="text-xs text-slate-600 mt-1 leading-snug">
-                  Pinehurst 60/40 Formel. 3x Chapman Matches (je 1.0 Pkt) + 1x Einzel-Matchplay über 9 Loch (0.5 Pkt).
-                </div>
-                <div className="text-[11px] font-black text-amber-600 mt-2">
-                  Gesamt Session: 3.5 Punkte
+                <div className="font-black text-slate-900 text-xs">Chapman-Vierer (3.5 Pkt)</div>
+                <div className="text-[11px] text-slate-600 mt-0.5">
+                  Pinehurst 60/40 · 3 Matches + 1 Einzel
                 </div>
               </div>
             </div>
 
             <div className="pt-2 border-t border-slate-200 flex justify-between items-center text-xs font-black">
-              <span className="text-slate-500">Tageswertung Tag 2:</span>
-              <span className="bg-slate-900 text-white px-2 py-0.5 rounded font-mono">7.0 Punkte</span>
+              <span className="text-slate-500">Tagespunkte:</span>
+              <span className="bg-slate-900 text-white px-2 py-0.5 rounded font-mono">7.0 Pkt</span>
             </div>
           </div>
         </div>
 
-        {/* TAG 3 */}
+        {/* TAG 4 (MO, 21.12.) - TRRC Finale */}
         <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
           <div className="bg-[#cb3838] text-white p-4">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-black uppercase tracking-wider text-red-200">Tag 3 · Sonntag</span>
+              <span className="text-xs font-black uppercase tracking-wider text-red-200">Tag 4 · Montag</span>
               <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded font-mono font-bold">21. Dez 2026</span>
             </div>
-            <h3 className="text-xl font-black mt-1">T-Club Calvia</h3>
-            <div className="text-xs text-red-100 flex items-center gap-1.5 mt-1">
-              <MapPin size={13} />
-              <span>T-Golf Calvia</span>
+            <h3 className="text-lg font-black mt-1">T-Club Calviá</h3>
+            <div className="text-xs text-red-100 flex items-center gap-1.5 mt-0.5">
+              <MapPin size={12} />
+              <span>T-Golf Calviá</span>
             </div>
           </div>
 
-          <div className="p-4 space-y-4 flex-1 flex flex-col justify-between">
-            <div className="space-y-3">
-              {/* Session 1 */}
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
+          <div className="p-4 space-y-3 flex-1 flex flex-col justify-between">
+            <div className="space-y-2.5">
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-2.5">
                 <div className="flex items-center justify-between text-xs font-bold text-slate-500 mb-1">
-                  <span className="flex items-center gap-1">
-                    <Clock size={12} className="text-emerald-600" /> 11:12 Uhr
-                  </span>
-                  <span className="bg-emerald-100 text-emerald-800 text-[10px] px-2 py-0.5 rounded font-black font-mono">18 Loch</span>
+                  <span className="font-mono text-emerald-700">11:00 - 11:30</span>
+                  <span className="bg-emerald-100 text-emerald-800 text-[10px] px-1.5 py-0.5 rounded font-black font-mono">18 Loch</span>
                 </div>
-                <div className="font-black text-slate-900 text-sm">Final Day Singles (Einzel)</div>
-                <div className="text-xs text-slate-600 mt-1 leading-snug">
-                  7 Einzel-Matchplays, geordnet strikt nach Handicap (höchstes HCP zuerst, niedrigstes HCP im Top-Match). 75% Vorgabe.
-                </div>
-                <div className="text-[11px] font-black text-amber-600 mt-2">
-                  7 Matches à 1.0 Punkt = 7.0 Punkte
+                <div className="font-black text-slate-900 text-xs">Final Day Singles (7.0 Pkt)</div>
+                <div className="text-[11px] text-slate-600 mt-0.5">
+                  7 Einzel-Matchplays strictly nach Handicap-Reihenfolge.
                 </div>
               </div>
 
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
-                <div className="font-black text-amber-900 text-xs flex items-center gap-1.5">
-                  <Award size={14} className="text-amber-600" />
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-2">
+                <div className="font-black text-amber-950 text-xs flex items-center gap-1">
+                  <Award size={13} className="text-amber-600" />
                   <span>Siegerehrung & Feier</span>
                 </div>
-                <p className="text-[11px] text-amber-800 mt-1">
-                  Übergabe des TRRC Pokals an den Turniersieger sowie Ehrung des MVPs und Vergabe des gefürchteten Donut-Preises.
-                </p>
+                <div className="text-[10px] text-amber-800 mt-0.5">
+                  Übergabe des TRRC Pokals, MVP & Donut-Preis. Shuttle bis 21:00.
+                </div>
               </div>
             </div>
 
             <div className="pt-2 border-t border-slate-200 flex justify-between items-center text-xs font-black">
-              <span className="text-slate-500">Tageswertung Tag 3:</span>
-              <span className="bg-slate-900 text-white px-2 py-0.5 rounded font-mono">7.0 Punkte</span>
+              <span className="text-slate-500">Tagespunkte:</span>
+              <span className="bg-red-600 text-white px-2 py-0.5 rounded font-mono">7.0 Pkt</span>
             </div>
           </div>
         </div>
@@ -258,7 +435,7 @@ export function RyderCupRulesTab() {
 
           <div className="space-y-3 text-xs text-slate-700 leading-relaxed">
             <div>
-              <div className="font-black text-slate-900 text-sm">A) Best Ball Matchplay (Vormittag Tag 1 & 2):</div>
+              <div className="font-black text-slate-900 text-sm">A) Best Ball Matchplay (Vormittag Tag 2 & 3):</div>
               <p className="mt-0.5">
                 Vierball-Bestball (2 gegen 2). Jeder spielt seinen eigenen Ball. Der beste Netto-Score jedes Teams zählt.
                 <br />
@@ -267,7 +444,7 @@ export function RyderCupRulesTab() {
             </div>
 
             <div className="pt-2 border-t border-slate-150">
-              <div className="font-black text-slate-900 text-sm">B) Chapman-Vierer (Nachmittag Tag 1 & 2):</div>
+              <div className="font-black text-slate-900 text-sm">B) Chapman-Vierer (Nachmittag Tag 2 & 3 - 9 Loch):</div>
               <p className="mt-0.5">
                 Front 9 (9 Loch). Beide Partner schlagen ab. Schlag 2 wird jeweils über Kreuz mit dem Ball des Partners gespielt. Ab Schlag 3 wird der beste Ball gewählt und abwechselnd eingelocht.
                 <br />
@@ -276,7 +453,7 @@ export function RyderCupRulesTab() {
             </div>
 
             <div className="pt-2 border-t border-slate-150">
-              <div className="font-black text-slate-900 text-sm">C) Final Day Singles (Tag 3):</div>
+              <div className="font-black text-slate-900 text-sm">C) Final Day Singles (Tag 4):</div>
               <p className="mt-0.5">
                 18 Loch Einzel-Matchplay. <span className="text-slate-900 font-bold">75% (3/4) Vorgabe</span> der Handicap-Differenz zwischen den beiden Kontrahenten. Gespielt wird strikt nach Handicap (höchstes HCP zuerst, niedrigstes HCP im Top-Match).
               </p>
@@ -309,7 +486,7 @@ export function RyderCupRulesTab() {
             <div>
               <span className="font-black text-slate-900">Donut-Wertung:</span>
               <p className="mt-0.5">
-                Das humorvolle Gegenstück zum MVP: Der Spieler, der über alle 5 Runden die wenigsten Punkte für sein Team beisteuern konnte.
+                Das humorvolle Gegenstück zum MVP: Der Spieler, der über alle Runden die wenigsten Punkte für sein Team beisteuern konnte.
               </p>
             </div>
           </div>

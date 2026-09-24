@@ -441,7 +441,7 @@ async function main() {
           courseId: palma.id,
           teeId: palmaYellow.id,
           name: 'Tag 1 VM · Best Ball',
-          startDate: new Date('2026-12-19T09:02:00.000Z'),
+          startDate: new Date('2026-12-19T08:50:00.000Z'),
           holesPlayed: Array.from({ length: 18 }, (_, i) => i + 1),
         }
       })
@@ -451,7 +451,7 @@ async function main() {
           courseId: palma.id,
           teeId: palmaYellow.id,
           name: 'Tag 1 NM · Chapman 4er',
-          startDate: new Date('2026-12-19T14:22:00.000Z'),
+          startDate: new Date('2026-12-19T14:10:00.000Z'),
           holesPlayed: [1, 2, 3, 4, 5, 6, 7, 8, 9],
         }
       })
@@ -461,7 +461,7 @@ async function main() {
           courseId: sonGual.id,
           teeId: sonGualYellow.id,
           name: 'Tag 2 VM · Best Ball',
-          startDate: new Date('2026-12-20T09:02:00.000Z'),
+          startDate: new Date('2026-12-20T08:50:00.000Z'),
           holesPlayed: Array.from({ length: 18 }, (_, i) => i + 1),
         }
       })
@@ -471,7 +471,7 @@ async function main() {
           courseId: sonGual.id,
           teeId: sonGualYellow.id,
           name: 'Tag 2 NM · Chapman 4er',
-          startDate: new Date('2026-12-20T14:22:00.000Z'),
+          startDate: new Date('2026-12-20T14:10:00.000Z'),
           holesPlayed: [1, 2, 3, 4, 5, 6, 7, 8, 9],
         }
       })
@@ -481,7 +481,7 @@ async function main() {
           courseId: calvia.id,
           teeId: calviaYellow.id,
           name: 'Final Day Singles',
-          startDate: new Date('2026-12-21T11:12:00.000Z'),
+          startDate: new Date('2026-12-21T11:00:00.000Z'),
           holesPlayed: Array.from({ length: 18 }, (_, i) => i + 1),
         }
       })

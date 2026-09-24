@@ -433,22 +433,19 @@ export function RyderCupHeroBanner({ competition }: { competition: any }) {
               <span className="text-slate-300 font-medium">21 Gesamt</span>
             </div>
 
-            <div className="relative group my-1">
-              {/* Outer Golden Glow Aura */}
-              <div className="absolute -inset-2 rounded-full bg-gradient-to-tr from-amber-500 via-amber-300 to-amber-600 opacity-85 blur-lg group-hover:opacity-100 transition duration-300"></div>
-              
-              {/* Main Prominent Circular Frame */}
-              <div className="relative w-36 h-36 sm:w-48 sm:h-48 md:w-56 md:h-56 rounded-full overflow-hidden border-4 sm:border-[5px] border-amber-400 shadow-2xl bg-slate-950 flex items-center justify-center p-1">
+            <div className="relative group my-1 flex flex-col items-center">
+              {/* Main Prominent Circular Logo without artificial yellow ring */}
+              <div className="w-48 h-48 sm:w-60 sm:h-60 md:w-72 md:h-72 rounded-full overflow-hidden shadow-2xl drop-shadow-[0_20px_35px_rgba(0,0,0,0.85)] flex items-center justify-center transition-transform duration-300 hover:scale-105">
                 <img 
                   src="/trrc.jpg" 
                   alt="TRRC Logo" 
-                  className="w-full h-full object-cover object-center rounded-full group-hover:scale-105 transition-transform duration-300"
+                  className="w-full h-full object-cover object-center rounded-full"
                   onError={(e) => { (e.target as HTMLElement).style.display = 'none' }}
                 />
               </div>
 
               {/* Tournament Badge underneath circular logo */}
-              <div className="absolute -bottom-3 inset-x-0 mx-auto w-max px-4 py-1 bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 text-slate-950 text-xs sm:text-sm font-black uppercase tracking-wider rounded-full shadow-xl border-2 border-amber-200">
+              <div className="mt-2 w-max px-5 py-1 bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 text-slate-950 text-xs sm:text-sm font-black uppercase tracking-wider rounded-full shadow-xl">
                 TRRC 2026
               </div>
             </div>
@@ -496,10 +493,25 @@ export function isRoundPairingsAnonymous(round: any): boolean {
   return false
 }
 
-// Helper to determine match tee time
+// Helper to determine match tee time from official tournament plan
 export function getMatchTeeTime(match: any, round: any, mIdx: number): string {
   if (match?.scheduledDate) {
     return new Date(match.scheduledDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  }
+  const rName = (round?.name || "").toLowerCase()
+  const cName = (round?.course?.name || "").toLowerCase()
+
+  if (rName.includes("nm") || rName.includes("nachmittag") || rName.includes("chapman")) {
+    const nmTimes = ["14:10", "14:20", "14:30", "14:40"]
+    return nmTimes[mIdx] || "14:10"
+  }
+  if (rName.includes("final") || cName.includes("calvia") || cName.includes("calviá")) {
+    const finalTimes = ["11:00", "11:10", "11:20", "11:30", "11:40", "11:50", "12:00"]
+    return finalTimes[mIdx] || "11:00"
+  }
+  if (rName.includes("vm") || rName.includes("vormittag") || rName.includes("best ball")) {
+    const vmTimes = ["08:50", "09:00", "09:10", "09:20"]
+    return vmTimes[mIdx] || "08:50"
   }
   if (round?.startDate) {
     const baseDate = new Date(round.startDate)
@@ -657,7 +669,7 @@ export function RyderCupMainStandings({
                       )}
                     </div>
 
-                    {/* Col 2: Diamond Players */}
+                    {/* Col 2: Diamond Players (Clean: Without Handicap Allowances) */}
                     <div className={`flex-1 px-2 sm:px-4 py-2 flex flex-col justify-center items-end text-right min-w-0 transition-colors ${
                       diamondLead ? "bg-[#3765e9] text-white" : "bg-white text-slate-900"
                     }`}>
@@ -666,13 +678,6 @@ export function RyderCupMainStandings({
                           diamondLead ? "text-white" : "text-slate-900"
                         }`}>
                           {name}
-                          {!isRoundAnon && status.team1Allowance[i] > 0 && (
-                            <span className={`ml-1 text-[10px] font-mono font-bold ${
-                              diamondLead ? "text-blue-200" : "text-blue-600"
-                            }`}>
-                              (+{status.team1Allowance[i]})
-                            </span>
-                          )}
                         </div>
                       ))}
                     </div>
@@ -692,7 +697,7 @@ export function RyderCupMainStandings({
                       </div>
                     )}
 
-                    {/* Col 4: Hearts Players */}
+                    {/* Col 4: Hearts Players (Clean: Without Handicap Allowances) */}
                     <div className={`flex-1 px-2 sm:px-4 py-2 flex flex-col justify-center items-start text-left min-w-0 transition-colors ${
                       heartsLead ? "bg-[#cb3838] text-white" : "bg-white text-slate-900"
                     }`}>
@@ -701,13 +706,6 @@ export function RyderCupMainStandings({
                           heartsLead ? "text-white" : "text-slate-900"
                         }`}>
                           {name}
-                          {!isRoundAnon && status.team2Allowance[i] > 0 && (
-                            <span className={`ml-1 text-[10px] font-mono font-bold ${
-                              heartsLead ? "text-red-200" : "text-red-600"
-                            }`}>
-                              (+{status.team2Allowance[i]})
-                            </span>
-                          )}
                         </div>
                       ))}
                     </div>

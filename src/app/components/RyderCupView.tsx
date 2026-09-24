@@ -580,21 +580,18 @@ export function RyderCupView({ competition, session }: RyderCupViewProps) {
                   <span className="text-slate-300 font-medium">21 Gesamt</span>
                 </div>
 
-                <div className="relative group my-1">
-                  {/* Outer Golden Glow Aura */}
-                  <div className="absolute -inset-2 rounded-full bg-gradient-to-tr from-amber-500 via-amber-300 to-amber-600 opacity-85 blur-lg group-hover:opacity-100 transition duration-300"></div>
-
-                  <div className="relative w-36 h-36 sm:w-48 sm:h-48 md:w-56 md:h-56 rounded-full overflow-hidden border-4 sm:border-[5px] border-amber-400 shadow-2xl bg-slate-950 flex items-center justify-center p-1">
+                <div className="relative group my-1 flex flex-col items-center">
+                  <div className="w-48 h-48 sm:w-60 sm:h-60 md:w-72 md:h-72 rounded-full overflow-hidden shadow-2xl drop-shadow-[0_20px_35px_rgba(0,0,0,0.85)] flex items-center justify-center transition-transform duration-300 hover:scale-105">
                     <img 
                       src="/trrc.jpg" 
                       alt="TRRC Logo" 
-                      className="w-full h-full object-cover object-center rounded-full group-hover:scale-105 transition-transform duration-300"
+                      className="w-full h-full object-cover object-center rounded-full"
                       onError={(e) => {
                         (e.target as HTMLElement).style.display = 'none'
                       }}
                     />
                   </div>
-                  <div className="absolute -bottom-3 inset-x-0 mx-auto w-max px-4 py-1 bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 text-slate-950 text-xs sm:text-sm font-black uppercase tracking-wider rounded-full shadow-xl border-2 border-amber-200">
+                  <div className="mt-2 w-max px-5 py-1 bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 text-slate-950 text-xs sm:text-sm font-black uppercase tracking-wider rounded-full shadow-xl">
                     TRRC 2026
                   </div>
                 </div>

@@ -2765,7 +2765,8 @@ export function CompetitionClientView({ competition, session, courses = [], user
           </h1>
         </div>
 
-        <div className="flex items-center space-x-2 md:space-x-3">
+        <div className="flex items-center space-x-1.5 md:space-x-2.5">
+          {/* Home / Switch Competition */}
           <button 
             onClick={() => {
               if (typeof window !== "undefined") {
@@ -2773,19 +2774,45 @@ export function CompetitionClientView({ competition, session, courses = [], user
                 window.location.href = "/";
               }
             }}
-            className="p-1 md:p-1.5 bg-slate-50 hover:bg-emerald-50 text-slate-500 hover:text-emerald-655 rounded-lg border border-slate-200 transition-colors shadow-sm inline-flex items-center justify-center cursor-pointer"
-            title="Switch Competition"
+            className="p-1.5 md:p-2 bg-slate-50 hover:bg-emerald-50 text-slate-500 hover:text-emerald-600 rounded-lg border border-slate-200 transition-colors shadow-sm inline-flex items-center justify-center cursor-pointer"
+            title="Turnier wechseln / Home"
           >
             <Home size={16} className="landscape:w-3.5 landscape:h-3.5" />
           </button>
 
+          {/* Share Current View */}
+          <button
+            onClick={handleShareView}
+            className="p-1.5 md:p-2 bg-slate-50 hover:bg-emerald-50 text-slate-500 hover:text-emerald-600 rounded-lg border border-slate-200 transition-colors shadow-sm inline-flex items-center justify-center cursor-pointer"
+            title="Aktuelle Ansicht teilen"
+          >
+            {shareCopied ? (
+              <CheckCircle size={16} className="text-emerald-600 animate-pulse" />
+            ) : (
+              <Share2 size={16} className="landscape:w-3.5 landscape:h-3.5" />
+            )}
+          </button>
+
+          {/* Refresh Leaderboard */}
+          <button
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="p-1.5 md:p-2 bg-slate-50 hover:bg-emerald-50 text-slate-500 hover:text-emerald-600 rounded-lg border border-slate-200 transition-colors shadow-sm inline-flex items-center justify-center cursor-pointer"
+            title="Leaderboard aktualisieren"
+          >
+            <RefreshCw size={16} className={`${isRefreshing ? "animate-spin text-emerald-600" : ""} landscape:w-3.5 landscape:h-3.5`} />
+          </button>
+
+          {/* User Session / Login / Logout */}
           {session ? (
             <div className="flex items-center space-x-1.5 md:space-x-2">
-              <span className="text-xs text-slate-655 font-medium hidden md:inline landscape:hidden">Logged in as {session.user.name || session.user.email}</span>
+              <span className="text-xs text-slate-600 font-bold hidden md:inline landscape:hidden">
+                {session.user.name || session.user.email}
+              </span>
               <button 
                 onClick={() => signOut({ callbackUrl: `/?comp=${competition.uniqueSlug}` })}
-                className="p-1 md:p-1.5 bg-slate-50 hover:bg-red-50 text-slate-500 hover:text-red-655 rounded-lg border border-slate-200 transition-colors shadow-sm cursor-pointer"
-                title="Log Out"
+                className="p-1.5 md:p-2 bg-slate-50 hover:bg-red-50 text-slate-500 hover:text-red-600 rounded-lg border border-slate-200 transition-colors shadow-sm cursor-pointer"
+                title="Abmelden"
               >
                 <LogOut size={16} className="landscape:w-3.5 landscape:h-3.5" />
               </button>
@@ -2793,7 +2820,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
           ) : (
             <button 
               onClick={() => handleTabChange('scores')}
-              className="flex items-center space-x-1.5 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-255 text-xs font-semibold rounded-lg transition-all shadow-sm landscape:py-0.5 landscape:px-2 cursor-pointer"
+              className="flex items-center space-x-1.5 px-2.5 sm:px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 text-xs font-bold rounded-lg transition-all shadow-sm landscape:py-0.5 landscape:px-2 cursor-pointer"
             >
               <Key size={14} className="landscape:w-3 landscape:h-3" />
               <span>Login to Score</span>

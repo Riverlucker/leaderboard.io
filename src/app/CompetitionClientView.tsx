@@ -2758,77 +2758,82 @@ export function CompetitionClientView({ competition, session, courses = [], user
                 className="w-7 h-7 md:w-8 md:h-8 object-contain shrink-0 drop-shadow" 
               />
             )}
-            <span style={{ color: primaryColor }}>{competition.name}</span>
+            <span style={{ color: primaryColor }}>
+              {competition.type === 'RYDER_CUP' || competition.uniqueSlug?.toLowerCase() === 'trrc26' 
+                ? 'TRRC26' 
+                : competition.name}
+            </span>
           </h1>
         </div>
 
-        {/* Center: Build Timestamp */}
-        <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-100/80 border border-slate-200/70 text-[8.5px] md:text-[9px] font-mono text-slate-400 select-none">
-          <span className="w-1 h-1 rounded-full bg-emerald-500/80 shrink-0" />
-          <span className="whitespace-nowrap">{process.env.NEXT_PUBLIC_BUILD_TIME || "Live"}</span>
-        </div>
+        <div className="flex flex-col items-end justify-center space-y-0.5 md:space-y-1">
+          {/* Top-Right: Build Timestamp at the height of leaderboard.io */}
+          <div className="text-[7.5px] md:text-[8px] font-mono text-slate-400 select-none tracking-tight leading-none">
+            {process.env.NEXT_PUBLIC_BUILD_TIME || "Live"}
+          </div>
 
-        <div className="flex items-center space-x-1.5 md:space-x-2.5">
-          {/* Home / Switch Competition */}
-          <button 
-            onClick={() => {
-              if (typeof window !== "undefined") {
-                document.cookie = "last-comp-slug=; path=/; max-age=0; SameSite=Lax";
-                window.location.href = "/";
-              }
-            }}
-            className="p-1.5 md:p-2 bg-slate-50 hover:bg-emerald-50 text-slate-500 hover:text-emerald-600 rounded-lg border border-slate-200 transition-colors shadow-sm inline-flex items-center justify-center cursor-pointer"
-            title="Turnier wechseln / Home"
-          >
-            <Home size={16} className="landscape:w-3.5 landscape:h-3.5" />
-          </button>
-
-          {/* Share Current View */}
-          <button
-            onClick={handleShareView}
-            className="p-1.5 md:p-2 bg-slate-50 hover:bg-emerald-50 text-slate-500 hover:text-emerald-600 rounded-lg border border-slate-200 transition-colors shadow-sm inline-flex items-center justify-center cursor-pointer"
-            title="Aktuelle Ansicht teilen"
-          >
-            {shareCopied ? (
-              <CheckCircle size={16} className="text-emerald-600 animate-pulse" />
-            ) : (
-              <Share2 size={16} className="landscape:w-3.5 landscape:h-3.5" />
-            )}
-          </button>
-
-          {/* Refresh Leaderboard */}
-          <button
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-            className="p-1.5 md:p-2 bg-slate-50 hover:bg-emerald-50 text-slate-500 hover:text-emerald-600 rounded-lg border border-slate-200 transition-colors shadow-sm inline-flex items-center justify-center cursor-pointer"
-            title="Leaderboard aktualisieren"
-          >
-            <RefreshCw size={16} className={`${isRefreshing ? "animate-spin text-emerald-600" : ""} landscape:w-3.5 landscape:h-3.5`} />
-          </button>
-
-          {/* User Session / Login / Logout */}
-          {session ? (
-            <div className="flex items-center space-x-1.5 md:space-x-2">
-              <span className="text-xs text-slate-600 font-bold hidden md:inline landscape:hidden">
-                {session.user.name || session.user.email}
-              </span>
-              <button 
-                onClick={() => signOut({ callbackUrl: `/?comp=${competition.uniqueSlug}` })}
-                className="p-1.5 md:p-2 bg-slate-50 hover:bg-red-50 text-slate-500 hover:text-red-600 rounded-lg border border-slate-200 transition-colors shadow-sm cursor-pointer"
-                title="Abmelden"
-              >
-                <LogOut size={16} className="landscape:w-3.5 landscape:h-3.5" />
-              </button>
-            </div>
-          ) : (
+          <div className="flex items-center space-x-1.5 md:space-x-2.5">
+            {/* Home / Switch Competition */}
             <button 
-              onClick={() => handleTabChange('scores')}
-              className="p-1.5 md:p-2 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-lg border border-slate-200 transition-colors shadow-sm inline-flex items-center justify-center cursor-pointer"
-              title="Login to Score"
+              onClick={() => {
+                if (typeof window !== "undefined") {
+                  document.cookie = "last-comp-slug=; path=/; max-age=0; SameSite=Lax";
+                  window.location.href = "/";
+                }
+              }}
+              className="p-1.5 md:p-2 bg-slate-50 hover:bg-emerald-50 text-slate-500 hover:text-emerald-600 rounded-lg border border-slate-200 transition-colors shadow-sm inline-flex items-center justify-center cursor-pointer"
+              title="Turnier wechseln / Home"
             >
-              <Key size={16} className="landscape:w-3.5 landscape:h-3.5" />
+              <Home size={16} className="landscape:w-3.5 landscape:h-3.5" />
             </button>
-          )}
+
+            {/* Share Current View */}
+            <button
+              onClick={handleShareView}
+              className="p-1.5 md:p-2 bg-slate-50 hover:bg-emerald-50 text-slate-500 hover:text-emerald-600 rounded-lg border border-slate-200 transition-colors shadow-sm inline-flex items-center justify-center cursor-pointer"
+              title="Aktuelle Ansicht teilen"
+            >
+              {shareCopied ? (
+                <CheckCircle size={16} className="text-emerald-600 animate-pulse" />
+              ) : (
+                <Share2 size={16} className="landscape:w-3.5 landscape:h-3.5" />
+              )}
+            </button>
+
+            {/* Refresh Leaderboard */}
+            <button
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              className="p-1.5 md:p-2 bg-slate-50 hover:bg-emerald-50 text-slate-500 hover:text-emerald-600 rounded-lg border border-slate-200 transition-colors shadow-sm inline-flex items-center justify-center cursor-pointer"
+              title="Leaderboard aktualisieren"
+            >
+              <RefreshCw size={16} className={`${isRefreshing ? "animate-spin text-emerald-600" : ""} landscape:w-3.5 landscape:h-3.5`} />
+            </button>
+
+            {/* User Session / Login / Logout */}
+            {session ? (
+              <div className="flex items-center space-x-1.5 md:space-x-2">
+                <span className="text-xs text-slate-600 font-bold hidden md:inline landscape:hidden">
+                  {session.user.name || session.user.email}
+                </span>
+                <button 
+                  onClick={() => signOut({ callbackUrl: `/?comp=${competition.uniqueSlug}` })}
+                  className="p-1.5 md:p-2 bg-slate-50 hover:bg-red-50 text-slate-500 hover:text-red-600 rounded-lg border border-slate-200 transition-colors shadow-sm cursor-pointer"
+                  title="Abmelden"
+                >
+                  <LogOut size={16} className="landscape:w-3.5 landscape:h-3.5" />
+                </button>
+              </div>
+            ) : (
+              <button 
+                onClick={() => handleTabChange('scores')}
+                className="p-1.5 md:p-2 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-lg border border-slate-200 transition-colors shadow-sm inline-flex items-center justify-center cursor-pointer"
+                title="Login to Score"
+              >
+                <Key size={16} className="landscape:w-3.5 landscape:h-3.5" />
+              </button>
+            )}
+          </div>
         </div>
       </header>
 

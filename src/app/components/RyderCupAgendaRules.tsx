@@ -33,7 +33,7 @@ export function RyderCupAgendaTab({ competition }: { competition: any }) {
     {
       session: "Einspielrunde",
       date: "Fr, 18.12.",
-      course: "Son Muntaner (TBD)",
+      course: "Son Muntaner",
       format: "18L Proberunde · 4 Flights",
       shuttle: "09:30 – 17:00",
       teeTimes: "11:00 – 11:30",

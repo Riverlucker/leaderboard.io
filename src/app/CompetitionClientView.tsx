@@ -2759,16 +2759,13 @@ export function CompetitionClientView({ competition, session, courses = [], user
               />
             )}
             <span style={{ color: primaryColor }}>{competition.name}</span>
-            <span className="text-[9px] bg-slate-100 border border-slate-200 text-slate-600 px-1.5 py-0.2 rounded font-mono uppercase tracking-wider landscape:hidden">
-              {competition.type}
-            </span>
           </h1>
         </div>
 
         {/* Center: Build Timestamp */}
-        <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-200/70 border border-slate-300/80 text-[10px] font-mono text-slate-600 font-semibold shadow-xs">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-          <span className="whitespace-nowrap">Build: {process.env.NEXT_PUBLIC_BUILD_TIME || "Live"}</span>
+        <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-100/80 border border-slate-200/70 text-[8.5px] md:text-[9px] font-mono text-slate-400 select-none">
+          <span className="w-1 h-1 rounded-full bg-emerald-500/80 shrink-0" />
+          <span className="whitespace-nowrap">{process.env.NEXT_PUBLIC_BUILD_TIME || "Live"}</span>
         </div>
 
         <div className="flex items-center space-x-1.5 md:space-x-2.5">
@@ -2826,10 +2823,10 @@ export function CompetitionClientView({ competition, session, courses = [], user
           ) : (
             <button 
               onClick={() => handleTabChange('scores')}
-              className="flex items-center space-x-1.5 px-2.5 sm:px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 text-xs font-bold rounded-lg transition-all shadow-sm landscape:py-0.5 landscape:px-2 cursor-pointer"
+              className="p-1.5 md:p-2 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-lg border border-slate-200 transition-colors shadow-sm inline-flex items-center justify-center cursor-pointer"
+              title="Login to Score"
             >
-              <Key size={14} className="landscape:w-3 landscape:h-3" />
-              <span>Login to Score</span>
+              <Key size={16} className="landscape:w-3.5 landscape:h-3.5" />
             </button>
           )}
         </div>

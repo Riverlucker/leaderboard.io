@@ -23,7 +23,7 @@ export function RyderCupAgendaTab({ competition }: { competition: any }) {
       date: "Do, 17.12.",
       course: "Lindner Hotel",
       format: "Teams auslosen & Welcome",
-      shuttle: "Hotel Lindner",
+      shuttle: "–",
       teeTimes: "Abend",
       estEnd: "Open End",
       isPractice: true,
@@ -47,7 +47,7 @@ export function RyderCupAgendaTab({ competition }: { competition: any }) {
       date: "Sa, 19.12.",
       course: "T-Golf Palma",
       format: "18L Best Ball (3.5 Pkt)",
-      shuttle: "07:40 – 17:30",
+      shuttle: "07:40 (Abfahrt)",
       teeTimes: "08:50 – 09:20",
       estEnd: "~13:30",
       isPractice: false,
@@ -59,7 +59,7 @@ export function RyderCupAgendaTab({ competition }: { competition: any }) {
       date: "Sa, 19.12.",
       course: "T-Golf Palma",
       format: "9L Chapman 4er (3.5 Pkt)",
-      shuttle: "Vor Ort (Lunch)",
+      shuttle: "17:30 (Rückfahrt)",
       teeTimes: "14:10 – 14:40",
       estEnd: "~17:00",
       isPractice: false,
@@ -71,7 +71,7 @@ export function RyderCupAgendaTab({ competition }: { competition: any }) {
       date: "So, 20.12.",
       course: "Son Gual",
       format: "18L Best Ball (3.5 Pkt)",
-      shuttle: "07:40 – 17:30",
+      shuttle: "07:40 (Abfahrt)",
       teeTimes: "08:50 – 09:20",
       estEnd: "~13:30",
       isPractice: false,
@@ -83,7 +83,7 @@ export function RyderCupAgendaTab({ competition }: { competition: any }) {
       date: "So, 20.12.",
       course: "Son Gual",
       format: "9L Chapman 4er (3.5 Pkt)",
-      shuttle: "Vor Ort (Lunch)",
+      shuttle: "17:30 (Rückfahrt)",
       teeTimes: "14:10 – 14:40",
       estEnd: "~17:00",
       isPractice: false,
@@ -191,10 +191,14 @@ export function RyderCupAgendaTab({ competition }: { competition: any }) {
 
                   {/* Col 3: Shuttle */}
                   <td className="py-2 px-2.5 sm:px-3 text-slate-650 font-mono text-[11px] whitespace-nowrap">
-                    <div className="flex items-center gap-1">
-                      <Bus size={12} className="text-slate-400 shrink-0" />
-                      <span>{row.shuttle}</span>
-                    </div>
+                    {row.shuttle && row.shuttle !== "–" ? (
+                      <div className="flex items-center gap-1">
+                        <Bus size={12} className="text-slate-400 shrink-0" />
+                        <span>{row.shuttle}</span>
+                      </div>
+                    ) : (
+                      <span className="text-slate-300">–</span>
+                    )}
                   </td>
 
                   {/* Col 4: Tee Times & Timing */}

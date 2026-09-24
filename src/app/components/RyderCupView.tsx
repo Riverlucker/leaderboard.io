@@ -554,34 +554,35 @@ export function RyderCupView({ competition, session }: RyderCupViewProps) {
           </div>
 
           {/* Main Team Standings Banner */}
-          <div className="p-4 sm:p-6 lg:p-8">
-            <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto_1fr] items-center justify-items-center gap-4 sm:gap-6 lg:gap-8">
+          <div className="p-3 sm:p-4">
+            {/* Compact Centered Layout - Tight Spacing */}
+            <div className="flex flex-col md:flex-row items-center justify-center gap-2 sm:gap-4 md:gap-6 max-w-4xl mx-auto">
               
               {/* Team Diamond (Blue) */}
-              <div className="w-full flex items-center justify-between lg:justify-end gap-4 bg-gradient-to-r from-blue-950/90 to-blue-900/90 p-4 sm:p-6 rounded-2xl border-2 border-blue-500/50 shadow-lg shadow-blue-950/50">
-                <div className="text-left lg:text-right">
-                  <div className="flex items-center lg:justify-end gap-1.5 text-blue-400 font-extrabold text-sm sm:text-base tracking-wider uppercase">
+              <div className="w-full md:w-auto md:flex-1 max-w-[310px] flex items-center justify-between gap-3 bg-gradient-to-r from-blue-950/90 to-blue-900/90 p-3 sm:p-4 rounded-2xl border-2 border-blue-500/50 shadow-lg shadow-blue-950/50">
+                <div className="text-left md:text-right flex-1">
+                  <div className="flex items-center md:justify-end gap-1.5 text-blue-400 font-extrabold text-sm sm:text-base tracking-wider uppercase">
                     <span className="text-lg">♦</span>
                     <span>TEAM DIAMOND</span>
                   </div>
                   <div className="text-[11px] text-slate-300 font-medium">7 Spieler · Blau</div>
                 </div>
-                <div className="bg-blue-600 text-white font-black text-3xl sm:text-4xl md:text-5xl min-w-[72px] sm:min-w-[88px] h-[64px] sm:h-[76px] rounded-xl flex items-center justify-center shadow-inner tracking-wider border border-blue-400/40 shrink-0">
+                <div className="bg-blue-600 text-white font-black text-3xl sm:text-4xl min-w-[64px] sm:min-w-[74px] h-[56px] sm:h-[64px] rounded-xl flex items-center justify-center shadow-inner tracking-wider border border-blue-400/40 shrink-0">
                   {formatCupScore(diamondPoints)}
                 </div>
               </div>
 
-              {/* Center Logo & Match Status (Massive Prominent Hero Centerpiece) */}
-              <div className="flex flex-col items-center justify-center text-center order-first lg:order-none py-1 px-2">
+              {/* Center Logo & Match Status (Tight Centerpiece) */}
+              <div className="flex flex-col items-center justify-center text-center order-first md:order-none shrink-0">
                 {/* Top Target Pill */}
-                <div className="mb-3 inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-950/90 border border-amber-400/60 text-xs sm:text-sm text-slate-200 font-bold shadow-lg">
+                <div className="mb-1 inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-slate-950/90 border border-amber-400/60 text-[11px] sm:text-xs text-slate-200 font-bold shadow-lg">
                   <span className="text-amber-400 font-black tracking-wide">🏆 11 PKT ZUM SIEG</span>
                   <span className="text-slate-500">·</span>
                   <span className="text-slate-300 font-medium">21 Gesamt</span>
                 </div>
 
                 {/* Clean Transparent TRRC Emblem */}
-                <div className="w-64 h-64 sm:w-80 sm:h-80 md:w-96 md:h-96 lg:w-[360px] lg:h-[360px] xl:w-[410px] xl:h-[410px] flex items-center justify-center transition-transform duration-300 hover:scale-105 filter drop-shadow-[0_20px_40px_rgba(0,0,0,0.95)]">
+                <div className="w-48 h-48 sm:w-60 sm:h-60 md:w-72 md:h-72 lg:w-80 lg:h-80 flex items-center justify-center transition-transform duration-300 hover:scale-105 filter drop-shadow-[0_15px_35px_rgba(0,0,0,0.95)]">
                   <img 
                     src="/trrc.png" 
                     alt="TRRC Logo" 
@@ -599,12 +600,12 @@ export function RyderCupView({ competition, session }: RyderCupViewProps) {
               </div>
 
               {/* Team Hearts (Red) */}
-              <div className="w-full flex items-center justify-between gap-4 bg-gradient-to-r from-red-900/90 to-red-950/90 p-4 sm:p-6 rounded-2xl border-2 border-red-500/50 shadow-lg shadow-red-950/50">
-                <div className="bg-red-600 text-white font-black text-3xl sm:text-4xl md:text-5xl min-w-[72px] sm:min-w-[88px] h-[64px] sm:h-[76px] rounded-xl flex items-center justify-center shadow-inner tracking-wider border border-red-400/40 order-last lg:order-first shrink-0">
+              <div className="w-full md:w-auto md:flex-1 max-w-[310px] flex items-center justify-between gap-3 bg-gradient-to-r from-red-900/90 to-red-950/90 p-3 sm:p-4 rounded-2xl border-2 border-red-500/50 shadow-lg shadow-red-950/50">
+                <div className="bg-red-600 text-white font-black text-3xl sm:text-4xl min-w-[64px] sm:min-w-[74px] h-[56px] sm:h-[64px] rounded-xl flex items-center justify-center shadow-inner tracking-wider border border-red-400/40 order-last md:order-first shrink-0">
                   {formatCupScore(heartsPoints)}
                 </div>
-                <div className="text-right lg:text-left">
-                  <div className="flex items-center lg:justify-start justify-end gap-1.5 text-red-400 font-extrabold text-sm sm:text-base tracking-wider uppercase">
+                <div className="text-right md:text-left flex-1">
+                  <div className="flex items-center md:justify-start justify-end gap-1.5 text-red-400 font-extrabold text-sm sm:text-base tracking-wider uppercase">
                     <span>TEAM HEARTS</span>
                     <span className="text-lg">♥</span>
                   </div>
@@ -615,7 +616,7 @@ export function RyderCupView({ competition, session }: RyderCupViewProps) {
             </div>
 
             {/* Cup Progress Bar */}
-            <div className="mt-6 pt-5 border-t border-slate-800/80">
+            <div className="mt-2 pt-2 border-t border-slate-800/80 max-w-4xl mx-auto">
               <div className="flex justify-between items-center text-xs font-bold text-slate-400 mb-2">
                 <span className="text-blue-400 flex items-center gap-1">
                   <span>♦ Diamond:</span>

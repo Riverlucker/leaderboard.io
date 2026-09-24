@@ -22,88 +22,81 @@ export function RyderCupAgendaTab({ competition }: { competition: any }) {
       session: "Pre-Event",
       date: "Do, 17.12.",
       course: "Lindner Hotel",
-      courseType: "Teams auslosen & Welcome",
+      format: "Teams auslosen & Welcome",
       shuttle: "Hotel Lindner",
       teeTimes: "Abend",
-      holes: "-",
       estEnd: "Open End",
       isPractice: true,
       evening: "Lindner",
       badgeColor: "bg-purple-100 text-purple-900 border-purple-300"
     },
     {
-      session: "Tag 1 VM",
+      session: "Einspielrunde",
       date: "Fr, 18.12.",
       course: "Son Muntaner (TBD)",
-      courseType: "Einspielrunde / Proberunde",
-      shuttle: "09:30 - 17:00",
-      teeTimes: "11:00 / 11:10 / 11:20 / 11:30",
-      holes: "18 Loch",
+      format: "18L Proberunde · 4 Flights",
+      shuttle: "09:30 – 17:00",
+      teeTimes: "11:00 – 11:30",
       estEnd: "~15:30",
       isPractice: true,
       evening: "TBD gemeinsam",
       badgeColor: "bg-slate-100 text-slate-800 border-slate-300"
     },
     {
-      session: "Tag 2 VM",
+      session: "Tag 1 VM",
       date: "Sa, 19.12.",
-      course: "T Club Palma",
-      courseType: "Runde 1: Best Ball (3.5 Pkt)",
-      shuttle: "07:40 - 17:30",
-      teeTimes: "08:50 / 09:00 / 09:10 / 09:20",
-      holes: "18 Loch",
+      course: "T-Golf Palma",
+      format: "18L Best Ball (3.5 Pkt)",
+      shuttle: "07:40 – 17:30",
+      teeTimes: "08:50 – 09:20",
       estEnd: "~13:30",
       isPractice: false,
       evening: "",
       badgeColor: "bg-blue-100 text-blue-900 border-blue-300"
+    },
+    {
+      session: "Tag 1 NM",
+      date: "Sa, 19.12.",
+      course: "T-Golf Palma",
+      format: "9L Chapman 4er (3.5 Pkt)",
+      shuttle: "Vor Ort (Lunch)",
+      teeTimes: "14:10 – 14:40",
+      estEnd: "~17:00",
+      isPractice: false,
+      evening: "individuell",
+      badgeColor: "bg-blue-100 text-blue-900 border-blue-300"
+    },
+    {
+      session: "Tag 2 VM",
+      date: "So, 20.12.",
+      course: "Son Gual",
+      format: "18L Best Ball (3.5 Pkt)",
+      shuttle: "07:40 – 17:30",
+      teeTimes: "08:50 – 09:20",
+      estEnd: "~13:30",
+      isPractice: false,
+      evening: "",
+      badgeColor: "bg-emerald-100 text-emerald-900 border-emerald-300"
     },
     {
       session: "Tag 2 NM",
-      date: "Sa, 19.12.",
-      course: "T Club Palma",
-      courseType: "Runde 1: Chapman 4er (3.5 Pkt)",
-      shuttle: "Vor Ort (Pause & Lunch)",
-      teeTimes: "14:10 / 14:20 / 14:30 / 14:40",
-      holes: "9 Loch",
-      estEnd: "~17:00",
-      isPractice: false,
-      evening: "individuell",
-      badgeColor: "bg-blue-100 text-blue-900 border-blue-300"
-    },
-    {
-      session: "Tag 3 VM",
       date: "So, 20.12.",
       course: "Son Gual",
-      courseType: "Runde 2: Best Ball (3.5 Pkt)",
-      shuttle: "07:40 - 17:30",
-      teeTimes: "08:50 / 09:00 / 09:10 / 09:20",
-      holes: "18 Loch",
-      estEnd: "~13:30",
-      isPractice: false,
-      evening: "",
-      badgeColor: "bg-emerald-100 text-emerald-900 border-emerald-300"
-    },
-    {
-      session: "Tag 3 NM",
-      date: "So, 20.12.",
-      course: "Son Gual",
-      courseType: "Runde 2: Chapman 4er (3.5 Pkt)",
-      shuttle: "Vor Ort (Pause & Lunch)",
-      teeTimes: "14:10 / 14:20 / 14:30 / 14:40",
-      holes: "9 Loch",
+      format: "9L Chapman 4er (3.5 Pkt)",
+      shuttle: "Vor Ort (Lunch)",
+      teeTimes: "14:10 – 14:40",
       estEnd: "~17:00",
       isPractice: false,
       evening: "individuell",
       badgeColor: "bg-emerald-100 text-emerald-900 border-emerald-300"
     },
     {
-      session: "Tag 4 VM",
+      session: "Finale",
       date: "Mo, 21.12.",
-      course: "T Club Calviá",
-      courseType: "Finale: Singles (7.0 Pkt)",
-      shuttle: "09:30 - 21:00",
-      teeTimes: "11:00 / 11:10 / 11:20 / 11:30",
-      holes: "18 Loch",
+      course: "T-Golf Calviá",
+      format: "18L Singles (7.0 Pkt) + Trophy",
+      shuttle: "09:30 – 21:00",
+      teeTimes: "11:00 – 11:30",
       estEnd: "~15:30",
       isPractice: false,
       evening: "Calvia",
@@ -112,119 +105,119 @@ export function RyderCupAgendaTab({ competition }: { competition: any }) {
   ]
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Hero Header */}
-      <div className="bg-gradient-to-r from-slate-900 via-slate-850 to-slate-900 rounded-2xl p-6 border border-slate-800 shadow-xl text-white">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+      <div className="bg-gradient-to-r from-slate-900 via-slate-850 to-slate-900 rounded-2xl p-4 sm:p-6 border border-slate-800 shadow-xl text-white">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3 sm:pb-4">
           <div>
-            <div className="flex items-center gap-2 text-amber-400 font-black text-xs uppercase tracking-widest mb-1">
+            <div className="flex items-center gap-2 text-amber-400 font-black text-xs uppercase tracking-widest mb-0.5">
               <Sparkles size={14} />
               <span>THE REAL RYDER CUP 2026 · OFFIZIELLER ZEITPLAN</span>
             </div>
-            <h2 className="text-2xl sm:text-3xl font-black tracking-tight">Turnier-Agenda & Vollständiger Tagesplan</h2>
+            <h2 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight">Turnier-Agenda & Vollständiger Tagesplan</h2>
           </div>
           <div className="flex items-center gap-2">
-            <div className="inline-flex items-center gap-2 bg-amber-400/10 border border-amber-400/30 px-3.5 py-1.5 rounded-full text-xs font-bold text-amber-400">
-              <span>5 Tage (17.–21. Dez) · 6 Runden · 21 Cup-Punkte</span>
+            <div className="inline-flex items-center gap-1.5 bg-amber-400/10 border border-amber-400/30 px-3 py-1 rounded-full text-xs font-bold text-amber-400">
+              <span>5 Tage (17.–21. Dez) · 21 Pkt</span>
             </div>
             <button
               onClick={handleShare}
-              className="inline-flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white px-3 py-1.5 rounded-xl border border-slate-700 text-xs font-bold transition-colors shadow-sm cursor-pointer"
+              className="inline-flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white px-3 py-1 rounded-xl border border-slate-700 text-xs font-bold transition-colors shadow-sm cursor-pointer"
               title="Link zur Agenda kopieren"
             >
               {copied ? (
                 <>
-                  <CheckCircle2 size={14} className="text-emerald-400" />
+                  <CheckCircle2 size={13} className="text-emerald-400" />
                   <span className="text-emerald-400">Kopiert!</span>
                 </>
               ) : (
                 <>
-                  <Share2 size={14} />
-                  <span>Agenda teilen</span>
+                  <Share2 size={13} />
+                  <span>Teilen</span>
                 </>
               )}
             </button>
           </div>
         </div>
 
-        <p className="text-xs sm:text-sm text-slate-300 mt-3 leading-relaxed max-w-4xl">
-          Vollständiger Ablaufplan für den TRRC 2026 auf Mallorca: Beginnend mit der Teamauslosung am Donnerstagabend (17.12.) im Lindner Hotel, der offiziellen Einspielrunde auf Son Muntaner am Freitag (18.12.), gefolgt von den drei Ryder-Cup Wettkampftagen (19.–21.12.) auf T-Club Palma, Son Gual und dem großen Finale auf T-Club Calviá.
+        <p className="text-xs text-slate-300 mt-2 leading-relaxed max-w-4xl">
+          Kompletter Ablaufplan für den TRRC 2026 auf Mallorca: Teamauslosung am Donnerstag (17.12.) im Lindner Hotel, Proberunde auf Son Muntaner am Freitag (18.12.), gefolgt von den drei Wettkampftagen auf T-Golf Palma, Son Gual und dem Finale auf T-Golf Calviá.
         </p>
       </div>
 
-      {/* Official Spreadsheet Table: VOLLSTÄNDIGER TAGESPLAN */}
+      {/* Official Spreadsheet Table: VOLLSTÄNDIGER TAGESPLAN (Compact & Streamlined) */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-md overflow-hidden">
         {/* Table Title Bar */}
-        <div className="bg-[#1f3f2d] text-white px-5 py-3 font-black text-sm sm:text-base uppercase tracking-wider flex items-center justify-between">
+        <div className="bg-[#1f3f2d] text-white px-4 py-2.5 font-black text-xs sm:text-sm uppercase tracking-wider flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Calendar size={18} className="text-emerald-400" />
+            <Calendar size={16} className="text-emerald-400" />
             <span>VOLLSTÄNDIGER TAGESPLAN</span>
           </div>
-          <span className="text-xs font-mono font-medium text-emerald-200">Dezember 2026</span>
+          <span className="text-[11px] font-mono font-medium text-emerald-200">Mallorca · Dez 2026</span>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs sm:text-sm border-collapse">
+          <table className="w-full text-left text-xs landscape:text-[11px] border-collapse">
             <thead>
-              <tr className="bg-[#87af96] text-slate-950 font-black text-xs uppercase border-b border-slate-300">
-                <th className="py-2.5 px-3 sm:px-4">Session / Event</th>
-                <th className="py-2.5 px-3 sm:px-4">Datum</th>
-                <th className="py-2.5 px-3 sm:px-4">Ort / Platz</th>
-                <th className="py-2.5 px-3 sm:px-4">Shuttle</th>
-                <th className="py-2.5 px-3 sm:px-4 text-center">Tee Times</th>
-                <th className="py-2.5 px-2 sm:px-3 text-center">Runde</th>
-                <th className="py-2.5 px-3 sm:px-4 text-center">Est. Ende</th>
-                <th className="py-2.5 px-3 sm:px-4 text-right">Abendplanung</th>
+              <tr className="bg-[#87af96] text-slate-950 font-black text-[11px] uppercase border-b border-slate-300">
+                <th className="py-2 px-2.5 sm:px-3">Tag & Session</th>
+                <th className="py-2 px-2.5 sm:px-3">Ort & Spielform</th>
+                <th className="py-2 px-2.5 sm:px-3">Shuttle</th>
+                <th className="py-2 px-2.5 sm:px-3 text-center">Tee Times & Ablauf</th>
+                <th className="py-2 px-2.5 sm:px-3 text-right">Abendplanung</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 font-medium">
               {scheduleRows.map((row, idx) => (
                 <tr 
                   key={idx} 
-                  className={`hover:bg-slate-50/80 transition-colors ${
-                    row.isPractice ? "bg-slate-50/60" : "bg-white"
+                  className={`hover:bg-slate-50 transition-colors ${
+                    row.isPractice ? "bg-slate-50/50" : "bg-white"
                   }`}
                 >
-                  <td className="py-3 px-3 sm:px-4 font-black">
-                    <span className={`inline-block px-2 py-0.5 rounded border text-xs ${row.badgeColor}`}>
+                  {/* Col 1: Tag & Session Badge */}
+                  <td className="py-2 px-2.5 sm:px-3 whitespace-nowrap">
+                    <div className="font-extrabold text-slate-900">{row.date}</div>
+                    <span className={`inline-block px-1.5 py-0.2 rounded border text-[10px] font-bold ${row.badgeColor}`}>
                       {row.session}
                     </span>
-                    {row.isPractice && row.session !== "Pre-Event" && (
-                      <span className="ml-1.5 text-[10px] bg-slate-200 text-slate-700 font-bold px-1.5 py-0.5 rounded">
-                        Proberunde
-                      </span>
-                    )}
                   </td>
-                  <td className="py-3 px-3 sm:px-4 font-bold text-slate-900 whitespace-nowrap">
-                    {row.date}
+
+                  {/* Col 2: Ort & Format */}
+                  <td className="py-2 px-2.5 sm:px-3">
+                    <div className="font-black text-slate-800 whitespace-nowrap">{row.course}</div>
+                    <div className="text-[11px] text-slate-500 whitespace-nowrap">{row.format}</div>
                   </td>
-                  <td className="py-3 px-3 sm:px-4 font-extrabold text-slate-800">
-                    <div>{row.course}</div>
-                    <div className="text-[11px] font-normal text-slate-500">{row.courseType}</div>
-                  </td>
-                  <td className="py-3 px-3 sm:px-4 text-slate-650 font-mono text-xs whitespace-nowrap">
-                    <div className="flex items-center gap-1.5">
-                      <Bus size={13} className="text-slate-400 shrink-0" />
+
+                  {/* Col 3: Shuttle */}
+                  <td className="py-2 px-2.5 sm:px-3 text-slate-650 font-mono text-[11px] whitespace-nowrap">
+                    <div className="flex items-center gap-1">
+                      <Bus size={12} className="text-slate-400 shrink-0" />
                       <span>{row.shuttle}</span>
                     </div>
                   </td>
-                  <td className="py-3 px-3 sm:px-4 text-center">
-                    <span className="inline-block bg-[#d1fae5] text-[#065f46] font-mono font-black px-2.5 py-1 rounded-md text-xs border border-emerald-300">
-                      {row.teeTimes}
-                    </span>
+
+                  {/* Col 4: Tee Times & Timing */}
+                  <td className="py-2 px-2.5 sm:px-3 text-center whitespace-nowrap">
+                    <div className="inline-flex items-center gap-1.5 bg-[#d1fae5] text-[#065f46] font-mono font-black px-2 py-0.5 rounded text-[11px] border border-emerald-300">
+                      <span>{row.teeTimes}</span>
+                      {row.estEnd !== "Open End" && (
+                        <span className="text-slate-500 font-medium text-[10px] border-l border-emerald-300 pl-1.5">
+                          Ende {row.estEnd}
+                        </span>
+                      )}
+                    </div>
                   </td>
-                  <td className="py-3 px-2 sm:px-3 text-center font-bold text-slate-800">
-                    {row.holes}
-                  </td>
-                  <td className="py-3 px-3 sm:px-4 text-center font-mono font-bold text-slate-700">
-                    {row.estEnd}
-                  </td>
-                  <td className="py-3 px-3 sm:px-4 text-right font-extrabold text-emerald-850 whitespace-nowrap">
+
+                  {/* Col 5: Abendplanung */}
+                  <td className="py-2 px-2.5 sm:px-3 text-right font-extrabold text-emerald-850 whitespace-nowrap">
                     {row.evening ? (
-                      <span className="inline-block bg-amber-50 text-amber-900 border border-amber-200/80 px-2.5 py-1 rounded-md text-xs">
+                      <span className="inline-block bg-amber-50 text-amber-900 border border-amber-200 px-2 py-0.5 rounded text-[11px]">
                         🍽️ {row.evening}
                       </span>
-                    ) : null}
+                    ) : (
+                      <span className="text-slate-300 text-[11px]">–</span>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -232,12 +225,12 @@ export function RyderCupAgendaTab({ competition }: { competition: any }) {
           </table>
         </div>
 
-        {/* Daylight Alert Notice (From Screenshot) */}
-        <div className="bg-[#fef9c3] border-t border-[#fef08a] px-4 py-3 text-xs text-[#854d0e] flex items-start gap-2.5">
-          <AlertTriangle size={16} className="text-amber-600 shrink-0 mt-0.5" />
+        {/* Daylight Alert Notice */}
+        <div className="bg-[#fef9c3] border-t border-[#fef08a] px-3.5 py-2 text-[11px] text-[#854d0e] flex items-center gap-2">
+          <AlertTriangle size={14} className="text-amber-600 shrink-0" />
           <div>
-            <span className="font-black">Hinweis Tageslicht: </span>
-            Die Nachmittagsrunden an Tag 2 und 3 (9 Loch ab 14:10 Uhr) enden schätzungsweise gegen 17:00 Uhr. Sonnenuntergang ~17:26 Uhr – ausreichend Licht vorhanden.
+            <span className="font-black">Tageslicht-Hinweis: </span>
+            Nachmittagsrunden (9 Loch ab 14:10 Uhr) enden gegen 17:00 Uhr. Sonnenuntergang Mallorca ~17:26 Uhr.
           </div>
         </div>
       </div>

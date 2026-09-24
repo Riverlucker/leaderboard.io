@@ -2765,6 +2765,12 @@ export function CompetitionClientView({ competition, session, courses = [], user
           </h1>
         </div>
 
+        {/* Center: Build Timestamp */}
+        <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-200/70 border border-slate-300/80 text-[10px] font-mono text-slate-600 font-semibold shadow-xs">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+          <span className="whitespace-nowrap">Build: {process.env.NEXT_PUBLIC_BUILD_TIME || "Live"}</span>
+        </div>
+
         <div className="flex items-center space-x-1.5 md:space-x-2.5">
           {/* Home / Switch Competition */}
           <button 

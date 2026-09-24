@@ -554,6 +554,27 @@ export function WintercupView({ competition, session }: WintercupViewProps) {
             </span>
           </h1>
         </div>
+
+        {/* Center: Build Timestamp */}
+        <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-200/70 border border-slate-300/80 text-[10px] font-mono text-slate-600 font-semibold shadow-xs">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+          <span className="whitespace-nowrap">Build: {process.env.NEXT_PUBLIC_BUILD_TIME || "Live"}</span>
+        </div>
+
+        <div className="flex items-center space-x-1.5 md:space-x-2.5">
+          <button 
+            onClick={() => {
+              if (typeof window !== "undefined") {
+                document.cookie = "last-comp-slug=; path=/; max-age=0; SameSite=Lax";
+                window.location.href = "/";
+              }
+            }}
+            className="p-1.5 md:p-2 bg-slate-50 hover:bg-emerald-50 text-slate-500 hover:text-emerald-600 rounded-lg border border-slate-200 transition-colors shadow-sm inline-flex items-center justify-center cursor-pointer"
+            title="Turnier wechseln / Home"
+          >
+            <Home size={16} />
+          </button>
+        </div>
       </header>
 
       {/* 2. TABS BAR: Leaderboard | Details | Admin (Admin ONLY if admin logged in) */}

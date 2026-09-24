@@ -4,81 +4,101 @@ import { Calendar, Clock, MapPin, Award, Shield, FileText, CheckCircle2, AlertTr
 export function RyderCupAgendaTab({ competition }: { competition: any }) {
   const scheduleRows = [
     {
+      session: "Pre-Event",
+      date: "Do, 17.12.",
+      course: "Lindner Hotel",
+      courseType: "Teams auslosen & Welcome",
+      flights: "-",
+      shuttle: "Hotel Lindner",
+      teeTimes: "Abend",
+      holes: "-",
+      estEnd: "Open End",
+      isPractice: true,
+      evening: "Lindner",
+      badgeColor: "bg-purple-100 text-purple-900 border-purple-300"
+    },
+    {
       session: "Tag 1 VM",
       date: "Fr, 18.12.",
-      course: "Son Muntaner",
-      courseType: "Proberunde (Einspielrunde)",
+      course: "Son Muntaner (TBD)",
+      courseType: "Einspielrunde / Proberunde",
       flights: "4 × 4",
       shuttle: "09:30 - 17:00",
       teeTimes: "11:00 / 11:10 / 11:20 / 11:30",
       holes: "18 Loch",
       estEnd: "~15:30",
       isPractice: true,
+      evening: "TBD gemeinsam",
       badgeColor: "bg-slate-100 text-slate-800 border-slate-300"
     },
     {
       session: "Tag 2 VM",
       date: "Sa, 19.12.",
       course: "T Club Palma",
-      courseType: "Wettkampf: Best Ball (3.5 Pkt)",
+      courseType: "Runde 1: Best Ball (3.5 Pkt)",
       flights: "4 × 4",
       shuttle: "07:40 - 17:30",
       teeTimes: "08:50 / 09:00 / 09:10 / 09:20",
       holes: "18 Loch",
       estEnd: "~13:30",
       isPractice: false,
+      evening: "individuell",
       badgeColor: "bg-blue-100 text-blue-900 border-blue-300"
     },
     {
       session: "Tag 2 NM",
       date: "Sa, 19.12.",
       course: "T Club Palma",
-      courseType: "Wettkampf: Chapman 4er (3.5 Pkt)",
+      courseType: "Runde 1: Chapman 4er (3.5 Pkt)",
       flights: "4 × 4",
       shuttle: "Vor Ort (Pause & Lunch)",
       teeTimes: "14:10 / 14:20 / 14:30 / 14:40",
       holes: "9 Loch",
       estEnd: "~17:00",
       isPractice: false,
+      evening: "individuell",
       badgeColor: "bg-blue-100 text-blue-900 border-blue-300"
     },
     {
       session: "Tag 3 VM",
       date: "So, 20.12.",
       course: "Son Gual",
-      courseType: "Wettkampf: Best Ball (3.5 Pkt)",
+      courseType: "Runde 2: Best Ball (3.5 Pkt)",
       flights: "4 × 4",
       shuttle: "07:40 - 17:30",
       teeTimes: "08:50 / 09:00 / 09:10 / 09:20",
       holes: "18 Loch",
       estEnd: "~13:30",
       isPractice: false,
+      evening: "individuell",
       badgeColor: "bg-emerald-100 text-emerald-900 border-emerald-300"
     },
     {
       session: "Tag 3 NM",
       date: "So, 20.12.",
       course: "Son Gual",
-      courseType: "Wettkampf: Chapman 4er (3.5 Pkt)",
+      courseType: "Runde 2: Chapman 4er (3.5 Pkt)",
       flights: "4 × 4",
       shuttle: "Vor Ort (Pause & Lunch)",
       teeTimes: "14:10 / 14:20 / 14:30 / 14:40",
       holes: "9 Loch",
       estEnd: "~17:00",
       isPractice: false,
+      evening: "individuell",
       badgeColor: "bg-emerald-100 text-emerald-900 border-emerald-300"
     },
     {
       session: "Tag 4 VM",
       date: "Mo, 21.12.",
       course: "T Club Calviá",
-      courseType: "Final Day Singles (7.0 Pkt)",
+      courseType: "Finale: Singles (7.0 Pkt)",
       flights: "4 × 4",
       shuttle: "09:30 - 21:00",
       teeTimes: "11:00 / 11:10 / 11:20 / 11:30",
       holes: "18 Loch",
       estEnd: "~15:30",
       isPractice: false,
+      evening: "Calvia",
       badgeColor: "bg-amber-100 text-amber-950 border-amber-300"
     },
   ]
@@ -96,12 +116,12 @@ export function RyderCupAgendaTab({ competition }: { competition: any }) {
             <h2 className="text-2xl sm:text-3xl font-black tracking-tight">Turnier-Agenda & Vollständiger Tagesplan</h2>
           </div>
           <div className="inline-flex items-center gap-2 bg-amber-400/10 border border-amber-400/30 px-3.5 py-1.5 rounded-full text-xs font-bold text-amber-400">
-            <span>4 Tage (18.–21. Dez) · 6 Runden · 21 Cup-Punkte</span>
+            <span>5 Tage (17.–21. Dez) · 6 Runden · 21 Cup-Punkte</span>
           </div>
         </div>
 
         <p className="text-xs sm:text-sm text-slate-300 mt-3 leading-relaxed max-w-4xl">
-          Vollständiger Ablaufplan für den TRRC 2026 auf Mallorca: Beginnend mit der offiziellen Proberunde auf Son Muntaner am Freitag (18.12.), gefolgt von den drei Ryder-Cup Wettkampftagen (19.–21.12.) auf T-Club Palma, Son Gual und T-Club Calviá.
+          Vollständiger Ablaufplan für den TRRC 2026 auf Mallorca: Beginnend mit der Teamauslosung am Donnerstagabend (17.12.) im Lindner Hotel, der offiziellen Einspielrunde auf Son Muntaner am Freitag (18.12.), gefolgt von den drei Ryder-Cup Wettkampftagen (19.–21.12.) auf T-Club Palma, Son Gual und dem großen Finale auf T-Club Calviá.
         </p>
       </div>
 
@@ -120,14 +140,15 @@ export function RyderCupAgendaTab({ competition }: { competition: any }) {
           <table className="w-full text-left text-xs sm:text-sm border-collapse">
             <thead>
               <tr className="bg-[#87af96] text-slate-950 font-black text-xs uppercase border-b border-slate-300">
-                <th className="py-2.5 px-3 sm:px-4">Session</th>
+                <th className="py-2.5 px-3 sm:px-4">Session / Event</th>
                 <th className="py-2.5 px-3 sm:px-4">Datum</th>
-                <th className="py-2.5 px-3 sm:px-4">Platz</th>
+                <th className="py-2.5 px-3 sm:px-4">Ort / Platz</th>
                 <th className="py-2.5 px-2 sm:px-3 text-center">Flights</th>
                 <th className="py-2.5 px-3 sm:px-4">Shuttle</th>
                 <th className="py-2.5 px-3 sm:px-4 text-center">Tee Times</th>
                 <th className="py-2.5 px-2 sm:px-3 text-center">Runde</th>
-                <th className="py-2.5 px-3 sm:px-4 text-right">Est. Ende</th>
+                <th className="py-2.5 px-3 sm:px-4 text-center">Est. Ende</th>
+                <th className="py-2.5 px-3 sm:px-4 text-right">Abendplanung / Abendessen</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 font-medium">
@@ -142,7 +163,7 @@ export function RyderCupAgendaTab({ competition }: { competition: any }) {
                     <span className={`inline-block px-2 py-0.5 rounded border text-xs ${row.badgeColor}`}>
                       {row.session}
                     </span>
-                    {row.isPractice && (
+                    {row.isPractice && row.session !== "Pre-Event" && (
                       <span className="ml-1.5 text-[10px] bg-slate-200 text-slate-700 font-bold px-1.5 py-0.5 rounded">
                         Proberunde
                       </span>
@@ -172,8 +193,13 @@ export function RyderCupAgendaTab({ competition }: { competition: any }) {
                   <td className="py-3 px-2 sm:px-3 text-center font-bold text-slate-800">
                     {row.holes}
                   </td>
-                  <td className="py-3 px-3 sm:px-4 text-right font-mono font-bold text-slate-700">
+                  <td className="py-3 px-3 sm:px-4 text-center font-mono font-bold text-slate-700">
                     {row.estEnd}
+                  </td>
+                  <td className="py-3 px-3 sm:px-4 text-right font-extrabold text-emerald-850 whitespace-nowrap">
+                    <span className="inline-block bg-amber-50 text-amber-900 border border-amber-200/80 px-2.5 py-1 rounded-md text-xs">
+                      🍽️ {row.evening}
+                    </span>
                   </td>
                 </tr>
               ))}
@@ -230,7 +256,7 @@ export function RyderCupAgendaTab({ competition }: { competition: any }) {
             </div>
 
             <div className="pt-2 border-t border-slate-200 flex justify-between items-center text-xs font-bold text-slate-500">
-              <span>Keine Cup-Wertung</span>
+              <span className="text-amber-850 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 font-semibold">🍽️ TBD gemeinsam</span>
               <span className="text-slate-400 font-mono">Ende ~15:30</span>
             </div>
           </div>
@@ -275,9 +301,9 @@ export function RyderCupAgendaTab({ competition }: { competition: any }) {
               </div>
             </div>
 
-            <div className="pt-2 border-t border-slate-200 flex justify-between items-center text-xs font-black">
-              <span className="text-slate-500">Tagespunkte:</span>
-              <span className="bg-blue-600 text-white px-2 py-0.5 rounded font-mono">7.0 Pkt</span>
+            <div className="pt-2 border-t border-slate-200 flex justify-between items-center text-xs font-bold">
+              <span className="text-amber-850 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">🍽️ individuell</span>
+              <span className="bg-blue-600 text-white px-2 py-0.5 rounded font-mono font-black">7.0 Pkt</span>
             </div>
           </div>
         </div>
@@ -321,9 +347,9 @@ export function RyderCupAgendaTab({ competition }: { competition: any }) {
               </div>
             </div>
 
-            <div className="pt-2 border-t border-slate-200 flex justify-between items-center text-xs font-black">
-              <span className="text-slate-500">Tagespunkte:</span>
-              <span className="bg-slate-900 text-white px-2 py-0.5 rounded font-mono">7.0 Pkt</span>
+            <div className="pt-2 border-t border-slate-200 flex justify-between items-center text-xs font-bold">
+              <span className="text-amber-850 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">🍽️ individuell</span>
+              <span className="bg-slate-900 text-white px-2 py-0.5 rounded font-mono font-black">7.0 Pkt</span>
             </div>
           </div>
         </div>
@@ -366,9 +392,9 @@ export function RyderCupAgendaTab({ competition }: { competition: any }) {
               </div>
             </div>
 
-            <div className="pt-2 border-t border-slate-200 flex justify-between items-center text-xs font-black">
-              <span className="text-slate-500">Tagespunkte:</span>
-              <span className="bg-red-600 text-white px-2 py-0.5 rounded font-mono">7.0 Pkt</span>
+            <div className="pt-2 border-t border-slate-200 flex justify-between items-center text-xs font-bold">
+              <span className="text-amber-850 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">🍽️ Calvia</span>
+              <span className="bg-red-600 text-white px-2 py-0.5 rounded font-mono font-black">7.0 Pkt</span>
             </div>
           </div>
         </div>

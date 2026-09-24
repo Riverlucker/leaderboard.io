@@ -433,21 +433,21 @@ export function RyderCupHeroBanner({ competition }: { competition: any }) {
               <span className="text-slate-300 font-medium">21 Gesamt</span>
             </div>
 
-            <div className="relative group my-1 flex flex-col items-center">
-              {/* Main Prominent Circular Logo without artificial yellow ring */}
-              <div className="w-48 h-48 sm:w-60 sm:h-60 md:w-72 md:h-72 rounded-full overflow-hidden shadow-2xl drop-shadow-[0_20px_35px_rgba(0,0,0,0.85)] flex items-center justify-center transition-transform duration-300 hover:scale-105">
-                <img 
-                  src="/trrc.jpg" 
-                  alt="TRRC Logo" 
-                  className="w-full h-full object-cover object-center rounded-full"
-                  onError={(e) => { (e.target as HTMLElement).style.display = 'none' }}
-                />
-              </div>
-
-              {/* Tournament Badge underneath circular logo */}
-              <div className="mt-2 w-max px-5 py-1 bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 text-slate-950 text-xs sm:text-sm font-black uppercase tracking-wider rounded-full shadow-xl">
-                TRRC 2026
-              </div>
+            {/* Clean Transparent TRRC Emblem without white corners or redundant badge */}
+            <div className="w-48 h-48 sm:w-60 sm:h-60 md:w-72 md:h-72 flex items-center justify-center transition-transform duration-300 hover:scale-105 filter drop-shadow-[0_15px_30px_rgba(0,0,0,0.85)]">
+              <img 
+                src="/trrc.png" 
+                alt="TRRC Logo" 
+                className="max-w-full max-h-full object-contain"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  if (target.src.endsWith('.png')) {
+                    target.src = '/trrc.jpg';
+                  } else {
+                    target.style.display = 'none';
+                  }
+                }}
+              />
             </div>
           </div>
 
@@ -493,11 +493,8 @@ export function isRoundPairingsAnonymous(round: any): boolean {
   return false
 }
 
-// Helper to determine match tee time from official tournament plan
+// Helper to determine match tee time from official tournament plan (Strict 24h format, no AM/PM)
 export function getMatchTeeTime(match: any, round: any, mIdx: number): string {
-  if (match?.scheduledDate) {
-    return new Date(match.scheduledDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-  }
   const rName = (round?.name || "").toLowerCase()
   const cName = (round?.course?.name || "").toLowerCase()
 
@@ -513,10 +510,13 @@ export function getMatchTeeTime(match: any, round: any, mIdx: number): string {
     const vmTimes = ["08:50", "09:00", "09:10", "09:20"]
     return vmTimes[mIdx] || "08:50"
   }
+  if (match?.scheduledDate) {
+    return new Date(match.scheduledDate).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', hour12: false })
+  }
   if (round?.startDate) {
     const baseDate = new Date(round.startDate)
     const matchDate = new Date(baseDate.getTime() + mIdx * 10 * 60 * 1000)
-    return matchDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    return matchDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', hour12: false })
   }
   return "TEE"
 }

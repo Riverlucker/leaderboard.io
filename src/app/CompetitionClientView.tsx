@@ -2728,9 +2728,9 @@ export function CompetitionClientView({ competition, session, courses = [], user
           <h1 className="text-sm md:text-xl font-black text-slate-900 flex items-center gap-2">
             {competition.type === 'RYDER_CUP' && (
               <img 
-                src="/trrc.jpg" 
+                src="/trrc.png" 
                 alt="TRRC" 
-                className="w-7 h-7 md:w-8 md:h-8 rounded-full border-2 border-amber-400 shadow-sm object-cover shrink-0" 
+                className="w-7 h-7 md:w-8 md:h-8 object-contain shrink-0 drop-shadow" 
               />
             )}
             <span style={{ color: primaryColor }}>{competition.name}</span>

@@ -580,20 +580,21 @@ export function RyderCupView({ competition, session }: RyderCupViewProps) {
                   <span className="text-slate-300 font-medium">21 Gesamt</span>
                 </div>
 
-                <div className="relative group my-1 flex flex-col items-center">
-                  <div className="w-48 h-48 sm:w-60 sm:h-60 md:w-72 md:h-72 rounded-full overflow-hidden shadow-2xl drop-shadow-[0_20px_35px_rgba(0,0,0,0.85)] flex items-center justify-center transition-transform duration-300 hover:scale-105">
-                    <img 
-                      src="/trrc.jpg" 
-                      alt="TRRC Logo" 
-                      className="w-full h-full object-cover object-center rounded-full"
-                      onError={(e) => {
-                        (e.target as HTMLElement).style.display = 'none'
-                      }}
-                    />
-                  </div>
-                  <div className="mt-2 w-max px-5 py-1 bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 text-slate-950 text-xs sm:text-sm font-black uppercase tracking-wider rounded-full shadow-xl">
-                    TRRC 2026
-                  </div>
+                {/* Clean Transparent TRRC Emblem without white corners or redundant badge */}
+                <div className="w-48 h-48 sm:w-60 sm:h-60 md:w-72 md:h-72 flex items-center justify-center transition-transform duration-300 hover:scale-105 filter drop-shadow-[0_15px_30px_rgba(0,0,0,0.85)]">
+                  <img 
+                    src="/trrc.png" 
+                    alt="TRRC Logo" 
+                    className="max-w-full max-h-full object-contain"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      if (target.src.endsWith('.png')) {
+                        target.src = '/trrc.jpg';
+                      } else {
+                        target.style.display = 'none';
+                      }
+                    }}
+                  />
                 </div>
               </div>
 

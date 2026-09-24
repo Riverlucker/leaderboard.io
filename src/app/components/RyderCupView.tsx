@@ -554,38 +554,38 @@ export function RyderCupView({ competition, session }: RyderCupViewProps) {
           </div>
 
           {/* Main Team Standings Banner */}
-          <div className="p-4 sm:p-8">
-            <div className="grid grid-cols-1 md:grid-cols-3 items-center gap-4 sm:gap-6">
+          <div className="p-4 sm:p-6 lg:p-8">
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto_1fr] items-center justify-items-center gap-4 sm:gap-6 lg:gap-8">
               
               {/* Team Diamond (Blue) */}
-              <div className="flex items-center justify-between md:justify-end gap-4 bg-gradient-to-r from-blue-950/90 to-blue-900/90 p-4 sm:p-5 rounded-2xl border-2 border-blue-500/50 shadow-lg shadow-blue-950/50">
-                <div className="text-left md:text-right">
-                  <div className="flex items-center md:justify-end gap-1.5 text-blue-400 font-extrabold text-sm tracking-wider uppercase">
+              <div className="w-full flex items-center justify-between lg:justify-end gap-4 bg-gradient-to-r from-blue-950/90 to-blue-900/90 p-4 sm:p-6 rounded-2xl border-2 border-blue-500/50 shadow-lg shadow-blue-950/50">
+                <div className="text-left lg:text-right">
+                  <div className="flex items-center lg:justify-end gap-1.5 text-blue-400 font-extrabold text-sm sm:text-base tracking-wider uppercase">
                     <span className="text-lg">♦</span>
                     <span>TEAM DIAMOND</span>
                   </div>
                   <div className="text-[11px] text-slate-300 font-medium">7 Spieler · Blau</div>
                 </div>
-                <div className="bg-blue-600 text-white font-black text-3xl sm:text-4xl min-w-[70px] sm:min-w-[84px] h-[58px] sm:h-[68px] rounded-xl flex items-center justify-center shadow-inner tracking-wider border border-blue-400/40">
+                <div className="bg-blue-600 text-white font-black text-3xl sm:text-4xl md:text-5xl min-w-[72px] sm:min-w-[88px] h-[64px] sm:h-[76px] rounded-xl flex items-center justify-center shadow-inner tracking-wider border border-blue-400/40 shrink-0">
                   {formatCupScore(diamondPoints)}
                 </div>
               </div>
 
-              {/* Center Logo & Match Status */}
-              <div className="flex flex-col items-center justify-center text-center order-first md:order-none py-1 px-1">
+              {/* Center Logo & Match Status (Massive Prominent Hero Centerpiece) */}
+              <div className="flex flex-col items-center justify-center text-center order-first lg:order-none py-1 px-2">
                 {/* Top Target Pill */}
-                <div className="mb-2 inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-slate-950/90 border border-amber-400/60 text-[11px] sm:text-xs text-slate-200 font-bold shadow-lg">
+                <div className="mb-3 inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-950/90 border border-amber-400/60 text-xs sm:text-sm text-slate-200 font-bold shadow-lg">
                   <span className="text-amber-400 font-black tracking-wide">🏆 11 PKT ZUM SIEG</span>
                   <span className="text-slate-500">·</span>
                   <span className="text-slate-300 font-medium">21 Gesamt</span>
                 </div>
 
-                {/* Clean Transparent TRRC Emblem without white corners or redundant badge */}
-                <div className="w-48 h-48 sm:w-60 sm:h-60 md:w-72 md:h-72 flex items-center justify-center transition-transform duration-300 hover:scale-105 filter drop-shadow-[0_15px_30px_rgba(0,0,0,0.85)]">
+                {/* Clean Transparent TRRC Emblem */}
+                <div className="w-64 h-64 sm:w-80 sm:h-80 md:w-96 md:h-96 lg:w-[360px] lg:h-[360px] xl:w-[410px] xl:h-[410px] flex items-center justify-center transition-transform duration-300 hover:scale-105 filter drop-shadow-[0_20px_40px_rgba(0,0,0,0.95)]">
                   <img 
                     src="/trrc.png" 
                     alt="TRRC Logo" 
-                    className="max-w-full max-h-full object-contain"
+                    className="w-full h-full object-contain"
                     onError={(e) => {
                       const target = e.target as HTMLImageElement;
                       if (target.src.endsWith('.png')) {
@@ -599,12 +599,12 @@ export function RyderCupView({ competition, session }: RyderCupViewProps) {
               </div>
 
               {/* Team Hearts (Red) */}
-              <div className="flex items-center justify-between gap-4 bg-gradient-to-r from-red-900/90 to-red-950/90 p-4 sm:p-5 rounded-2xl border-2 border-red-500/50 shadow-lg shadow-red-950/50">
-                <div className="bg-red-600 text-white font-black text-3xl sm:text-4xl min-w-[70px] sm:min-w-[84px] h-[58px] sm:h-[68px] rounded-xl flex items-center justify-center shadow-inner tracking-wider border border-red-400/40 order-last md:order-first">
+              <div className="w-full flex items-center justify-between gap-4 bg-gradient-to-r from-red-900/90 to-red-950/90 p-4 sm:p-6 rounded-2xl border-2 border-red-500/50 shadow-lg shadow-red-950/50">
+                <div className="bg-red-600 text-white font-black text-3xl sm:text-4xl md:text-5xl min-w-[72px] sm:min-w-[88px] h-[64px] sm:h-[76px] rounded-xl flex items-center justify-center shadow-inner tracking-wider border border-red-400/40 order-last lg:order-first shrink-0">
                   {formatCupScore(heartsPoints)}
                 </div>
-                <div className="text-right md:text-left">
-                  <div className="flex items-center md:justify-start justify-end gap-1.5 text-red-400 font-extrabold text-sm tracking-wider uppercase">
+                <div className="text-right lg:text-left">
+                  <div className="flex items-center lg:justify-start justify-end gap-1.5 text-red-400 font-extrabold text-sm sm:text-base tracking-wider uppercase">
                     <span>TEAM HEARTS</span>
                     <span className="text-lg">♥</span>
                   </div>

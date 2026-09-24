@@ -8,7 +8,6 @@ export function RyderCupAgendaTab({ competition }: { competition: any }) {
       date: "Do, 17.12.",
       course: "Lindner Hotel",
       courseType: "Teams auslosen & Welcome",
-      flights: "-",
       shuttle: "Hotel Lindner",
       teeTimes: "Abend",
       holes: "-",
@@ -22,7 +21,6 @@ export function RyderCupAgendaTab({ competition }: { competition: any }) {
       date: "Fr, 18.12.",
       course: "Son Muntaner (TBD)",
       courseType: "Einspielrunde / Proberunde",
-      flights: "4 × 4",
       shuttle: "09:30 - 17:00",
       teeTimes: "11:00 / 11:10 / 11:20 / 11:30",
       holes: "18 Loch",
@@ -36,13 +34,12 @@ export function RyderCupAgendaTab({ competition }: { competition: any }) {
       date: "Sa, 19.12.",
       course: "T Club Palma",
       courseType: "Runde 1: Best Ball (3.5 Pkt)",
-      flights: "4 × 4",
       shuttle: "07:40 - 17:30",
       teeTimes: "08:50 / 09:00 / 09:10 / 09:20",
       holes: "18 Loch",
       estEnd: "~13:30",
       isPractice: false,
-      evening: "individuell",
+      evening: "",
       badgeColor: "bg-blue-100 text-blue-900 border-blue-300"
     },
     {
@@ -50,7 +47,6 @@ export function RyderCupAgendaTab({ competition }: { competition: any }) {
       date: "Sa, 19.12.",
       course: "T Club Palma",
       courseType: "Runde 1: Chapman 4er (3.5 Pkt)",
-      flights: "4 × 4",
       shuttle: "Vor Ort (Pause & Lunch)",
       teeTimes: "14:10 / 14:20 / 14:30 / 14:40",
       holes: "9 Loch",
@@ -64,13 +60,12 @@ export function RyderCupAgendaTab({ competition }: { competition: any }) {
       date: "So, 20.12.",
       course: "Son Gual",
       courseType: "Runde 2: Best Ball (3.5 Pkt)",
-      flights: "4 × 4",
       shuttle: "07:40 - 17:30",
       teeTimes: "08:50 / 09:00 / 09:10 / 09:20",
       holes: "18 Loch",
       estEnd: "~13:30",
       isPractice: false,
-      evening: "individuell",
+      evening: "",
       badgeColor: "bg-emerald-100 text-emerald-900 border-emerald-300"
     },
     {
@@ -78,7 +73,6 @@ export function RyderCupAgendaTab({ competition }: { competition: any }) {
       date: "So, 20.12.",
       course: "Son Gual",
       courseType: "Runde 2: Chapman 4er (3.5 Pkt)",
-      flights: "4 × 4",
       shuttle: "Vor Ort (Pause & Lunch)",
       teeTimes: "14:10 / 14:20 / 14:30 / 14:40",
       holes: "9 Loch",
@@ -92,7 +86,6 @@ export function RyderCupAgendaTab({ competition }: { competition: any }) {
       date: "Mo, 21.12.",
       course: "T Club Calviá",
       courseType: "Finale: Singles (7.0 Pkt)",
-      flights: "4 × 4",
       shuttle: "09:30 - 21:00",
       teeTimes: "11:00 / 11:10 / 11:20 / 11:30",
       holes: "18 Loch",
@@ -143,12 +136,11 @@ export function RyderCupAgendaTab({ competition }: { competition: any }) {
                 <th className="py-2.5 px-3 sm:px-4">Session / Event</th>
                 <th className="py-2.5 px-3 sm:px-4">Datum</th>
                 <th className="py-2.5 px-3 sm:px-4">Ort / Platz</th>
-                <th className="py-2.5 px-2 sm:px-3 text-center">Flights</th>
                 <th className="py-2.5 px-3 sm:px-4">Shuttle</th>
                 <th className="py-2.5 px-3 sm:px-4 text-center">Tee Times</th>
                 <th className="py-2.5 px-2 sm:px-3 text-center">Runde</th>
                 <th className="py-2.5 px-3 sm:px-4 text-center">Est. Ende</th>
-                <th className="py-2.5 px-3 sm:px-4 text-right">Abendplanung / Abendessen</th>
+                <th className="py-2.5 px-3 sm:px-4 text-right">Abendplanung</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 font-medium">
@@ -176,9 +168,6 @@ export function RyderCupAgendaTab({ competition }: { competition: any }) {
                     <div>{row.course}</div>
                     <div className="text-[11px] font-normal text-slate-500">{row.courseType}</div>
                   </td>
-                  <td className="py-3 px-2 sm:px-3 text-center font-mono text-slate-600 font-bold">
-                    {row.flights}
-                  </td>
                   <td className="py-3 px-3 sm:px-4 text-slate-650 font-mono text-xs whitespace-nowrap">
                     <div className="flex items-center gap-1.5">
                       <Bus size={13} className="text-slate-400 shrink-0" />
@@ -197,9 +186,11 @@ export function RyderCupAgendaTab({ competition }: { competition: any }) {
                     {row.estEnd}
                   </td>
                   <td className="py-3 px-3 sm:px-4 text-right font-extrabold text-emerald-850 whitespace-nowrap">
-                    <span className="inline-block bg-amber-50 text-amber-900 border border-amber-200/80 px-2.5 py-1 rounded-md text-xs">
-                      🍽️ {row.evening}
-                    </span>
+                    {row.evening ? (
+                      <span className="inline-block bg-amber-50 text-amber-900 border border-amber-200/80 px-2.5 py-1 rounded-md text-xs">
+                        🍽️ {row.evening}
+                      </span>
+                    ) : null}
                   </td>
                 </tr>
               ))}

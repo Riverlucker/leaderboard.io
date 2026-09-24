@@ -1,7 +1,22 @@
 import React from "react"
-import { Calendar, Clock, MapPin, Award, Shield, FileText, CheckCircle2, AlertTriangle, Sparkles, Bus } from "lucide-react"
+import { Calendar, Clock, MapPin, Award, Shield, FileText, CheckCircle2, AlertTriangle, Sparkles, Bus, Share2 } from "lucide-react"
 
 export function RyderCupAgendaTab({ competition }: { competition: any }) {
+  const [copied, setCopied] = React.useState(false)
+
+  const handleShare = () => {
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href)
+      url.searchParams.set("tab", "agenda")
+      url.searchParams.delete("round")
+      url.searchParams.delete("type")
+      navigator.clipboard.writeText(url.toString()).then(() => {
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2000)
+      })
+    }
+  }
+
   const scheduleRows = [
     {
       session: "Pre-Event",
@@ -108,8 +123,27 @@ export function RyderCupAgendaTab({ competition }: { competition: any }) {
             </div>
             <h2 className="text-2xl sm:text-3xl font-black tracking-tight">Turnier-Agenda & Vollständiger Tagesplan</h2>
           </div>
-          <div className="inline-flex items-center gap-2 bg-amber-400/10 border border-amber-400/30 px-3.5 py-1.5 rounded-full text-xs font-bold text-amber-400">
-            <span>5 Tage (17.–21. Dez) · 6 Runden · 21 Cup-Punkte</span>
+          <div className="flex items-center gap-2">
+            <div className="inline-flex items-center gap-2 bg-amber-400/10 border border-amber-400/30 px-3.5 py-1.5 rounded-full text-xs font-bold text-amber-400">
+              <span>5 Tage (17.–21. Dez) · 6 Runden · 21 Cup-Punkte</span>
+            </div>
+            <button
+              onClick={handleShare}
+              className="inline-flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white px-3 py-1.5 rounded-xl border border-slate-700 text-xs font-bold transition-colors shadow-sm cursor-pointer"
+              title="Link zur Agenda kopieren"
+            >
+              {copied ? (
+                <>
+                  <CheckCircle2 size={14} className="text-emerald-400" />
+                  <span className="text-emerald-400">Kopiert!</span>
+                </>
+              ) : (
+                <>
+                  <Share2 size={14} />
+                  <span>Agenda teilen</span>
+                </>
+              )}
+            </button>
           </div>
         </div>
 

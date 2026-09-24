@@ -353,6 +353,22 @@ export function CompetitionClientView({ competition, session, courses = [], user
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<'leaderboard' | 'scores' | 'agenda' | 'rules' | 'details' | 'admin'>('leaderboard')
 
+  const handleTabChange = (newTab: 'leaderboard' | 'scores' | 'agenda' | 'rules' | 'details' | 'admin') => {
+    setActiveTab(newTab)
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem(`active-tab-${competition.id}`, newTab)
+        const url = new URL(window.location.href)
+        url.searchParams.set("tab", newTab)
+        if (newTab !== "leaderboard") {
+          url.searchParams.delete("round")
+          url.searchParams.delete("type")
+        }
+        window.history.replaceState(null, "", url.toString())
+      } catch (_) {}
+    }
+  }
+
   // parse cssConfig for primaryColor
   let primaryColor = "#059669" // default emerald-600
   try {
@@ -450,8 +466,14 @@ export function CompetitionClientView({ competition, session, courses = [], user
   const handleShareView = () => {
     if (typeof window !== "undefined") {
       const url = new URL(window.location.href)
-      url.searchParams.set("round", selectedRoundFilter)
-      url.searchParams.set("type", selectedLeaderboardType)
+      url.searchParams.set("tab", activeTab)
+      if (activeTab === "leaderboard") {
+        url.searchParams.set("round", selectedRoundFilter)
+        url.searchParams.set("type", selectedLeaderboardType)
+      } else {
+        url.searchParams.delete("round")
+        url.searchParams.delete("type")
+      }
       
       navigator.clipboard.writeText(url.toString())
         .then(() => {
@@ -927,9 +949,12 @@ export function CompetitionClientView({ competition, session, courses = [], user
 
       // Restore view filters & tabs
       const sp = new URLSearchParams(window.location.search)
+      const tabParam = sp.get("tab")
       const hasScorecard = sp.has("scorecardPlayer") || sp.has("scorecardMatch") || sp.has("scorecardTeam")
 
-      if (hasScorecard) {
+      if (tabParam && ['leaderboard', 'scores', 'agenda', 'rules', 'details', 'admin'].includes(tabParam)) {
+        setActiveTab(tabParam as any)
+      } else if (hasScorecard) {
         setActiveTab('leaderboard')
       } else if (savedTab) {
         setActiveTab(savedTab as any)
@@ -2767,7 +2792,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
             </div>
           ) : (
             <button 
-              onClick={() => setActiveTab('scores')}
+              onClick={() => handleTabChange('scores')}
               className="flex items-center space-x-1.5 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-255 text-xs font-semibold rounded-lg transition-all shadow-sm landscape:py-0.5 landscape:px-2 cursor-pointer"
             >
               <Key size={14} className="landscape:w-3 landscape:h-3" />
@@ -2781,7 +2806,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
       <div className="bg-white/35 backdrop-blur-md border-b border-slate-200 sticky top-12 md:top-16 landscape:top-10 z-30 flex justify-center shadow-sm h-10 md:h-14 landscape:h-8.5">
         <div className="flex w-full max-w-7xl px-2 sm:px-4 h-full overflow-x-auto scrollbar-none">
           <button
-            onClick={() => setActiveTab('leaderboard')}
+            onClick={() => handleTabChange('leaderboard')}
             className={`flex-1 min-w-[90px] py-2 md:py-4 text-center text-xs md:text-sm font-bold border-b-2 transition-all flex items-center justify-center space-x-1.5 md:space-x-2 landscape:py-1 ${
               activeTab === 'leaderboard'
                 ? 'text-emerald-500 bg-emerald-500/20 font-black'
@@ -2794,7 +2819,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
           </button>
 
           <button
-            onClick={() => setActiveTab('scores')}
+            onClick={() => handleTabChange('scores')}
             className={`flex-1 min-w-[95px] py-2 md:py-4 text-center text-xs md:text-sm font-bold border-b-2 transition-all flex items-center justify-center space-x-1.5 md:space-x-2 landscape:py-1 ${
               activeTab === 'scores'
                 ? 'text-emerald-500 bg-emerald-500/20 font-black'
@@ -2807,7 +2832,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
           </button>
 
           <button
-            onClick={() => setActiveTab('agenda')}
+            onClick={() => handleTabChange('agenda')}
             className={`flex-1 min-w-[80px] py-2 md:py-4 text-center text-xs md:text-sm font-bold border-b-2 transition-all flex items-center justify-center space-x-1.5 md:space-x-2 landscape:py-1 ${
               activeTab === 'agenda'
                 ? 'text-emerald-500 bg-emerald-500/20 font-black'
@@ -2820,7 +2845,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
           </button>
 
           <button
-            onClick={() => setActiveTab('rules')}
+            onClick={() => handleTabChange('rules')}
             className={`flex-1 min-w-[80px] py-2 md:py-4 text-center text-xs md:text-sm font-bold border-b-2 transition-all flex items-center justify-center space-x-1.5 md:space-x-2 landscape:py-1 ${
               activeTab === 'rules'
                 ? 'text-emerald-500 bg-emerald-500/20 font-black'
@@ -2833,7 +2858,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
           </button>
 
           <button
-            onClick={() => setActiveTab('details')}
+            onClick={() => handleTabChange('details')}
             className={`flex-1 min-w-[75px] py-2 md:py-4 text-center text-xs md:text-sm font-bold border-b-2 transition-all flex items-center justify-center space-x-1.5 md:space-x-2 landscape:py-1 ${
               activeTab === 'details'
                 ? 'text-emerald-500 bg-emerald-500/20 font-black'
@@ -2847,7 +2872,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
 
           {isAdminUser && (
             <button
-              onClick={() => setActiveTab('admin')}
+              onClick={() => handleTabChange('admin')}
               className={`flex-1 min-w-[75px] py-2 md:py-4 text-center text-xs md:text-sm font-bold border-b-2 transition-all flex items-center justify-center space-x-1.5 md:space-x-2 landscape:py-1 ${
                 activeTab === 'admin'
                   ? 'text-emerald-500 bg-emerald-500/20 font-black'

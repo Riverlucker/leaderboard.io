@@ -76,6 +76,17 @@ export function LiveScoreEntry({
   // Local scores structure: holeId -> partId -> scoreValue (e.g. "4", "/", "-")
   const [scoresByHole, setScoresByHole] = useState<Record<string, Record<string, string>>>({})
   
+  // Preview / Hover state (for mobile touch slide & desktop hover)
+  const [previewState, setPreviewState] = useState<{ participantId: string; holeId: string; value: string } | null>(null)
+  const touchStateRef = useRef<{
+    participantId: string
+    holeId: string
+    startX: number
+    startY: number
+    isScrolling: boolean
+    currentVal: string | null
+  } | null>(null)
+
   // Offline & Synchronization State
   const [isOfflineMode, setIsOfflineMode] = useState<boolean>(false)
   const [offlineQueue, setOfflineQueue] = useState<PendingScoreItem[]>([])
@@ -333,6 +344,73 @@ export function LiveScoreEntry({
         performBatchSave(nextQueue)
       }, 2000)
     }
+  }
+
+  // Touch gesture handlers for mobile score preview while preserving vertical page scrolling
+  const handleTouchStart = (partId: string, holeId: string, e: React.TouchEvent) => {
+    const touch = e.touches[0]
+    if (!touch) return
+    const elem = document.elementFromPoint(touch.clientX, touch.clientY)
+    const btn = elem?.closest('[data-score-val]')
+    const val = btn ? btn.getAttribute('data-score-val') : null
+
+    touchStateRef.current = {
+      participantId: partId,
+      holeId,
+      startX: touch.clientX,
+      startY: touch.clientY,
+      isScrolling: false,
+      currentVal: val
+    }
+    if (val) {
+      setPreviewState({ participantId: partId, holeId, value: val })
+    }
+  }
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!touchStateRef.current) return
+    const touch = e.touches[0]
+    if (!touch) return
+
+    const deltaY = Math.abs(touch.clientY - touchStateRef.current.startY)
+    const deltaX = Math.abs(touch.clientX - touchStateRef.current.startX)
+
+    // Prominent vertical scroll movement: cancel preview and allow native scroll!
+    if (!touchStateRef.current.isScrolling && deltaY > 12 && deltaY > deltaX * 1.1) {
+      touchStateRef.current.isScrolling = true
+      setPreviewState(null)
+      return
+    }
+
+    if (touchStateRef.current.isScrolling) return
+
+    // Sliding across score buttons horizontally
+    const elem = document.elementFromPoint(touch.clientX, touch.clientY)
+    const btn = elem?.closest('[data-score-val]')
+    const val = btn ? btn.getAttribute('data-score-val') : null
+    if (val && val !== touchStateRef.current.currentVal) {
+      touchStateRef.current.currentVal = val
+      setPreviewState({
+        participantId: touchStateRef.current.participantId,
+        holeId: touchStateRef.current.holeId,
+        value: val
+      })
+    }
+  }
+
+  const handleTouchEnd = () => {
+    const state = touchStateRef.current
+    touchStateRef.current = null
+    setPreviewState(null)
+    if (!state || state.isScrolling) return
+    if (state.currentVal) {
+      handleScoreClick(state.participantId, state.holeId, state.currentVal)
+    }
+  }
+
+  const handleTouchCancel = () => {
+    touchStateRef.current = null
+    setPreviewState(null)
   }
 
   // Navigation handlers
@@ -746,17 +824,34 @@ export function LiveScoreEntry({
 
               {/* Bottom Row: Full-Width 8-Column Grid Selector */}
               <div className="relative w-full">
-                <div className="grid grid-cols-8 gap-1.5 w-full select-none">
+                {/* Floating score & par label indicator badge (on touch hold/slide and desktop hover) */}
+                {previewState && previewState.participantId === p.id && previewState.value && (
+                  <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-slate-900/95 text-white px-4 py-1.5 rounded-2xl shadow-2xl flex items-center gap-2.5 z-40 border border-slate-700 pointer-events-none animate-in fade-in zoom-in-95 duration-100">
+                    <span className="text-2xl font-black text-emerald-400 leading-none">{previewState.value}</span>
+                    <span className="text-xs font-extrabold uppercase tracking-wider text-slate-200">
+                      {getScoreLabel(previewState.value, par)}
+                    </span>
+                  </div>
+                )}
+
+                <div
+                  onTouchStart={(e) => handleTouchStart(p.id, currentHole.id, e)}
+                  onTouchMove={handleTouchMove}
+                  onTouchEnd={handleTouchEnd}
+                  onTouchCancel={handleTouchCancel}
+                  className="grid grid-cols-8 gap-1.5 w-full select-none"
+                >
                   {columns.map((col, colIdx) => {
                     const opt = col.val
                     const isSelected = activeVal === opt
+                    const isPreviewed = previewState?.participantId === p.id && previewState?.holeId === currentHole.id && previewState?.value === opt
 
                     let btnStyle = "border-slate-200/80 bg-white/40 text-slate-600 hover:bg-white/80 text-sm font-bold"
                     let btnStyleOverride: React.CSSProperties = {}
 
-                    if (isSelected) {
+                    if (isPreviewed || isSelected) {
                       if (teamConfig) {
-                        btnStyle = "text-white opacity-100 font-black text-xl shadow-md ring-2"
+                        btnStyle = "text-white opacity-100 font-black text-xl shadow-md ring-2 scale-105 z-10"
                         btnStyleOverride = {
                           backgroundColor: `hsl(${teamConfig.hue}, 85%, 22%)`,
                           borderColor: `hsl(${teamConfig.hue}, 85%, 15%)`,
@@ -768,7 +863,7 @@ export function LiveScoreEntry({
                     }
 
                     let markerElement = null
-                    if (isSelected) {
+                    if (isSelected || isPreviewed) {
                       if (opt === '/') {
                         markerElement = (
                           <div className="absolute inset-0.5 border-2 border-dashed border-white rounded-none pointer-events-none" />
@@ -807,6 +902,8 @@ export function LiveScoreEntry({
                         type="button"
                         data-score-val={opt}
                         onClick={() => handleScoreClick(p.id, currentHole.id, opt)}
+                        onMouseEnter={() => setPreviewState({ participantId: p.id, holeId: currentHole.id, value: opt })}
+                        onMouseLeave={() => setPreviewState((prev) => (prev?.participantId === p.id && prev?.value === opt ? null : prev))}
                         style={btnStyleOverride}
                         className={`relative w-full aspect-square flex items-center justify-center rounded-xl border transition-all cursor-pointer ${btnStyle}`}
                       >

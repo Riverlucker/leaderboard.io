@@ -684,6 +684,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
   const [compSlug, setCompSlug] = useState(competition.uniqueSlug)
   const [compType, setCompType] = useState(competition.type)
   const [isTeamComp, setIsTeamComp] = useState(competition.isTeamComp)
+  const isRyderCup = competition.type === 'RYDER_CUP' || competition.uniqueSlug?.toLowerCase() === 'trrc26'
   const [startDate, setStartDate] = useState(formatDateInput(competition.startDate))
   const [endDate, setEndDate] = useState(formatDateInput(competition.endDate))
   const [cssConfig, setCssConfig] = useState(competition.cssConfig || "")
@@ -953,11 +954,19 @@ export function CompetitionClientView({ competition, session, courses = [], user
       const hasScorecard = sp.has("scorecardPlayer") || sp.has("scorecardMatch") || sp.has("scorecardTeam")
 
       if (tabParam && ['leaderboard', 'scores', 'agenda', 'rules', 'details', 'admin'].includes(tabParam)) {
-        setActiveTab(tabParam as any)
+        if (!isRyderCup && (tabParam === 'agenda' || tabParam === 'rules')) {
+          setActiveTab('leaderboard')
+        } else {
+          setActiveTab(tabParam as any)
+        }
       } else if (hasScorecard) {
         setActiveTab('leaderboard')
       } else if (savedTab) {
-        setActiveTab(savedTab as any)
+        if (!isRyderCup && (savedTab === 'agenda' || savedTab === 'rules')) {
+          setActiveTab('leaderboard')
+        } else {
+          setActiveTab(savedTab as any)
+        }
       } else if (savedConfirmed === 'true') {
         setActiveTab('scores')
       }
@@ -1591,11 +1600,16 @@ export function CompetitionClientView({ competition, session, courses = [], user
           }
         })
 
-        // Sort ascending (lowest strokes win). Players with 0 holesPlayed go to the bottom.
+        // Sort ascending (lowest strokes / best relToPar win). Players with 0 holesPlayed go to the bottom.
         const sorted = [...entries].sort((a, b) => {
           if (a.holesPlayed === 0 && b.holesPlayed > 0) return 1
           if (b.holesPlayed === 0 && a.holesPlayed > 0) return -1
-          if (a.totalStrokes !== b.totalStrokes) return a.totalStrokes - b.totalStrokes
+          if (competition.showRelToPar) {
+            if (a.relToPar !== b.relToPar) return a.relToPar - b.relToPar
+          } else {
+            if (a.holesPlayed !== b.holesPlayed) return b.holesPlayed - a.holesPlayed
+            if (a.totalStrokes !== b.totalStrokes) return a.totalStrokes - b.totalStrokes
+          }
           return b.holesPlayed - a.holesPlayed
         })
 
@@ -1603,9 +1617,10 @@ export function CompetitionClientView({ competition, session, courses = [], user
           if (entry.holesPlayed === 0) {
             return { ...entry, rank: "-" }
           }
-          const ties = sorted.filter(x => x.holesPlayed > 0 && x.totalStrokes === entry.totalStrokes)
+          const compareVal = competition.showRelToPar ? entry.relToPar : entry.totalStrokes
+          const ties = sorted.filter(x => x.holesPlayed > 0 && (competition.showRelToPar ? x.relToPar === compareVal : x.totalStrokes === compareVal))
           const isTied = ties.length > 1
-          const firstTiedIndex = sorted.findIndex(x => x.holesPlayed > 0 && x.totalStrokes === entry.totalStrokes) + 1
+          const firstTiedIndex = sorted.findIndex(x => x.holesPlayed > 0 && (competition.showRelToPar ? x.relToPar === compareVal : x.totalStrokes === compareVal)) + 1
           const rankString = isTied ? `T${firstTiedIndex}` : `${idx + 1}`
           return {
             ...entry,
@@ -1747,17 +1762,28 @@ export function CompetitionClientView({ competition, session, courses = [], user
         }
       })
       
-      // Sort ascending (lowest strokes win)
+      // Sort ascending (lowest strokes / best relToPar win)
       const sorted = [...entries].sort((a, b) => {
-        if (a.totalPoints !== b.totalPoints) return a.totalPoints - b.totalPoints
+        if (a.holesPlayed === 0 && b.holesPlayed > 0) return 1
+        if (b.holesPlayed === 0 && a.holesPlayed > 0) return -1
+        if (competition.showRelToPar) {
+          if (a.relToPar !== b.relToPar) return a.relToPar - b.relToPar
+        } else {
+          if (a.holesPlayed !== b.holesPlayed) return b.holesPlayed - a.holesPlayed
+          if (a.totalStrokes !== b.totalStrokes) return a.totalStrokes - b.totalStrokes
+        }
         return b.holesPlayed - a.holesPlayed
       })
       
       // Assign ranks manually
       return sorted.map((entry, idx) => {
-        const ties = sorted.filter(x => x.totalPoints === entry.totalPoints)
+        if (entry.holesPlayed === 0) {
+          return { ...entry, rank: "-" }
+        }
+        const compareVal = competition.showRelToPar ? entry.relToPar : entry.totalStrokes
+        const ties = sorted.filter(x => x.holesPlayed > 0 && (competition.showRelToPar ? x.relToPar === compareVal : x.totalStrokes === compareVal))
         const isTied = ties.length > 1
-        const firstTiedIndex = sorted.findIndex(x => x.totalPoints === entry.totalPoints) + 1
+        const firstTiedIndex = sorted.findIndex(x => x.holesPlayed > 0 && (competition.showRelToPar ? x.relToPar === compareVal : x.totalStrokes === compareVal)) + 1
         const rankString = isTied ? `T${firstTiedIndex}` : `${idx + 1}`
         return {
           ...entry,
@@ -2866,31 +2892,35 @@ export function CompetitionClientView({ competition, session, courses = [], user
             <span>Score Entry</span>
           </button>
 
-          <button
-            onClick={() => handleTabChange('agenda')}
-            className={`flex-1 min-w-[80px] py-2 md:py-4 text-center text-xs md:text-sm font-bold border-b-2 transition-all flex items-center justify-center space-x-1.5 md:space-x-2 landscape:py-1 ${
-              activeTab === 'agenda'
-                ? 'text-emerald-500 bg-emerald-500/20 font-black'
-                : 'border-transparent text-slate-700 hover:text-slate-950 font-black'
-            }`}
-            style={{ borderBottomColor: activeTab === 'agenda' ? primaryColor : 'transparent' }}
-          >
-            <Calendar size={16} className="landscape:w-3.5 landscape:h-3.5" />
-            <span>Agenda</span>
-          </button>
+          {isRyderCup && (
+            <button
+              onClick={() => handleTabChange('agenda')}
+              className={`flex-1 min-w-[80px] py-2 md:py-4 text-center text-xs md:text-sm font-bold border-b-2 transition-all flex items-center justify-center space-x-1.5 md:space-x-2 landscape:py-1 ${
+                activeTab === 'agenda'
+                  ? 'text-emerald-500 bg-emerald-500/20 font-black'
+                  : 'border-transparent text-slate-700 hover:text-slate-950 font-black'
+              }`}
+              style={{ borderBottomColor: activeTab === 'agenda' ? primaryColor : 'transparent' }}
+            >
+              <Calendar size={16} className="landscape:w-3.5 landscape:h-3.5" />
+              <span>Agenda</span>
+            </button>
+          )}
 
-          <button
-            onClick={() => handleTabChange('rules')}
-            className={`flex-1 min-w-[80px] py-2 md:py-4 text-center text-xs md:text-sm font-bold border-b-2 transition-all flex items-center justify-center space-x-1.5 md:space-x-2 landscape:py-1 ${
-              activeTab === 'rules'
-                ? 'text-emerald-500 bg-emerald-500/20 font-black'
-                : 'border-transparent text-slate-700 hover:text-slate-950 font-black'
-            }`}
-            style={{ borderBottomColor: activeTab === 'rules' ? primaryColor : 'transparent' }}
-          >
-            <FileText size={16} className="landscape:w-3.5 landscape:h-3.5" />
-            <span>Regeln</span>
-          </button>
+          {isRyderCup && (
+            <button
+              onClick={() => handleTabChange('rules')}
+              className={`flex-1 min-w-[80px] py-2 md:py-4 text-center text-xs md:text-sm font-bold border-b-2 transition-all flex items-center justify-center space-x-1.5 md:space-x-2 landscape:py-1 ${
+                activeTab === 'rules'
+                  ? 'text-emerald-500 bg-emerald-500/20 font-black'
+                  : 'border-transparent text-slate-700 hover:text-slate-950 font-black'
+              }`}
+              style={{ borderBottomColor: activeTab === 'rules' ? primaryColor : 'transparent' }}
+            >
+              <FileText size={16} className="landscape:w-3.5 landscape:h-3.5" />
+              <span>Regeln</span>
+            </button>
+          )}
 
           <button
             onClick={() => handleTabChange('details')}
@@ -3226,6 +3256,10 @@ export function CompetitionClientView({ competition, session, courses = [], user
               }
 
               if (!selectedLeaderboardType.startsWith('TEAM_')) {
+                const displayedRounds = selectedRoundFilter === 'TOTAL'
+                  ? competition.rounds
+                  : competition.rounds.filter((r: any) => r.id === selectedRoundFilter)
+
                 return (
                   <div className="space-y-6">
                     <div className="bg-white/35 backdrop-blur-sm border border-slate-200 rounded-2xl overflow-x-auto shadow-sm">
@@ -3241,10 +3275,11 @@ export function CompetitionClientView({ competition, session, courses = [], user
                             }
                           </th>
                           <th className="px-2 py-2.5 md:px-4 md:py-4 text-center w-16 md:w-24">Played</th>
-                          {competition.rounds.map((round: any, i: number) => {
+                          {displayedRounds.map((round: any) => {
+                            const originalIdx = competition.rounds.findIndex((r: any) => r.id === round.id)
                             return (
                               <th key={round.id} className="px-1 py-2.5 md:px-3 md:py-4 text-center text-xs font-semibold text-slate-555 min-w-[75px] md:min-w-[90px]">
-                                <div>R{i + 1}</div>
+                                <div>R{originalIdx + 1}</div>
                                 {round.tee && (
                                   <div className="text-[8px] md:text-[9px] text-slate-400 font-mono font-medium uppercase tracking-wider block mt-0.5">
                                     {round.tee.name.split(" ")[0]}
@@ -3312,7 +3347,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
                                 {entry.holesPlayed === 0 ? "-" : `${entry.holesPlayed}/${totalHolesForFilter}`}
                               </td>
 
-                              {competition.rounds.map((round: any) => {
+                              {displayedRounds.map((round: any) => {
                                 const pts = entry.roundPoints[round.id]
                                 const showRel = competition.showRelToPar && (selectedLeaderboardType === 'MAIN' || selectedLeaderboardType === 'STABLEFORD_NETTO' || selectedLeaderboardType === 'STABLEFORD_BRUTTO')
                                 
@@ -3381,11 +3416,14 @@ export function CompetitionClientView({ competition, session, courses = [], user
                                 }
                               </th>
                               <th className="px-2 py-2.5 md:px-4 md:py-4 text-center w-16 md:w-24">Played</th>
-                              {competition.rounds.map((round: any, i: number) => (
-                                <th key={round.id} className="px-1 py-2.5 md:px-3 md:py-4 text-center text-xs font-semibold text-purple-900 min-w-[75px] md:min-w-[90px]">
-                                  <div>R{i + 1}</div>
-                                </th>
-                              ))}
+                              {displayedRounds.map((round: any) => {
+                                const originalIdx = competition.rounds.findIndex((r: any) => r.id === round.id)
+                                return (
+                                  <th key={round.id} className="px-1 py-2.5 md:px-3 md:py-4 text-center text-xs font-semibold text-purple-900 min-w-[75px] md:min-w-[90px]">
+                                    <div>R{originalIdx + 1}</div>
+                                  </th>
+                                )
+                              })}
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-purple-100/80 bg-white/20 text-slate-700">
@@ -3417,7 +3455,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
                                   <td className="px-2 py-2.5 md:px-4 md:py-4 text-center font-mono text-slate-500 text-xs md:text-sm">
                                     {entry.holesPlayed === 0 ? "-" : `${entry.holesPlayed}/${totalHolesForFilter}`}
                                   </td>
-                                  {competition.rounds.map((round: any) => {
+                                  {displayedRounds.map((round: any) => {
                                     const pts = entry.roundPoints[round.id]
                                     const showRel = competition.showRelToPar && (selectedLeaderboardType === 'MAIN' || selectedLeaderboardType === 'STABLEFORD_NETTO' || selectedLeaderboardType === 'STABLEFORD_BRUTTO')
                                     let displayVal = "-"
@@ -3456,7 +3494,11 @@ export function CompetitionClientView({ competition, session, courses = [], user
               )
             }
 
-              return (
+            const displayedRounds = selectedRoundFilter === 'TOTAL' 
+              ? (competition.rounds || []) 
+              : (competition.rounds || []).filter((r: any) => r.id === selectedRoundFilter)
+
+            return (
                 <div className="bg-white/35 backdrop-blur-sm border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
                   <table className="w-full text-sm text-left border-collapse">
                     <thead className="bg-slate-100/50 text-slate-550 uppercase tracking-wider text-xs border-b border-slate-200">
@@ -3470,10 +3512,11 @@ export function CompetitionClientView({ competition, session, courses = [], user
                           }
                         </th>
                         <th className="px-2 py-2.5 md:px-4 md:py-4 text-center w-16 md:w-24">Played</th>
-                        {competition.rounds.map((round: any, i: number) => {
+                        {displayedRounds.map((round: any) => {
+                          const originalIdx = competition.rounds.findIndex((r: any) => r.id === round.id)
                           return (
                             <th key={round.id} className="px-1 py-2.5 md:px-3 md:py-4 text-center text-xs font-semibold text-slate-555 min-w-[75px] md:min-w-[90px]">
-                              <div>R{i + 1}</div>
+                              <div>R{originalIdx + 1}</div>
                               {round.tee && (
                                 <div className="text-[8px] md:text-[9px] text-slate-400 font-mono font-medium uppercase tracking-wider block mt-0.5">
                                   {round.tee.name.split(" ")[0]}
@@ -3511,7 +3554,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
                               {entry.holesPlayed}/{totalHolesForFilter}
                             </td>
 
-                            {competition.rounds.map((round: any) => {
+                            {displayedRounds.map((round: any) => {
                               const pts = entry.roundPoints[round.id]
                               const showRel = competition.showRelToPar && (selectedLeaderboardType === 'TEAM_STABLEFORD_NETTO' || selectedLeaderboardType === 'TEAM_STABLEFORD_BRUTTO')
                               
@@ -3539,7 +3582,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
                                 </td>
                               )
                             })}
-                            </tr>
+                          </tr>
                         )
                       })}
                     </tbody>
@@ -3858,45 +3901,6 @@ export function CompetitionClientView({ competition, session, courses = [], user
                 ) : (
                   /* Entry Active Phase */
                   <div className="space-y-4 w-full">
-                    {/* Setup Bar */}
-                    <div className="flex justify-between items-center bg-white/35 backdrop-blur-sm border border-slate-200 p-4 rounded-xl shadow-sm text-slate-800 w-full">
-                      <div className="text-xs font-medium">
-                        Round: <span className="font-bold text-emerald-650">{selectedScoringRound?.name}</span> | Players:{" "}
-                        <span className="font-bold text-slate-800">
-                          {selectedScoringPlayers.map((p: any) => p.userId ? (p.user?.name || p.user?.email) : p.dummyName).join(", ")}
-                        </span>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        {entryMode === 'LIVE' ? (
-                          <button
-                            onClick={() => handleToggleEntryMode('BULK')}
-                            className="flex items-center space-x-1 text-xs text-emerald-650 hover:text-emerald-700 hover:bg-emerald-50 font-bold px-2.5 py-1 border border-emerald-200 rounded bg-white transition-colors shadow-sm focus:outline-none cursor-pointer"
-                          >
-                            <BookOpen size={12} />
-                            <span>Bulk Entry</span>
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => handleToggleEntryMode('LIVE')}
-                            className="flex items-center space-x-1 text-xs text-emerald-650 hover:text-emerald-700 hover:bg-emerald-50 font-bold px-2.5 py-1 border border-emerald-200 rounded bg-white transition-colors shadow-sm focus:outline-none cursor-pointer"
-                          >
-                            <Play size={12} />
-                            <span>Live Entry</span>
-                          </button>
-                        )}
-                        <button
-                          onClick={() => {
-                            setSetupConfirmed(false)
-                            saveSetupToStorage(selectedRoundId, selectedPlayerIds, entryMode, false)
-                          }}
-                          className="flex items-center space-x-1 text-xs text-slate-500 hover:text-emerald-600 font-bold px-2.5 py-1 border border-slate-200 rounded bg-slate-50 transition-colors shadow-sm focus:outline-none cursor-pointer"
-                        >
-                          <Settings size={12} />
-                          <span>Change Flight</span>
-                        </button>
-                      </div>
-                    </div>
-
                     {/* Rendering target mode */}
                     {entryMode === 'LIVE' ? (
                       <LiveScoreEntry
@@ -3906,6 +3910,10 @@ export function CompetitionClientView({ competition, session, courses = [], user
                         onScoreSaved={() => router.refresh()}
                         initialHoleIndex={liveHoleIndex}
                         onToggleMode={handleToggleEntryMode}
+                        onChangeFlight={() => {
+                          setSetupConfirmed(false)
+                          saveSetupToStorage(selectedRoundId, selectedPlayerIds, entryMode, false)
+                        }}
                         onHoleChange={handleLiveHoleChange}
                         holesToPlay={scoringHoles}
                         isTeamComp={isTeamComp}
@@ -3919,6 +3927,10 @@ export function CompetitionClientView({ competition, session, courses = [], user
                         onScoreSaved={() => router.refresh()}
                         initialFocusId={focusInputId}
                         onToggleMode={handleToggleEntryMode}
+                        onChangeFlight={() => {
+                          setSetupConfirmed(false)
+                          saveSetupToStorage(selectedRoundId, selectedPlayerIds, entryMode, false)
+                        }}
                         holesToPlay={scoringHoles}
                         isTeamComp={isTeamComp}
                         competition={competition}
@@ -3932,12 +3944,12 @@ export function CompetitionClientView({ competition, session, courses = [], user
         )}
 
         {/* Tab: Agenda */}
-        {activeTab === 'agenda' && (
+        {isRyderCup && activeTab === 'agenda' && (
           <RyderCupAgendaTab competition={competition} />
         )}
 
         {/* Tab: Regeln */}
-        {activeTab === 'rules' && (
+        {isRyderCup && activeTab === 'rules' && (
           <RyderCupRulesTab />
         )}
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import { saveBatchScores } from "@/app/actions/scores"
-import { ArrowLeft, ArrowRight, Loader2, Wifi, WifiOff, RefreshCw, CheckCircle2, AlertCircle, Save } from "lucide-react"
+import { ArrowLeft, ArrowRight, Loader2, Wifi, WifiOff, RefreshCw, CheckCircle2, AlertCircle, Save, BookOpen, Settings, Play } from "lucide-react"
 import { calculateCourseHandicap, getRoundHoleInfo, getHandicapStrokesOnHole } from "@/lib/scoring"
 import { getTeamColorConfig } from "@/lib/teamColors"
 import { getPlayerCalculatedAllowance } from "./CompetitionClientView"
@@ -27,6 +27,7 @@ interface LiveScoreEntryProps {
   initialHoleIndex?: number
   onToggleMode: (mode: 'LIVE' | 'BULK') => void
   onHoleChange: (index: number) => void
+  onChangeFlight?: () => void
   holesToPlay?: number[]
   isTeamComp?: boolean
   competition?: any
@@ -56,6 +57,7 @@ export function LiveScoreEntry({
   initialHoleIndex,
   onToggleMode,
   onHoleChange,
+  onChangeFlight,
   holesToPlay,
   isTeamComp = false,
   competition
@@ -79,11 +81,6 @@ export function LiveScoreEntry({
   const [offlineQueue, setOfflineQueue] = useState<PendingScoreItem[]>([])
   const [isSyncing, setIsSyncing] = useState<boolean>(false)
   const [syncStatusMsg, setSyncStatusMsg] = useState<{ text: string; type: 'success' | 'error' | 'info' } | null>(null)
-
-  // Gesture state for touch swipe score preview & commit
-  const [draggingPartId, setDraggingPartId] = useState<string | null>(null)
-  const [previewVal, setPreviewVal] = useState<string | null>(null)
-  const activeHoleIdRef = useRef<string | null>(null)
 
   const saveTimeoutRef = useRef<any>(null)
 
@@ -278,10 +275,10 @@ export function LiveScoreEntry({
 
   // 4. Handle score entry click on any hole
   const handleScoreClick = (partId: string, holeId: string, value: string) => {
-    // Prevent double-invocation within 350ms (e.g. pointerup + synthetic click on PC/mobile)
+    // Prevent rapid double-invocation
     const clickKey = `${partId}-${holeId}-${value}`
     const now = Date.now()
-    if (lastClickTimeRef.current.key === clickKey && now - lastClickTimeRef.current.time < 350) {
+    if (lastClickTimeRef.current.key === clickKey && now - lastClickTimeRef.current.time < 200) {
       return
     }
     lastClickTimeRef.current = { key: clickKey, time: now }
@@ -300,8 +297,11 @@ export function LiveScoreEntry({
     let status: string | null = null
     if (targetValue === '/') {
       status = 'WIPED'
-    } else if (targetValue === '-' || targetValue === '') {
+    } else if (targetValue === '-') {
       status = 'NOT_PLAYED'
+    } else if (targetValue === '') {
+      grossStrokes = null
+      status = null
     } else {
       grossStrokes = parseInt(targetValue, 10)
     }
@@ -333,48 +333,6 @@ export function LiveScoreEntry({
         performBatchSave(nextQueue)
       }, 2000)
     }
-  }
-
-  // Touch Swipe Gesture Handlers
-  const handleGestureStart = (partId: string, holeId: string, e: React.PointerEvent | React.TouchEvent) => {
-    // On desktop PC with mouse: do not intercept with swipe drag, standard button onClick handles it cleanly
-    if ('pointerType' in e && e.pointerType === 'mouse') {
-      return
-    }
-
-    setDraggingPartId(partId)
-    activeHoleIdRef.current = holeId
-    const clientX = 'touches' in e ? (e as React.TouchEvent).touches[0]?.clientX : (e as React.PointerEvent).clientX
-    const clientY = 'touches' in e ? (e as React.TouchEvent).touches[0]?.clientY : (e as React.PointerEvent).clientY
-    if (clientX !== undefined && clientY !== undefined) {
-      const el = document.elementFromPoint(clientX, clientY)
-      const scoreBtn = el?.closest('[data-score-val]')
-      const val = scoreBtn?.getAttribute('data-score-val')
-      if (val) setPreviewVal(val)
-    }
-  }
-
-  const handleGestureMove = (e: React.PointerEvent | React.TouchEvent) => {
-    if (!draggingPartId) return
-    const clientX = 'touches' in e ? (e as React.TouchEvent).touches[0]?.clientX : (e as React.PointerEvent).clientX
-    const clientY = 'touches' in e ? (e as React.TouchEvent).touches[0]?.clientY : (e as React.PointerEvent).clientY
-    if (clientX === undefined || clientY === undefined) return
-
-    const el = document.elementFromPoint(clientX, clientY)
-    const scoreBtn = el?.closest('[data-score-val]')
-    const val = scoreBtn?.getAttribute('data-score-val')
-    if (val && val !== previewVal) {
-      setPreviewVal(val)
-    }
-  }
-
-  const handleGestureEnd = () => {
-    if (draggingPartId && previewVal && activeHoleIdRef.current) {
-      handleScoreClick(draggingPartId, activeHoleIdRef.current, previewVal)
-    }
-    setDraggingPartId(null)
-    setPreviewVal(null)
-    activeHoleIdRef.current = null
   }
 
   // Navigation handlers
@@ -444,13 +402,13 @@ export function LiveScoreEntry({
   return (
     <div className="bg-white/65 backdrop-blur-sm border border-slate-200 rounded-2xl p-4 md:p-6 shadow-sm space-y-5 w-full">
       
-      {/* Network & Offline Status Banner */}
+      {/* Network & Mode Controls Banner */}
       <div className={`p-3 rounded-xl border flex flex-wrap items-center justify-between gap-3 text-xs font-semibold transition-all ${
         isOfflineMode 
           ? "bg-amber-500/10 border-amber-500/30 text-amber-900" 
           : "bg-emerald-500/10 border-emerald-500/30 text-emerald-900"
       }`}>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {isOfflineMode ? (
             <WifiOff size={16} className="text-amber-600 animate-pulse flex-shrink-0" />
           ) : (
@@ -472,36 +430,60 @@ export function LiveScoreEntry({
                 : "Scores werden automatisch mit dem Server synchronisiert."}
             </div>
           </div>
-        </div>
 
-        <div className="flex items-center gap-2">
-          {offlineQueue.length > 0 && (
+          <div className="flex items-center gap-1.5 ml-1">
+            {offlineQueue.length > 0 && (
+              <button
+                type="button"
+                onClick={() => performBatchSave()}
+                disabled={isSyncing}
+                className="px-2.5 py-1 bg-amber-600 hover:bg-amber-500 text-white font-extrabold rounded-lg transition-colors flex items-center gap-1.5 shadow-sm disabled:opacity-50 text-xs"
+              >
+                {isSyncing ? (
+                  <Loader2 size={12} className="animate-spin" />
+                ) : (
+                  <RefreshCw size={12} />
+                )}
+                <span>Scores übertragen ({offlineQueue.length})</span>
+              </button>
+            )}
+
             <button
               type="button"
-              onClick={() => performBatchSave()}
-              disabled={isSyncing}
-              className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white font-extrabold rounded-lg transition-colors flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+              onClick={handleToggleOfflineMode}
+              className={`px-2.5 py-1 rounded-lg border font-extrabold transition-all text-xs flex items-center gap-1 ${
+                isOfflineMode
+                  ? "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
+                  : "bg-amber-100 hover:bg-amber-200 text-amber-900 border-amber-300"
+              }`}
             >
-              {isSyncing ? (
-                <Loader2 size={13} className="animate-spin" />
-              ) : (
-                <RefreshCw size={13} />
-              )}
-              <span>Scores übertragen ({offlineQueue.length})</span>
+              {isOfflineMode ? "Online schalten" : "Offline-Modus"}
+            </button>
+          </div>
+        </div>
+
+        {/* Right side: Bulk/Live Mode + Change Flight */}
+        <div className="flex items-center gap-2">
+          {onToggleMode && (
+            <button
+              type="button"
+              onClick={() => onToggleMode('BULK')}
+              className="flex items-center space-x-1 text-xs text-emerald-750 hover:text-emerald-800 hover:bg-emerald-50 font-bold px-2.5 py-1 border border-emerald-200 rounded-lg bg-white transition-colors shadow-sm focus:outline-none cursor-pointer"
+            >
+              <BookOpen size={12} />
+              <span>Bulk Entry</span>
             </button>
           )}
-
-          <button
-            type="button"
-            onClick={handleToggleOfflineMode}
-            className={`px-3 py-1.5 rounded-lg border font-extrabold transition-all text-xs flex items-center gap-1 ${
-              isOfflineMode
-                ? "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
-                : "bg-amber-100 hover:bg-amber-200 text-amber-900 border-amber-300"
-            }`}
-          >
-            {isOfflineMode ? "Online schalten" : "Offline-Modus"}
-          </button>
+          {onChangeFlight && (
+            <button
+              type="button"
+              onClick={onChangeFlight}
+              className="flex items-center space-x-1 text-xs text-slate-600 hover:text-emerald-700 font-bold px-2.5 py-1 border border-slate-200 rounded-lg bg-white hover:bg-slate-50 transition-colors shadow-sm focus:outline-none cursor-pointer"
+            >
+              <Settings size={12} />
+              <span>Change Flight</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -642,9 +624,6 @@ export function LiveScoreEntry({
           const teamIdx = competition?.teams?.findIndex((t: any) => t.id === p.teamId) ?? -1
           const teamConfig = (isTeamComp && p.team) ? getTeamColorConfig(p.team.color, teamIdx === -1 ? pIdx : teamIdx) : null
 
-          const isDraggingThisPlayer = draggingPartId === p.id
-          const currentHighlightedVal = isDraggingThisPlayer && previewVal ? previewVal : activeVal
-
           return (
             <div key={p.id} className={`backdrop-blur-sm border p-3.5 rounded-2xl flex flex-col gap-2.5 shadow-sm transition-all relative ${
               teamConfig 
@@ -767,31 +746,15 @@ export function LiveScoreEntry({
 
               {/* Bottom Row: Full-Width 8-Column Grid Selector */}
               <div className="relative w-full">
-                {isDraggingThisPlayer && previewVal && (
-                  <div className="absolute -top-14 left-1/2 -translate-x-1/2 bg-slate-900/95 text-white px-5 py-2 rounded-2xl shadow-2xl flex items-center gap-3 z-40 border border-slate-700 pointer-events-none animate-in fade-in zoom-in-95 duration-100">
-                    <span className="text-3xl font-black text-emerald-400 leading-none">{previewVal}</span>
-                    <span className="text-xs font-extrabold uppercase tracking-wider text-slate-200">
-                      {getScoreLabel(previewVal, par)}
-                    </span>
-                  </div>
-                )}
-
-                <div
-                  onPointerDown={(e) => handleGestureStart(p.id, currentHole.id, e)}
-                  onPointerMove={handleGestureMove}
-                  onPointerUp={handleGestureEnd}
-                  onPointerCancel={handleGestureEnd}
-                  className="grid grid-cols-8 gap-1.5 w-full touch-none select-none"
-                >
+                <div className="grid grid-cols-8 gap-1.5 w-full select-none">
                   {columns.map((col, colIdx) => {
                     const opt = col.val
                     const isSelected = activeVal === opt
-                    const isPreviewed = currentHighlightedVal === opt
 
                     let btnStyle = "border-slate-200/80 bg-white/40 text-slate-600 hover:bg-white/80 text-sm font-bold"
                     let btnStyleOverride: React.CSSProperties = {}
 
-                    if (isPreviewed || isSelected) {
+                    if (isSelected) {
                       if (teamConfig) {
                         btnStyle = "text-white opacity-100 font-black text-xl shadow-md ring-2"
                         btnStyleOverride = {
@@ -805,7 +768,7 @@ export function LiveScoreEntry({
                     }
 
                     let markerElement = null
-                    if (isSelected || isPreviewed) {
+                    if (isSelected) {
                       if (opt === '/') {
                         markerElement = (
                           <div className="absolute inset-0.5 border-2 border-dashed border-white rounded-none pointer-events-none" />
@@ -845,7 +808,7 @@ export function LiveScoreEntry({
                         data-score-val={opt}
                         onClick={() => handleScoreClick(p.id, currentHole.id, opt)}
                         style={btnStyleOverride}
-                        className={`relative w-full aspect-square flex items-center justify-center rounded-xl border transition-all ${btnStyle}`}
+                        className={`relative w-full aspect-square flex items-center justify-center rounded-xl border transition-all cursor-pointer ${btnStyle}`}
                       >
                         <span className="pointer-events-none">{opt}</span>
                         {markerElement}

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import { saveBatchScores } from "@/app/actions/scores"
-import { Loader2 } from "lucide-react"
+import { Loader2, Play, Settings, Wifi } from "lucide-react"
 import { calculateCourseHandicap, getHandicapStrokesOnHole, getRoundHoleInfo } from "@/lib/scoring"
 import { getTeamColorConfig } from "@/lib/teamColors"
 import { getPlayerCalculatedAllowance } from "./CompetitionClientView"
@@ -14,6 +14,7 @@ interface BulkScorecardEntryProps {
   onScoreSaved: () => void
   initialFocusId?: string
   onToggleMode: (mode: 'LIVE' | 'BULK') => void
+  onChangeFlight?: () => void
   holesToPlay?: number[]
   isTeamComp?: boolean
   competition?: any
@@ -26,6 +27,7 @@ export function BulkScorecardEntry({
   onScoreSaved,
   initialFocusId,
   onToggleMode,
+  onChangeFlight,
   holesToPlay,
   isTeamComp = false,
   competition
@@ -112,10 +114,13 @@ export function BulkScorecardEntry({
         let status: string | null = null
         if (item.value === '/') {
           status = 'WIPED'
-        } else if (item.value === '-' || item.value === '') {
+        } else if (item.value === '-') {
           status = 'NOT_PLAYED'
+        } else if (item.value === '') {
+          grossStrokes = null
+          status = null
         } else {
-          grossStrokes = parseInt(item.value)
+          grossStrokes = parseInt(item.value, 10)
         }
         return {
           participantId: item.partId,
@@ -167,10 +172,13 @@ export function BulkScorecardEntry({
           let status: string | null = null
           if (item.value === '/') {
             status = 'WIPED'
-          } else if (item.value === '-' || item.value === '') {
+          } else if (item.value === '-') {
             status = 'NOT_PLAYED'
+          } else if (item.value === '') {
+            grossStrokes = null
+            status = null
           } else {
-            grossStrokes = parseInt(item.value)
+            grossStrokes = parseInt(item.value, 10)
           }
           return {
             participantId: item.partId,
@@ -257,7 +265,45 @@ export function BulkScorecardEntry({
   }
 
   return (
-    <div className="bg-white/65 backdrop-blur-sm border border-slate-200 rounded-2xl p-6 shadow-sm space-y-6 w-full">
+    <div className="bg-white/65 backdrop-blur-sm border border-slate-200 rounded-2xl p-4 md:p-6 shadow-sm space-y-5 w-full">
+      {/* Network & Mode Controls Banner */}
+      <div className="p-3 rounded-xl border bg-emerald-500/10 border-emerald-500/30 text-emerald-900 flex flex-wrap items-center justify-between gap-3 text-xs font-semibold">
+        <div className="flex items-center gap-2">
+          <Wifi size={16} className="text-emerald-600 flex-shrink-0" />
+          <div>
+            <div className="font-extrabold flex items-center gap-1.5">
+              <span>Online (Bulk-Sync)</span>
+            </div>
+            <div className="text-[11px] opacity-80">
+              Round: <span className="font-bold">{round.name}</span> | Course: <span className="font-bold">{course.name}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {onToggleMode && (
+            <button
+              type="button"
+              onClick={() => onToggleMode('LIVE')}
+              className="flex items-center space-x-1 text-xs text-emerald-750 hover:text-emerald-800 hover:bg-emerald-50 font-bold px-2.5 py-1 border border-emerald-200 rounded-lg bg-white transition-colors shadow-sm focus:outline-none cursor-pointer"
+            >
+              <Play size={12} />
+              <span>Live Entry</span>
+            </button>
+          )}
+          {onChangeFlight && (
+            <button
+              type="button"
+              onClick={onChangeFlight}
+              className="flex items-center space-x-1 text-xs text-slate-600 hover:text-emerald-700 font-bold px-2.5 py-1 border border-slate-200 rounded-lg bg-white hover:bg-slate-50 transition-colors shadow-sm focus:outline-none cursor-pointer"
+            >
+              <Settings size={12} />
+              <span>Change Flight</span>
+            </button>
+          )}
+        </div>
+      </div>
+
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <div>
           <h3 className="text-xl font-bold text-slate-850">Bulk Scorecard Entry</h3>

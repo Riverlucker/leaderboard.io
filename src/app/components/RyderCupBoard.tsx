@@ -413,12 +413,14 @@ export function RyderCupHeroBanner({ competition }: { competition: any }) {
         <div className="flex flex-col md:flex-row items-center justify-center gap-2 sm:gap-4 md:gap-6 max-w-4xl mx-auto">
           {/* Diamond (Blue) */}
           <div className="w-full md:w-auto md:flex-1 max-w-[310px] flex items-center justify-between gap-3 bg-blue-50/80 p-3 sm:p-4 rounded-2xl border border-blue-200/80 shadow-xs">
-            <div className="text-left md:text-right flex-1">
-              <div className="flex items-center md:justify-end gap-1.5 text-blue-700 font-black text-sm sm:text-base tracking-wide uppercase">
-                <span>♦</span>
-                <span>TEAM DIAMOND</span>
+            <div className="flex items-center gap-3 text-left md:text-right flex-1 md:justify-end">
+              <span className="text-3xl sm:text-4xl text-blue-600 select-none leading-none shrink-0 drop-shadow-xs">♦</span>
+              <div>
+                <div className="text-blue-700 font-black text-sm sm:text-base tracking-wide uppercase leading-tight">
+                  TEAM DIAMOND
+                </div>
+                <div className="text-xs text-blue-600/70 font-medium">7 Spieler · Blau</div>
               </div>
-              <div className="text-xs text-blue-600/70 font-medium">7 Spieler · Blau</div>
             </div>
             <div className="bg-blue-600 text-white font-black text-3xl sm:text-4xl min-w-[64px] sm:min-w-[74px] h-[56px] sm:h-[64px] rounded-xl flex items-center justify-center shadow-md tracking-wider border border-blue-500 shrink-0">
               {formatCupScore(diamondPoints)}
@@ -457,12 +459,14 @@ export function RyderCupHeroBanner({ competition }: { competition: any }) {
             <div className="bg-red-600 text-white font-black text-3xl sm:text-4xl min-w-[64px] sm:min-w-[74px] h-[56px] sm:h-[64px] rounded-xl flex items-center justify-center shadow-md tracking-wider border border-red-500 order-last md:order-first shrink-0">
               {formatCupScore(heartsPoints)}
             </div>
-            <div className="text-right md:text-left flex-1">
-              <div className="flex items-center md:justify-start justify-end gap-1.5 text-red-700 font-black text-sm sm:text-base tracking-wide uppercase">
-                <span>TEAM HEARTS</span>
-                <span>♥</span>
+            <div className="flex items-center gap-3 text-right md:text-left flex-1 justify-end md:justify-start">
+              <div>
+                <div className="text-red-700 font-black text-sm sm:text-base tracking-wide uppercase leading-tight">
+                  TEAM HEARTS
+                </div>
+                <div className="text-xs text-red-600/70 font-medium">7 Spieler · Rot</div>
               </div>
-              <div className="text-xs text-red-600/70 font-medium">7 Spieler · Rot</div>
+              <span className="text-3xl sm:text-4xl text-red-600 select-none leading-none shrink-0 drop-shadow-xs">♥</span>
             </div>
           </div>
         </div>

@@ -1541,170 +1541,14 @@ export function CompetitionClientView({ competition, session, courses = [], user
       ? rounds 
       : rounds.filter((r: any) => r.id === selectedRoundFilter)
 
-    if (selectedLeaderboardType === 'MAIN') {
-      if (competition.type === 'STROKEPLAY_GROSS' || competition.type === 'STROKEPLAY_NET') {
-        const entries = targetParticipants.map((p: any) => {
-          let totalStrokes = 0
-          let totalParPlayedHoles = 0
-          let holesPlayed = 0
-          const roundPoints: Record<string, number> = {}
-          const roundRelToPar: Record<string, number> = {}
+    const isMainBest3Netto = selectedLeaderboardType === 'MAIN' && competition.type === 'BEST_3_NETTO'
+    const isMainBest3Brutto = selectedLeaderboardType === 'MAIN' && competition.type === 'BEST_3_BRUTTO'
+    const isMainBestAvgNetto = selectedLeaderboardType === 'MAIN' && competition.type === 'BEST_AVG_NETTO'
+    const isMainBestAvgBrutto = selectedLeaderboardType === 'MAIN' && competition.type === 'BEST_AVG_BRUTTO'
+    const isMainStablefordBrutto = selectedLeaderboardType === 'MAIN' && competition.type === 'STABLEFORD_BRUTTO'
+    const isMainStrokeplay = selectedLeaderboardType === 'MAIN' && (competition.type === 'STROKEPLAY_GROSS' || competition.type === 'STROKEPLAY_NET')
 
-          for (const round of rounds) {
-            const roundHoles = getPlayableHolesForRound(round)
-
-            let roundStrokes = 0
-            let roundPar = 0
-            let roundHolesPlayed = false
-
-            for (const holeNum of roundHoles) {
-              const hole = round.course.holes.find((h: any) => h.number === holeNum)
-              if (!hole) continue
-
-              const adjusted = getRoundHoleInfo(round, holeNum)
-              const holePar = adjusted ? adjusted.par : hole.par
-
-              const score = p.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
-              if (score && (score.grossStrokes !== null || (score.status !== null && score.status !== 'NOT_PLAYED'))) {
-                roundHolesPlayed = true
-                const isActive = activeRounds.some((ar: any) => ar.id === round.id)
-                if (isActive) holesPlayed++
-
-                if (score.status === 'WIPED') {
-                  roundStrokes += holePar + 3 // wiped hole is triple bogey in strokeplay gross
-                  roundPar += holePar
-                } else if (score.grossStrokes !== null) {
-                  roundStrokes += score.grossStrokes
-                  roundPar += holePar
-                }
-              }
-            }
-
-            if (roundHolesPlayed) {
-              roundPoints[round.id] = roundStrokes
-              roundRelToPar[round.id] = roundStrokes - roundPar
-              if (activeRounds.some((ar: any) => ar.id === round.id)) {
-                totalStrokes += roundStrokes
-                totalParPlayedHoles += roundPar
-              }
-            }
-          }
-
-          const relToPar = totalStrokes - totalParPlayedHoles
-
-          return {
-            participantId: p.id,
-            participant: p,
-            name: p.userId ? (p.user?.name || p.user?.email) : p.dummyName,
-            totalPoints: totalStrokes,
-            totalStrokes,
-            holesPlayed,
-            roundPoints,
-            roundRelToPar,
-            relToPar
-          }
-        })
-
-        // Sort ascending (lowest strokes / best relToPar win). Players with 0 holesPlayed go to the bottom.
-        const sorted = [...entries].sort((a, b) => {
-          if (a.holesPlayed === 0 && b.holesPlayed > 0) return 1
-          if (b.holesPlayed === 0 && a.holesPlayed > 0) return -1
-          if (competition.showRelToPar) {
-            if (a.relToPar !== b.relToPar) return a.relToPar - b.relToPar
-          } else {
-            if (a.holesPlayed !== b.holesPlayed) return b.holesPlayed - a.holesPlayed
-            if (a.totalStrokes !== b.totalStrokes) return a.totalStrokes - b.totalStrokes
-          }
-          return b.holesPlayed - a.holesPlayed
-        })
-
-        return sorted.map((entry, idx) => {
-          if (entry.holesPlayed === 0) {
-            return { ...entry, rank: "-" }
-          }
-          const compareVal = competition.showRelToPar ? entry.relToPar : entry.totalStrokes
-          const ties = sorted.filter(x => x.holesPlayed > 0 && (competition.showRelToPar ? x.relToPar === compareVal : x.totalStrokes === compareVal))
-          const isTied = ties.length > 1
-          const firstTiedIndex = sorted.findIndex(x => x.holesPlayed > 0 && (competition.showRelToPar ? x.relToPar === compareVal : x.totalStrokes === compareVal)) + 1
-          const rankString = isTied ? `T${firstTiedIndex}` : `${idx + 1}`
-          return {
-            ...entry,
-            rank: rankString
-          }
-        })
-      }
-
-      // Netto Stableford default
-      const entries = targetParticipants.map((p: any) => {
-        let totalPoints = 0
-        let totalStrokes = 0
-        let holesPlayed = 0
-        const roundPoints: Record<string, number> = {}
-        const roundRelToPar: Record<string, number> = {}
-
-        for (const round of rounds) {
-          const courseHandicap = getPlayingHandicap(p, round)
-          const roundHoles = getPlayableHolesForRound(round)
-
-          let roundPts = 0
-          let roundHolesPlayed = false
-          let roundHolesCount = 0
-
-          for (const holeNum of roundHoles) {
-            const hole = round.course.holes.find((h: any) => h.number === holeNum)
-            if (!hole) continue
-
-            const adjusted = getRoundHoleInfo(round, holeNum)
-            const holePar = adjusted ? adjusted.par : hole.par
-            const holeStrokeIndex = adjusted ? adjusted.strokeIndex : hole.strokeIndex
-
-            const score = p.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
-            if (score && (score.grossStrokes !== null || (score.status !== null && score.status !== 'NOT_PLAYED'))) {
-              roundHolesPlayed = true
-              roundHolesCount++
-              
-              const isActive = activeRounds.some((ar: any) => ar.id === round.id)
-              if (isActive) holesPlayed++
-
-              if (score.status === 'WIPED') {
-                roundPts += 0
-                if (isActive) totalStrokes += holePar + 3 // wiped hole is triple bogey
-              } else if (score.grossStrokes !== null) {
-                if (isActive) totalStrokes += score.grossStrokes
-                const hcpStrokes = getHandicapStrokesOnHole(courseHandicap, holeStrokeIndex)
-                const points = calculateStablefordPoints(score.grossStrokes, holePar, hcpStrokes, true)
-                if (points !== null) roundPts += points
-              }
-            }
-          }
-
-          if (roundHolesPlayed) {
-            roundPoints[round.id] = roundPts
-            roundRelToPar[round.id] = (roundHolesCount * 2) - roundPts
-            if (activeRounds.some((ar: any) => ar.id === round.id)) {
-              totalPoints += roundPts
-            }
-          }
-        }
-
-        const relToPar = (holesPlayed * 2) - totalPoints
-
-        return {
-          participantId: p.id,
-          participant: p,
-          name: p.userId ? (p.user?.name || p.user?.email) : p.dummyName,
-          totalPoints,
-          totalStrokes,
-          holesPlayed,
-          roundPoints,
-          roundRelToPar,
-          relToPar
-        }
-      })
-      return assignLeaderboardRanks(entries, competition.showRelToPar)
-    }
-
-    if (selectedLeaderboardType === 'STROKEPLAY') {
+    if (selectedLeaderboardType === 'STROKEPLAY' || isMainStrokeplay) {
       const entries = targetParticipants.map((p: any) => {
         let totalStrokes = 0
         let totalParPlayedHoles = 0
@@ -1758,7 +1602,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
           participantId: p.id,
           participant: p,
           name: p.userId ? (p.user?.name || p.user?.email) : p.dummyName,
-          totalPoints: totalStrokes, // Use totalPoints field as rank sorting value
+          totalPoints: totalStrokes,
           totalStrokes,
           holesPlayed,
           roundPoints,
@@ -1780,7 +1624,6 @@ export function CompetitionClientView({ competition, session, courses = [], user
         return b.holesPlayed - a.holesPlayed
       })
       
-      // Assign ranks manually
       return sorted.map((entry, idx) => {
         if (entry.holesPlayed === 0) {
           return { ...entry, rank: "-" }
@@ -1803,14 +1646,21 @@ export function CompetitionClientView({ competition, session, courses = [], user
       selectedLeaderboardType === 'BEST_3_BRUTTO' ||
       selectedLeaderboardType === 'BEST_3_NETTO' ||
       selectedLeaderboardType === 'BEST_AVG_BRUTTO' ||
-      selectedLeaderboardType === 'BEST_AVG_NETTO'
+      selectedLeaderboardType === 'BEST_AVG_NETTO' ||
+      (selectedLeaderboardType === 'MAIN' && !isMainStrokeplay)
     ) {
-      const isNet = selectedLeaderboardType === 'STABLEFORD_NETTO' || selectedLeaderboardType === 'BEST_3_NETTO' || selectedLeaderboardType === 'BEST_AVG_NETTO'
-      const isBest3 = selectedLeaderboardType === 'BEST_3_BRUTTO' || selectedLeaderboardType === 'BEST_3_NETTO'
-      const isBestAvg = selectedLeaderboardType === 'BEST_AVG_BRUTTO' || selectedLeaderboardType === 'BEST_AVG_NETTO'
+      const isBest3Netto = selectedLeaderboardType === 'BEST_3_NETTO' || isMainBest3Netto
+      const isBest3Brutto = selectedLeaderboardType === 'BEST_3_BRUTTO' || isMainBest3Brutto
+      const isBestAvgNetto = selectedLeaderboardType === 'BEST_AVG_NETTO' || isMainBestAvgNetto
+      const isBestAvgBrutto = selectedLeaderboardType === 'BEST_AVG_BRUTTO' || isMainBestAvgBrutto
+      const isStablefordBrutto = selectedLeaderboardType === 'STABLEFORD_BRUTTO' || isMainStablefordBrutto
+      const isStablefordNetto = selectedLeaderboardType === 'STABLEFORD_NETTO' || (selectedLeaderboardType === 'MAIN' && !isMainBest3Netto && !isMainBest3Brutto && !isMainBestAvgNetto && !isMainBestAvgBrutto && !isMainStablefordBrutto)
+
+      const isBest3 = isBest3Netto || isBest3Brutto
+      const isBestAvg = isBestAvgNetto || isBestAvgBrutto
+      const isNet = isBest3Netto || isBestAvgNetto || isStablefordNetto
 
       const entries = targetParticipants.map((p: any) => {
-        let totalPoints = 0
         let totalStrokes = 0
         let holesPlayed = 0
         const roundPoints: Record<string, number> = {}
@@ -1854,31 +1704,38 @@ export function CompetitionClientView({ competition, session, courses = [], user
           if (roundHolesPlayed) {
             roundPoints[round.id] = roundPts
             roundRelToPar[round.id] = (roundHolesCount * 2) - roundPts
-            if (!isBest3 && !isBestAvg && activeRounds.some((ar: any) => ar.id === round.id)) {
-              totalPoints += roundPts
-            }
           }
         }
 
+        const playedRoundsList = activeRounds
+          .filter((ar: any) => roundPoints[ar.id] !== undefined)
+          .map((ar: any) => ({
+            round: ar,
+            points: roundPoints[ar.id]
+          }))
+          .sort((a: any, b: any) => b.points - a.points)
+
+        const roundsPlayedCount = playedRoundsList.length
+        const topRounds = playedRoundsList.slice(0, 3)
+
+        let totalPoints = 0
         if (isBest3) {
           if (selectedRoundFilter === 'TOTAL') {
-            const activePts = activeRounds
-              .filter((ar: any) => roundPoints[ar.id] !== undefined)
-              .map((ar: any) => roundPoints[ar.id])
-              .sort((a: number, b: number) => b - a)
-            totalPoints = activePts.slice(0, 3).reduce((a: number, b: number) => a + b, 0)
+            totalPoints = topRounds.reduce((a: number, b: any) => a + b.points, 0)
           } else {
             totalPoints = roundPoints[selectedRoundFilter] ?? 0
           }
         } else if (isBestAvg) {
           if (selectedRoundFilter === 'TOTAL') {
-            const activePts = activeRounds
-              .filter((ar: any) => roundPoints[ar.id] !== undefined)
-              .map((ar: any) => roundPoints[ar.id])
-            const avg = activePts.length > 0
-              ? parseFloat((activePts.reduce((a: number, b: number) => a + b, 0) / activePts.length).toFixed(1))
+            totalPoints = roundsPlayedCount > 0
+              ? parseFloat((playedRoundsList.reduce((a: number, b: any) => a + b.points, 0) / roundsPlayedCount).toFixed(1))
               : 0
-            totalPoints = avg
+          } else {
+            totalPoints = roundPoints[selectedRoundFilter] ?? 0
+          }
+        } else {
+          if (selectedRoundFilter === 'TOTAL') {
+            totalPoints = playedRoundsList.reduce((a: number, b: any) => a + b.points, 0)
           } else {
             totalPoints = roundPoints[selectedRoundFilter] ?? 0
           }
@@ -1893,6 +1750,8 @@ export function CompetitionClientView({ competition, session, courses = [], user
           totalPoints,
           totalStrokes,
           holesPlayed,
+          roundsPlayedCount,
+          topRounds,
           roundPoints,
           roundRelToPar,
           relToPar
@@ -3043,7 +2902,15 @@ export function CompetitionClientView({ competition, session, courses = [], user
                           ? 'Team Matchplay'
                           : competition.type === 'MATCHPLAY'
                             ? 'Matchplays'
-                            : `Main Standings (${competition.type === 'NETTO_STABLEFORD' ? 'Stableford Netto' : competition.type})`
+                            : competition.type === 'BEST_3_NETTO'
+                              ? 'Main Standings (Best 3 Netto)'
+                              : competition.type === 'BEST_3_BRUTTO'
+                                ? 'Main Standings (Best 3 Brutto)'
+                                : competition.type === 'BEST_AVG_NETTO'
+                                  ? 'Main Standings (Best Avg Netto)'
+                                  : competition.type === 'BEST_AVG_BRUTTO'
+                                    ? 'Main Standings (Best Avg Brutto)'
+                                    : `Main Standings (${competition.type === 'NETTO_STABLEFORD' ? 'Stableford Netto' : (competition.type === 'STROKEPLAY_GROSS' ? 'Strokeplay Gross' : competition.type)})`
                       }
                     </option>
                     {competition.type === 'RYDER_CUP' && (
@@ -3055,22 +2922,22 @@ export function CompetitionClientView({ competition, session, courses = [], user
                     {competition.type !== 'RYDER_CUP' && selectedExtraLeaderboards.includes('STROKEPLAY') && competition.type !== 'STROKEPLAY_GROSS' && (
                       <option value="STROKEPLAY">Strokeplay Gross</option>
                     )}
-                    {competition.type !== 'RYDER_CUP' && selectedExtraLeaderboards.includes('STABLEFORD_NETTO') && competition.type !== 'NETTO_STABLEFORD' && (
+                    {competition.type !== 'RYDER_CUP' && selectedExtraLeaderboards.includes('STABLEFORD_NETTO') && competition.type !== 'NETTO_STABLEFORD' && competition.type !== 'BEST_3_NETTO' && (
                       <option value="STABLEFORD_NETTO">Stableford Netto</option>
                     )}
-                    {competition.type !== 'RYDER_CUP' && selectedExtraLeaderboards.includes('STABLEFORD_BRUTTO') && (
+                    {competition.type !== 'RYDER_CUP' && selectedExtraLeaderboards.includes('STABLEFORD_BRUTTO') && competition.type !== 'STABLEFORD_BRUTTO' && competition.type !== 'BEST_3_BRUTTO' && (
                       <option value="STABLEFORD_BRUTTO">Stableford Brutto</option>
                     )}
-                    {competition.type !== 'RYDER_CUP' && selectedExtraLeaderboards.includes('BEST_3_BRUTTO') && (
+                    {competition.type !== 'RYDER_CUP' && selectedExtraLeaderboards.includes('BEST_3_BRUTTO') && competition.type !== 'BEST_3_BRUTTO' && (
                       <option value="BEST_3_BRUTTO">Best 3 Rounds - Brutto</option>
                     )}
-                    {competition.type !== 'RYDER_CUP' && selectedExtraLeaderboards.includes('BEST_3_NETTO') && (
+                    {competition.type !== 'RYDER_CUP' && selectedExtraLeaderboards.includes('BEST_3_NETTO') && competition.type !== 'BEST_3_NETTO' && (
                       <option value="BEST_3_NETTO">Best 3 Rounds - Netto</option>
                     )}
-                    {competition.type !== 'RYDER_CUP' && selectedExtraLeaderboards.includes('BEST_AVG_BRUTTO') && (
+                    {competition.type !== 'RYDER_CUP' && selectedExtraLeaderboards.includes('BEST_AVG_BRUTTO') && competition.type !== 'BEST_AVG_BRUTTO' && (
                       <option value="BEST_AVG_BRUTTO">Best Average - Brutto</option>
                     )}
-                    {competition.type !== 'RYDER_CUP' && selectedExtraLeaderboards.includes('BEST_AVG_NETTO') && (
+                    {competition.type !== 'RYDER_CUP' && selectedExtraLeaderboards.includes('BEST_AVG_NETTO') && competition.type !== 'BEST_AVG_NETTO' && (
                       <option value="BEST_AVG_NETTO">Best Average - Netto</option>
                     )}
                     {competition.type !== 'RYDER_CUP' && selectedExtraLeaderboards.includes('BIRDIE') && (
@@ -3311,6 +3178,14 @@ export function CompetitionClientView({ competition, session, courses = [], user
                   ? competition.rounds
                   : competition.rounds.filter((r: any) => r.id === selectedRoundFilter)
 
+                const isMainBest3Netto = selectedLeaderboardType === 'MAIN' && competition.type === 'BEST_3_NETTO'
+                const isMainBest3Brutto = selectedLeaderboardType === 'MAIN' && competition.type === 'BEST_3_BRUTTO'
+                const isMainBestAvgNetto = selectedLeaderboardType === 'MAIN' && competition.type === 'BEST_AVG_NETTO'
+                const isMainBestAvgBrutto = selectedLeaderboardType === 'MAIN' && competition.type === 'BEST_AVG_BRUTTO'
+
+                const isViewingBest3 = (selectedLeaderboardType === 'BEST_3_NETTO' || selectedLeaderboardType === 'BEST_3_BRUTTO' || isMainBest3Netto || isMainBest3Brutto) && selectedRoundFilter === 'TOTAL'
+                const isViewingBestAvg = (selectedLeaderboardType === 'BEST_AVG_NETTO' || selectedLeaderboardType === 'BEST_AVG_BRUTTO' || isMainBestAvgNetto || isMainBestAvgBrutto) && selectedRoundFilter === 'TOTAL'
+
                 return (
                   <div className="space-y-6">
                     <div className="bg-white/35 backdrop-blur-sm border border-slate-200 rounded-2xl overflow-x-auto shadow-sm">
@@ -3320,33 +3195,47 @@ export function CompetitionClientView({ competition, session, courses = [], user
                           <th className="px-2 py-2.5 md:px-5 md:py-4 text-center w-10 md:w-14">Rank</th>
                           <th className="px-3 py-2.5 md:px-5 md:py-4 min-w-[110px] md:min-w-[140px]">Player</th>
                           <th className="px-2 py-2.5 md:px-5 md:py-4 text-center w-20 md:w-28">
-                            {competition.showRelToPar && (selectedLeaderboardType === 'MAIN' || selectedLeaderboardType === 'STABLEFORD_NETTO' || selectedLeaderboardType === 'STABLEFORD_BRUTTO')
+                            {competition.showRelToPar && !isViewingBest3 && !isViewingBestAvg && (selectedLeaderboardType === 'MAIN' || selectedLeaderboardType === 'STABLEFORD_NETTO' || selectedLeaderboardType === 'STABLEFORD_BRUTTO')
                               ? 'Score (+/-)'
                               : (selectedLeaderboardType === 'STROKEPLAY' ? 'Gross Strokes' 
                                 : selectedLeaderboardType === 'BIRDIE' ? 'Birdies (Pars)' 
                                 : selectedLeaderboardType === 'DOUBLE_BOGEY_PLUS' ? 'DB+' 
                                 : selectedLeaderboardType === 'PAR_PLUS_SERIES' ? 'Streak' 
-                                : selectedLeaderboardType === 'BEST_3_BRUTTO' ? 'Best 3 (Brutto)'
-                                : selectedLeaderboardType === 'BEST_3_NETTO' ? 'Best 3 (Netto)'
-                                : selectedLeaderboardType === 'BEST_AVG_BRUTTO' ? 'Avg Brutto'
-                                : selectedLeaderboardType === 'BEST_AVG_NETTO' ? 'Avg Netto'
+                                : (selectedLeaderboardType === 'BEST_3_BRUTTO' || isMainBest3Brutto) ? 'Best 3 (Brutto)'
+                                : (selectedLeaderboardType === 'BEST_3_NETTO' || isMainBest3Netto) ? 'Best 3 (Netto)'
+                                : (selectedLeaderboardType === 'BEST_AVG_BRUTTO' || isMainBestAvgBrutto) ? 'Avg Brutto'
+                                : (selectedLeaderboardType === 'BEST_AVG_NETTO' || isMainBestAvgNetto) ? 'Avg Netto'
                                 : 'Total Points')
                             }
                           </th>
                           <th className="px-2 py-2.5 md:px-4 md:py-4 text-center w-16 md:w-24">Played</th>
-                          {displayedRounds.map((round: any) => {
-                            const originalIdx = competition.rounds.findIndex((r: any) => r.id === round.id)
-                            return (
-                              <th key={round.id} className="px-1 py-2.5 md:px-3 md:py-4 text-center text-xs font-semibold text-slate-555 min-w-[75px] md:min-w-[90px]">
-                                <div>R{originalIdx + 1}</div>
-                                {round.tee && (
-                                  <div className="text-[8px] md:text-[9px] text-slate-400 font-mono font-medium uppercase tracking-wider block mt-0.5">
-                                    {round.tee.name.split(" ")[0]}
-                                  </div>
-                                )}
+                          {isViewingBest3 ? (
+                            <>
+                              <th className="px-1 py-2.5 md:px-3 md:py-4 text-center text-xs font-semibold text-slate-555 min-w-[65px] md:min-w-[80px]">
+                                1.
                               </th>
-                            )
-                          })}
+                              <th className="px-1 py-2.5 md:px-3 md:py-4 text-center text-xs font-semibold text-slate-555 min-w-[65px] md:min-w-[80px]">
+                                2.
+                              </th>
+                              <th className="px-1 py-2.5 md:px-3 md:py-4 text-center text-xs font-semibold text-slate-555 min-w-[65px] md:min-w-[80px]">
+                                3.
+                              </th>
+                            </>
+                          ) : (
+                            displayedRounds.map((round: any) => {
+                              const originalIdx = competition.rounds.findIndex((r: any) => r.id === round.id)
+                              return (
+                                <th key={round.id} className="px-1 py-2.5 md:px-3 md:py-4 text-center text-xs font-semibold text-slate-555 min-w-[75px] md:min-w-[90px]">
+                                  <div>R{originalIdx + 1}</div>
+                                  {round.tee && (
+                                    <div className="text-[8px] md:text-[9px] text-slate-400 font-mono font-medium uppercase tracking-wider block mt-0.5">
+                                      {round.tee.name.split(" ")[0]}
+                                    </div>
+                                  )}
+                                </th>
+                              )
+                            })
+                          )}
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 bg-white/15 text-slate-700">
@@ -3397,54 +3286,87 @@ export function CompetitionClientView({ competition, session, courses = [], user
                                 {entry.holesPlayed === 0 ? (
                                   "-"
                                 ) : (
-                                  competition.showRelToPar && (selectedLeaderboardType === 'MAIN' || selectedLeaderboardType === 'STABLEFORD_NETTO' || selectedLeaderboardType === 'STABLEFORD_BRUTTO')
+                                  competition.showRelToPar && !isViewingBest3 && !isViewingBestAvg && (selectedLeaderboardType === 'MAIN' || selectedLeaderboardType === 'STABLEFORD_NETTO' || selectedLeaderboardType === 'STABLEFORD_BRUTTO')
                                     ? (entry.relToPar === 0 ? "Even" : (entry.relToPar < 0 ? String(entry.relToPar) : `+${entry.relToPar}`))
-                                    : (selectedLeaderboardType === 'BIRDIE' ? `${entry.totalPoints} (${entry.pars})` : (selectedLeaderboardType === 'BEST_AVG_BRUTTO' || selectedLeaderboardType === 'BEST_AVG_NETTO' ? entry.totalPoints.toFixed(1) : entry.totalPoints))
+                                    : (selectedLeaderboardType === 'BIRDIE' ? `${entry.totalPoints} (${entry.pars})` : (isViewingBestAvg ? entry.totalPoints.toFixed(1) : entry.totalPoints))
                                 )}
                               </td>
                               <td className="px-2 py-2.5 md:px-4 md:py-4 text-center font-mono text-slate-500 text-xs md:text-sm">
-                                {entry.holesPlayed === 0 ? "-" : `${entry.holesPlayed}/${totalHolesForFilter}`}
+                                {entry.holesPlayed === 0 
+                                  ? "-" 
+                                  : (isViewingBest3 || isViewingBestAvg)
+                                    ? (entry.roundsPlayedCount ?? 0)
+                                    : `${entry.holesPlayed}/${totalHolesForFilter}`
+                                }
                               </td>
 
-                              {displayedRounds.map((round: any) => {
-                                const pts = entry.roundPoints[round.id]
-                                const showRel = competition.showRelToPar && (selectedLeaderboardType === 'MAIN' || selectedLeaderboardType === 'STABLEFORD_NETTO' || selectedLeaderboardType === 'STABLEFORD_BRUTTO')
-                                
-                                let displayVal = "-"
-                                if (pts !== undefined) {
-                                  if (showRel) {
-                                    const rel = entry.roundRelToPar?.[round.id] ?? 0
-                                    displayVal = rel === 0 ? "Even" : (rel < 0 ? String(rel) : `+${rel}`)
-                                  } else {
-                                    displayVal = String(pts)
+                              {isViewingBest3 ? (
+                                [0, 1, 2].map((idx) => {
+                                  const topItem = entry.topRounds?.[idx]
+                                  if (!topItem) {
+                                    return (
+                                      <td key={idx} className="px-1 py-1.5 md:px-3 md:py-4 text-center font-mono text-slate-400 text-xs">
+                                        -
+                                      </td>
+                                    )
                                   }
-                                }
-
-                                return (
-                                  <td key={round.id} className="px-1 py-1.5 md:px-3 md:py-4 text-center">
-                                    <button
-                                      onClick={() => {
-                                        if (selectedLeaderboardType === 'MVP') {
-                                          const match = round.matches?.find((m: any) =>
-                                            m.matchPlayers.some((mp: any) => mp.participantId === entry.participant.id)
-                                          )
-                                          if (match) {
-                                            setSelectedMatchForScorecard(match)
-                                            setSelectedMatchRoundForScorecard(round)
-                                          }
-                                        } else {
+                                  return (
+                                    <td key={idx} className="px-1 py-1.5 md:px-3 md:py-4 text-center">
+                                      <button
+                                        onClick={() => {
                                           setSelectedParticipantForScorecard(entry.participant)
-                                          setSelectedRoundIdForScorecard(round.id)
-                                        }
-                                      }}
-                                      className="px-2 py-0.5 md:px-2.5 md:py-1 text-xs font-extrabold bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-250 text-slate-700 hover:text-emerald-600 rounded-md transition-all font-mono shadow-sm"
-                                      title={`View Round ${round.name} Scorecard`}
-                                    >
-                                      {displayVal}
-                                    </button>
-                                  </td>
-                                )
-                              })}
+                                          setSelectedRoundIdForScorecard(topItem.round.id)
+                                        }}
+                                        className="px-2 py-0.5 md:px-2.5 md:py-1 text-xs font-extrabold bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-250 text-slate-700 hover:text-emerald-600 rounded-md transition-all font-mono shadow-sm flex flex-col items-center mx-auto"
+                                        title={`View Round ${topItem.round.name} Scorecard (${topItem.points} pts)`}
+                                      >
+                                        <span className="font-extrabold">{topItem.points}</span>
+                                        <span className="text-[8px] font-normal text-slate-400 -mt-0.5">{topItem.round.name}</span>
+                                      </button>
+                                    </td>
+                                  )
+                                })
+                              ) : (
+                                displayedRounds.map((round: any) => {
+                                  const pts = entry.roundPoints[round.id]
+                                  const showRel = competition.showRelToPar && (selectedLeaderboardType === 'MAIN' || selectedLeaderboardType === 'STABLEFORD_NETTO' || selectedLeaderboardType === 'STABLEFORD_BRUTTO')
+                                  
+                                  let displayVal = "-"
+                                  if (pts !== undefined) {
+                                    if (showRel) {
+                                      const rel = entry.roundRelToPar?.[round.id] ?? 0
+                                      displayVal = rel === 0 ? "Even" : (rel < 0 ? String(rel) : `+${rel}`)
+                                    } else {
+                                      displayVal = String(pts)
+                                    }
+                                  }
+
+                                  return (
+                                    <td key={round.id} className="px-1 py-1.5 md:px-3 md:py-4 text-center">
+                                      <button
+                                        onClick={() => {
+                                          if (selectedLeaderboardType === 'MVP') {
+                                            const match = round.matches?.find((m: any) =>
+                                              m.matchPlayers.some((mp: any) => mp.participantId === entry.participant.id)
+                                            )
+                                            if (match) {
+                                              setSelectedMatchForScorecard(match)
+                                              setSelectedMatchRoundForScorecard(round)
+                                            }
+                                          } else {
+                                            setSelectedParticipantForScorecard(entry.participant)
+                                            setSelectedRoundIdForScorecard(round.id)
+                                          }
+                                        }}
+                                        className="px-2 py-0.5 md:px-2.5 md:py-1 text-xs font-extrabold bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-250 text-slate-700 hover:text-emerald-600 rounded-md transition-all font-mono shadow-sm"
+                                        title={`View Round ${round.name} Scorecard`}
+                                      >
+                                        {displayVal}
+                                      </button>
+                                    </td>
+                                  )
+                                })
+                              )}
                             </tr>
                           )
                         })}
@@ -3469,28 +3391,42 @@ export function CompetitionClientView({ competition, session, courses = [], user
                               <th className="px-2 py-2.5 md:px-5 md:py-4 text-center w-10 md:w-16">Rank</th>
                               <th className="px-3 py-2.5 md:px-5 md:py-4 min-w-[110px] md:min-w-[140px]">Player</th>
                               <th className="px-2 py-2.5 md:px-5 md:py-4 text-center w-20 md:w-28">
-                                {competition.showRelToPar && (selectedLeaderboardType === 'MAIN' || selectedLeaderboardType === 'STABLEFORD_NETTO' || selectedLeaderboardType === 'STABLEFORD_BRUTTO')
+                                {competition.showRelToPar && !isViewingBest3 && !isViewingBestAvg && (selectedLeaderboardType === 'MAIN' || selectedLeaderboardType === 'STABLEFORD_NETTO' || selectedLeaderboardType === 'STABLEFORD_BRUTTO')
                                   ? 'Score (+/-)'
                                   : (selectedLeaderboardType === 'STROKEPLAY' ? 'Gross Strokes' 
                                     : selectedLeaderboardType === 'BIRDIE' ? 'Birdies (Pars)' 
                                     : selectedLeaderboardType === 'DOUBLE_BOGEY_PLUS' ? 'DB+' 
                                     : selectedLeaderboardType === 'PAR_PLUS_SERIES' ? 'Streak' 
-                                    : selectedLeaderboardType === 'BEST_3_BRUTTO' ? 'Best 3 (Brutto)'
-                                    : selectedLeaderboardType === 'BEST_3_NETTO' ? 'Best 3 (Netto)'
-                                    : selectedLeaderboardType === 'BEST_AVG_BRUTTO' ? 'Avg Brutto'
-                                    : selectedLeaderboardType === 'BEST_AVG_NETTO' ? 'Avg Netto'
+                                    : (selectedLeaderboardType === 'BEST_3_BRUTTO' || isMainBest3Brutto) ? 'Best 3 (Brutto)'
+                                    : (selectedLeaderboardType === 'BEST_3_NETTO' || isMainBest3Netto) ? 'Best 3 (Netto)'
+                                    : (selectedLeaderboardType === 'BEST_AVG_BRUTTO' || isMainBestAvgBrutto) ? 'Avg Brutto'
+                                    : (selectedLeaderboardType === 'BEST_AVG_NETTO' || isMainBestAvgNetto) ? 'Avg Netto'
                                     : 'Total Points')
                                 }
                               </th>
                               <th className="px-2 py-2.5 md:px-4 md:py-4 text-center w-16 md:w-24">Played</th>
-                              {displayedRounds.map((round: any) => {
-                                const originalIdx = competition.rounds.findIndex((r: any) => r.id === round.id)
-                                return (
-                                  <th key={round.id} className="px-1 py-2.5 md:px-3 md:py-4 text-center text-xs font-semibold text-purple-900 min-w-[75px] md:min-w-[90px]">
-                                    <div>R{originalIdx + 1}</div>
+                              {isViewingBest3 ? (
+                                <>
+                                  <th className="px-1 py-2.5 md:px-3 md:py-4 text-center text-xs font-semibold text-purple-900 min-w-[65px] md:min-w-[80px]">
+                                    1.
                                   </th>
-                                )
-                              })}
+                                  <th className="px-1 py-2.5 md:px-3 md:py-4 text-center text-xs font-semibold text-purple-900 min-w-[65px] md:min-w-[80px]">
+                                    2.
+                                  </th>
+                                  <th className="px-1 py-2.5 md:px-3 md:py-4 text-center text-xs font-semibold text-purple-900 min-w-[65px] md:min-w-[80px]">
+                                    3.
+                                  </th>
+                                </>
+                              ) : (
+                                displayedRounds.map((round: any) => {
+                                  const originalIdx = competition.rounds.findIndex((r: any) => r.id === round.id)
+                                  return (
+                                    <th key={round.id} className="px-1 py-2.5 md:px-3 md:py-4 text-center text-xs font-semibold text-purple-900 min-w-[75px] md:min-w-[90px]">
+                                      <div>R{originalIdx + 1}</div>
+                                    </th>
+                                  )
+                                })
+                              )}
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-purple-100/80 bg-white/20 text-slate-700">
@@ -3514,41 +3450,74 @@ export function CompetitionClientView({ competition, session, courses = [], user
                                     {entry.holesPlayed === 0 ? (
                                       "-"
                                     ) : (
-                                      competition.showRelToPar && (selectedLeaderboardType === 'MAIN' || selectedLeaderboardType === 'STABLEFORD_NETTO' || selectedLeaderboardType === 'STABLEFORD_BRUTTO')
+                                      competition.showRelToPar && !isViewingBest3 && !isViewingBestAvg && (selectedLeaderboardType === 'MAIN' || selectedLeaderboardType === 'STABLEFORD_NETTO' || selectedLeaderboardType === 'STABLEFORD_BRUTTO')
                                         ? (entry.relToPar === 0 ? "Even" : (entry.relToPar < 0 ? String(entry.relToPar) : `+${entry.relToPar}`))
-                                        : (selectedLeaderboardType === 'BIRDIE' ? `${entry.totalPoints} (${entry.pars})` : (selectedLeaderboardType === 'BEST_AVG_BRUTTO' || selectedLeaderboardType === 'BEST_AVG_NETTO' ? entry.totalPoints.toFixed(1) : entry.totalPoints))
+                                        : (selectedLeaderboardType === 'BIRDIE' ? `${entry.totalPoints} (${entry.pars})` : (isViewingBestAvg ? entry.totalPoints.toFixed(1) : entry.totalPoints))
                                     )}
                                   </td>
                                   <td className="px-2 py-2.5 md:px-4 md:py-4 text-center font-mono text-slate-500 text-xs md:text-sm">
-                                    {entry.holesPlayed === 0 ? "-" : `${entry.holesPlayed}/${totalHolesForFilter}`}
-                                  </td>
-                                  {displayedRounds.map((round: any) => {
-                                    const pts = entry.roundPoints[round.id]
-                                    const showRel = competition.showRelToPar && (selectedLeaderboardType === 'MAIN' || selectedLeaderboardType === 'STABLEFORD_NETTO' || selectedLeaderboardType === 'STABLEFORD_BRUTTO')
-                                    let displayVal = "-"
-                                    if (pts !== undefined) {
-                                      if (showRel) {
-                                        const rel = entry.roundRelToPar?.[round.id] ?? 0
-                                        displayVal = rel === 0 ? "Even" : (rel < 0 ? String(rel) : `+${rel}`)
-                                      } else {
-                                        displayVal = String(pts)
-                                      }
+                                    {entry.holesPlayed === 0 
+                                      ? "-" 
+                                      : (isViewingBest3 || isViewingBestAvg)
+                                        ? (entry.roundsPlayedCount ?? 0)
+                                        : `${entry.holesPlayed}/${totalHolesForFilter}`
                                     }
+                                  </td>
+                                  {isViewingBest3 ? (
+                                    [0, 1, 2].map((idx) => {
+                                      const topItem = entry.topRounds?.[idx]
+                                      if (!topItem) {
+                                        return (
+                                          <td key={idx} className="px-1 py-1.5 md:px-3 md:py-4 text-center font-mono text-slate-400 text-xs">
+                                            -
+                                          </td>
+                                        )
+                                      }
+                                      return (
+                                        <td key={idx} className="px-1 py-1.5 md:px-3 md:py-4 text-center">
+                                          <button
+                                            onClick={() => {
+                                              setSelectedParticipantForScorecard(entry.participant)
+                                              setSelectedRoundIdForScorecard(topItem.round.id)
+                                            }}
+                                            className="px-2 py-0.5 md:px-2.5 md:py-1 text-xs font-extrabold bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-900 rounded-md transition-all font-mono shadow-sm flex flex-col items-center mx-auto"
+                                            title={`View Round ${topItem.round.name} Scorecard (${topItem.points} pts)`}
+                                          >
+                                            <span className="font-extrabold">{topItem.points}</span>
+                                            <span className="text-[8px] font-normal text-purple-400 -mt-0.5">{topItem.round.name}</span>
+                                          </button>
+                                        </td>
+                                      )
+                                    })
+                                  ) : (
+                                    displayedRounds.map((round: any) => {
+                                      const pts = entry.roundPoints[round.id]
+                                      const showRel = competition.showRelToPar && (selectedLeaderboardType === 'MAIN' || selectedLeaderboardType === 'STABLEFORD_NETTO' || selectedLeaderboardType === 'STABLEFORD_BRUTTO')
+                                      let displayVal = "-"
+                                      if (pts !== undefined) {
+                                        if (showRel) {
+                                          const rel = entry.roundRelToPar?.[round.id] ?? 0
+                                          displayVal = rel === 0 ? "Even" : (rel < 0 ? String(rel) : `+${rel}`)
+                                        } else {
+                                          displayVal = String(pts)
+                                        }
+                                      }
 
-                                    return (
-                                      <td key={round.id} className="px-1 py-1.5 md:px-3 md:py-4 text-center">
-                                        <button
-                                          onClick={() => {
-                                            setSelectedParticipantForScorecard(entry.participant)
-                                            setSelectedRoundIdForScorecard(round.id)
-                                          }}
-                                          className="px-2 py-0.5 md:px-2.5 md:py-1 text-xs font-extrabold bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-900 rounded-md transition-all font-mono shadow-sm"
-                                        >
-                                          {displayVal}
-                                        </button>
-                                      </td>
-                                    )
-                                  })}
+                                      return (
+                                        <td key={round.id} className="px-1 py-1.5 md:px-3 md:py-4 text-center">
+                                          <button
+                                            onClick={() => {
+                                              setSelectedParticipantForScorecard(entry.participant)
+                                              setSelectedRoundIdForScorecard(round.id)
+                                            }}
+                                            className="px-2 py-0.5 md:px-2.5 md:py-1 text-xs font-extrabold bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-900 rounded-md transition-all font-mono shadow-sm"
+                                          >
+                                            {displayVal}
+                                          </button>
+                                        </td>
+                                      )
+                                    })
+                                  )}
                                 </tr>
                               )
                             })}
@@ -4144,6 +4113,10 @@ export function CompetitionClientView({ competition, session, courses = [], user
                             className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm"
                           >
                             <option value="NETTO_STABLEFORD">Netto Stableford</option>
+                            <option value="BEST_3_NETTO">Best 3 Rounds - Netto</option>
+                            <option value="BEST_3_BRUTTO">Best 3 Rounds - Brutto</option>
+                            <option value="BEST_AVG_NETTO">Best Average - Netto</option>
+                            <option value="BEST_AVG_BRUTTO">Best Average - Brutto</option>
                             <option value="STROKEPLAY_GROSS">Strokeplay Gross</option>
                             <option value="MATCHPLAY">Matchplay (Ryder Cup)</option>
                           </select>
@@ -4194,11 +4167,11 @@ export function CompetitionClientView({ competition, session, courses = [], user
                             {[
                               { id: 'STROKEPLAY', label: 'Strokeplay Gross', needsTeam: false, hideForModus: 'STROKEPLAY_GROSS' },
                               { id: 'STABLEFORD_NETTO', label: 'Stableford Netto', needsTeam: false, hideForModus: 'NETTO_STABLEFORD' },
-                              { id: 'STABLEFORD_BRUTTO', label: 'Stableford Brutto', needsTeam: false, hideForModus: '' },
-                              { id: 'BEST_3_BRUTTO', label: 'Best 3 Rounds - Brutto', needsTeam: false, hideForModus: '' },
-                              { id: 'BEST_3_NETTO', label: 'Best 3 Rounds - Netto', needsTeam: false, hideForModus: '' },
-                              { id: 'BEST_AVG_BRUTTO', label: 'Best Average - Brutto', needsTeam: false, hideForModus: '' },
-                              { id: 'BEST_AVG_NETTO', label: 'Best Average - Netto', needsTeam: false, hideForModus: '' },
+                              { id: 'STABLEFORD_BRUTTO', label: 'Stableford Brutto', needsTeam: false, hideForModus: 'STABLEFORD_BRUTTO' },
+                              { id: 'BEST_3_BRUTTO', label: 'Best 3 Rounds - Brutto', needsTeam: false, hideForModus: 'BEST_3_BRUTTO' },
+                              { id: 'BEST_3_NETTO', label: 'Best 3 Rounds - Netto', needsTeam: false, hideForModus: 'BEST_3_NETTO' },
+                              { id: 'BEST_AVG_BRUTTO', label: 'Best Average - Brutto', needsTeam: false, hideForModus: 'BEST_AVG_BRUTTO' },
+                              { id: 'BEST_AVG_NETTO', label: 'Best Average - Netto', needsTeam: false, hideForModus: 'BEST_AVG_NETTO' },
                               { id: 'BIRDIE', label: 'Birdie Leaderboard', needsTeam: false, hideForModus: '' },
                               { id: 'DOUBLE_BOGEY_PLUS', label: 'Double Bogey+ Leaderboard', needsTeam: false, hideForModus: '' },
                               { id: 'PAR_PLUS_SERIES', label: 'Par+ Streak Leaderboard', needsTeam: false, hideForModus: '' },

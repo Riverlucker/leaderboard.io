@@ -666,6 +666,10 @@ export function EditCompetitionClient({
                     >
                       <option value="STROKEPLAY_GROSS">Strokeplay Gross (Strokes count)</option>
                       <option value="NETTO_STABLEFORD">Netto Stableford (Points based on HC)</option>
+                      <option value="BEST_3_NETTO">Best 3 Rounds - Netto</option>
+                      <option value="BEST_3_BRUTTO">Best 3 Rounds - Brutto</option>
+                      <option value="BEST_AVG_NETTO">Best Average - Netto</option>
+                      <option value="BEST_AVG_BRUTTO">Best Average - Brutto</option>
                       <option value="MATCHPLAY">Matchplay (Ryder Cup style)</option>
                       <option value="WINTERCUP">CL-Format (Champions League Modus)</option>
                     </select>
@@ -790,11 +794,11 @@ export function EditCompetitionClient({
                       {[
                         { id: 'STROKEPLAY', label: 'Strokeplay Gross', needsTeam: false, hideForModus: 'STROKEPLAY_GROSS' },
                         { id: 'STABLEFORD_NETTO', label: 'Stableford Netto', needsTeam: false, hideForModus: 'NETTO_STABLEFORD' },
-                        { id: 'STABLEFORD_BRUTTO', label: 'Stableford Brutto', needsTeam: false, hideForModus: '' },
-                        { id: 'BEST_3_BRUTTO', label: 'Best 3 Rounds - Brutto', needsTeam: false, hideForModus: '' },
-                        { id: 'BEST_3_NETTO', label: 'Best 3 Rounds - Netto', needsTeam: false, hideForModus: '' },
-                        { id: 'BEST_AVG_BRUTTO', label: 'Best Average - Brutto', needsTeam: false, hideForModus: '' },
-                        { id: 'BEST_AVG_NETTO', label: 'Best Average - Netto', needsTeam: false, hideForModus: '' },
+                        { id: 'STABLEFORD_BRUTTO', label: 'Stableford Brutto', needsTeam: false, hideForModus: 'STABLEFORD_BRUTTO' },
+                        { id: 'BEST_3_BRUTTO', label: 'Best 3 Rounds - Brutto', needsTeam: false, hideForModus: 'BEST_3_BRUTTO' },
+                        { id: 'BEST_3_NETTO', label: 'Best 3 Rounds - Netto', needsTeam: false, hideForModus: 'BEST_3_NETTO' },
+                        { id: 'BEST_AVG_BRUTTO', label: 'Best Average - Brutto', needsTeam: false, hideForModus: 'BEST_AVG_BRUTTO' },
+                        { id: 'BEST_AVG_NETTO', label: 'Best Average - Netto', needsTeam: false, hideForModus: 'BEST_AVG_NETTO' },
                         { id: 'BIRDIE', label: 'Birdie Leaderboard', needsTeam: false, hideForModus: '' },
                         { id: 'DOUBLE_BOGEY_PLUS', label: 'Double Bogey+ Leaderboard', needsTeam: false, hideForModus: '' },
                         { id: 'PAR_PLUS_SERIES', label: 'Par+ Streak Leaderboard', needsTeam: false, hideForModus: '' },

@@ -51,7 +51,7 @@ export default function LoginPage() {
               name="email" 
               type="email" 
               placeholder="player@example.com" 
-              defaultValue="admin@leaderboard.io"
+              defaultValue="admin@leaderboard.sc"
               required 
               className="w-full px-4 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-500"
             />

@@ -855,9 +855,9 @@ export function CompetitionClientView({ competition, session, courses = [], user
   // Dynamic document title update
   useEffect(() => {
     if (activeTab === 'admin') {
-      document.title = "leaderboard.io - admin"
+      document.title = "Leaderboard.sc - admin"
     } else {
-      document.title = `leaderboard.io - ${competition.name}`
+      document.title = `Leaderboard.sc - ${competition.name}`
     }
   }, [activeTab, competition.name])
 
@@ -2673,7 +2673,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
       {/* Top Header */}
       <header className="border-b border-slate-250 bg-white/45 backdrop-blur-md sticky top-0 z-40 px-3 sm:px-4 py-1.5 md:py-2 shadow-sm flex justify-between items-center h-14 md:h-16 landscape:h-11">
         <div className="flex flex-col justify-center">
-          <div className="text-[9px] md:text-[10px] uppercase font-bold tracking-widest text-slate-500 leading-none mb-1 landscape:hidden">leaderboard.io</div>
+          <div className="text-[9px] md:text-[10px] uppercase font-bold tracking-widest text-slate-500 leading-none mb-1 landscape:hidden">Leaderboard.sc</div>
           <h1 className="text-sm md:text-xl font-black text-slate-900 flex items-center gap-2 leading-none">
             {competition.type === 'RYDER_CUP' && (
               <img 
@@ -2691,7 +2691,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
         </div>
 
         <div className="flex flex-col items-end justify-center">
-          {/* Top-Right: Build Timestamp at the height of leaderboard.io */}
+          {/* Top-Right: Build Timestamp at the height of Leaderboard.sc */}
           <div className="text-[7.5px] md:text-[8.5px] font-mono text-slate-400 select-none tracking-tight leading-none mb-1">
             {process.env.NEXT_PUBLIC_BUILD_TIME || "Live"}
           </div>

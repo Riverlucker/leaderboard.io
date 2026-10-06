@@ -200,7 +200,7 @@ export default async function Home({ searchParams }: HomeProps) {
     <main className="min-h-screen bg-slate-950 text-slate-50 flex flex-col items-center justify-center p-8">
       <div className="max-w-xl w-full space-y-8 text-center">
         <h1 className="text-6xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-br from-emerald-400 to-cyan-600 drop-shadow-sm pb-2">
-          leaderboard.io
+          Leaderboard.sc
         </h1>
         <p className="text-lg text-slate-400 max-w-md mx-auto">
           The ultimate platform for hosting and scoring dynamic golf competitions.

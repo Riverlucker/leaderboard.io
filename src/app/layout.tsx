@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "leaderboard.io",
+  title: "Leaderboard.sc",
   description: "The ultimate golf tournament dashboard",
 };
 

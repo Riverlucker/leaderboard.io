@@ -6,7 +6,7 @@ import { SignOutButton } from "./SignOutButton"
 import type { Metadata } from "next"
 
 export const metadata: Metadata = {
-  title: "leaderboard.io - admin"
+  title: "Leaderboard.sc - admin"
 }
 
 export default async function AdminLayout({

@@ -9,10 +9,10 @@ async function main() {
   // 1. Create a Super Admin User
   const hashedPassword = await bcrypt.hash('admin123', 10)
   const superAdmin = await prisma.user.upsert({
-    where: { email: 'admin@leaderboard.io' },
+    where: { email: 'admin@leaderboard.sc' },
     update: {},
     create: {
-      email: 'admin@leaderboard.io',
+      email: 'admin@leaderboard.sc',
       name: 'Super Admin',
       password: hashedPassword,
       role: 'SUPER_ADMIN',
@@ -22,10 +22,10 @@ async function main() {
 
   // 2. Courses
   const courseNames = [
-    'GC Gut Altentann',
-    'GC Eugendorf',
-    'GC Zillertal-Uderns',
-    'GC Achensee',
+    'Gut Altentann',
+    'Eugendorf',
+    'Zillertal-Uderns',
+    'Achensee',
     'Gut Heckenhof rot/gelb',
     'Gut Heckenhof gelb/grün',
     'Gut Heckenhof grün/rot',

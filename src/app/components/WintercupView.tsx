@@ -546,7 +546,7 @@ export function WintercupView({ competition, session }: WintercupViewProps) {
       {/* 1. TOP HEADER */}
       <header className="border-b border-slate-250 bg-white/45 backdrop-blur-md sticky top-0 z-40 px-4 py-2.5 md:py-4 shadow-sm flex justify-between items-center h-12 md:h-16">
         <div className="space-y-0.5">
-          <div className="text-[10px] uppercase font-bold tracking-widest text-slate-500">leaderboard.io</div>
+          <div className="text-[10px] uppercase font-bold tracking-widest text-slate-500">Leaderboard.sc</div>
           <h1 className="text-sm md:text-xl font-black text-slate-900 flex items-center gap-1.5">
             <span style={{ color: primaryColor }}>{competition.name}</span>
             <span className="text-[9px] bg-slate-100 border border-slate-200 text-slate-600 px-1.5 py-0.5 rounded font-mono uppercase tracking-wider">

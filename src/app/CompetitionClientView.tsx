@@ -690,6 +690,11 @@ export function CompetitionClientView({ competition, session, courses = [], user
   const [cssConfig, setCssConfig] = useState(competition.cssConfig || "")
   const [bgImage, setBgImage] = useState(competition.bgImage || "")
   const [selectedExtraLeaderboards, setSelectedExtraLeaderboards] = useState<string[]>(competition.extraLeaderboards || [])
+  useEffect(() => {
+    if (competition?.extraLeaderboards) {
+      setSelectedExtraLeaderboards(competition.extraLeaderboards)
+    }
+  }, [competition?.extraLeaderboards])
   const [showRelToPar, setShowRelToPar] = useState(competition.showRelToPar || false)
   const [isSavingGeneral, setIsSavingGeneral] = useState(false)
   const [generalError, setGeneralError] = useState("")
@@ -1792,8 +1797,18 @@ export function CompetitionClientView({ competition, session, courses = [], user
       })
     }
 
-    if (selectedLeaderboardType === 'STABLEFORD_NETTO' || selectedLeaderboardType === 'STABLEFORD_BRUTTO') {
-      const isNet = selectedLeaderboardType === 'STABLEFORD_NETTO'
+    if (
+      selectedLeaderboardType === 'STABLEFORD_NETTO' || 
+      selectedLeaderboardType === 'STABLEFORD_BRUTTO' ||
+      selectedLeaderboardType === 'BEST_3_BRUTTO' ||
+      selectedLeaderboardType === 'BEST_3_NETTO' ||
+      selectedLeaderboardType === 'BEST_AVG_BRUTTO' ||
+      selectedLeaderboardType === 'BEST_AVG_NETTO'
+    ) {
+      const isNet = selectedLeaderboardType === 'STABLEFORD_NETTO' || selectedLeaderboardType === 'BEST_3_NETTO' || selectedLeaderboardType === 'BEST_AVG_NETTO'
+      const isBest3 = selectedLeaderboardType === 'BEST_3_BRUTTO' || selectedLeaderboardType === 'BEST_3_NETTO'
+      const isBestAvg = selectedLeaderboardType === 'BEST_AVG_BRUTTO' || selectedLeaderboardType === 'BEST_AVG_NETTO'
+
       const entries = targetParticipants.map((p: any) => {
         let totalPoints = 0
         let totalStrokes = 0
@@ -1839,9 +1854,33 @@ export function CompetitionClientView({ competition, session, courses = [], user
           if (roundHolesPlayed) {
             roundPoints[round.id] = roundPts
             roundRelToPar[round.id] = (roundHolesCount * 2) - roundPts
-            if (activeRounds.some((ar: any) => ar.id === round.id)) {
+            if (!isBest3 && !isBestAvg && activeRounds.some((ar: any) => ar.id === round.id)) {
               totalPoints += roundPts
             }
+          }
+        }
+
+        if (isBest3) {
+          if (selectedRoundFilter === 'TOTAL') {
+            const activePts = activeRounds
+              .filter((ar: any) => roundPoints[ar.id] !== undefined)
+              .map((ar: any) => roundPoints[ar.id])
+              .sort((a: number, b: number) => b - a)
+            totalPoints = activePts.slice(0, 3).reduce((a: number, b: number) => a + b, 0)
+          } else {
+            totalPoints = roundPoints[selectedRoundFilter] ?? 0
+          }
+        } else if (isBestAvg) {
+          if (selectedRoundFilter === 'TOTAL') {
+            const activePts = activeRounds
+              .filter((ar: any) => roundPoints[ar.id] !== undefined)
+              .map((ar: any) => roundPoints[ar.id])
+            const avg = activePts.length > 0
+              ? parseFloat((activePts.reduce((a: number, b: number) => a + b, 0) / activePts.length).toFixed(1))
+              : 0
+            totalPoints = avg
+          } else {
+            totalPoints = roundPoints[selectedRoundFilter] ?? 0
           }
         }
 
@@ -1859,7 +1898,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
           relToPar
         }
       })
-      return assignLeaderboardRanks(entries, competition.showRelToPar)
+      return assignLeaderboardRanks(entries, (isBest3 || isBestAvg) ? false : competition.showRelToPar)
     }
 
     if (selectedLeaderboardType === 'BIRDIE') {
@@ -3022,6 +3061,18 @@ export function CompetitionClientView({ competition, session, courses = [], user
                     {competition.type !== 'RYDER_CUP' && selectedExtraLeaderboards.includes('STABLEFORD_BRUTTO') && (
                       <option value="STABLEFORD_BRUTTO">Stableford Brutto</option>
                     )}
+                    {competition.type !== 'RYDER_CUP' && selectedExtraLeaderboards.includes('BEST_3_BRUTTO') && (
+                      <option value="BEST_3_BRUTTO">Best 3 Rounds - Brutto</option>
+                    )}
+                    {competition.type !== 'RYDER_CUP' && selectedExtraLeaderboards.includes('BEST_3_NETTO') && (
+                      <option value="BEST_3_NETTO">Best 3 Rounds - Netto</option>
+                    )}
+                    {competition.type !== 'RYDER_CUP' && selectedExtraLeaderboards.includes('BEST_AVG_BRUTTO') && (
+                      <option value="BEST_AVG_BRUTTO">Best Average - Brutto</option>
+                    )}
+                    {competition.type !== 'RYDER_CUP' && selectedExtraLeaderboards.includes('BEST_AVG_NETTO') && (
+                      <option value="BEST_AVG_NETTO">Best Average - Netto</option>
+                    )}
                     {competition.type !== 'RYDER_CUP' && selectedExtraLeaderboards.includes('BIRDIE') && (
                       <option value="BIRDIE">Birdie Leaderboard</option>
                     )}
@@ -3271,7 +3322,15 @@ export function CompetitionClientView({ competition, session, courses = [], user
                           <th className="px-2 py-2.5 md:px-5 md:py-4 text-center w-20 md:w-28">
                             {competition.showRelToPar && (selectedLeaderboardType === 'MAIN' || selectedLeaderboardType === 'STABLEFORD_NETTO' || selectedLeaderboardType === 'STABLEFORD_BRUTTO')
                               ? 'Score (+/-)'
-                              : (selectedLeaderboardType === 'STROKEPLAY' ? 'Gross Strokes' : selectedLeaderboardType === 'BIRDIE' ? 'Birdies (Pars)' : selectedLeaderboardType === 'DOUBLE_BOGEY_PLUS' ? 'DB+' : selectedLeaderboardType === 'PAR_PLUS_SERIES' ? 'Streak' : 'Total Points')
+                              : (selectedLeaderboardType === 'STROKEPLAY' ? 'Gross Strokes' 
+                                : selectedLeaderboardType === 'BIRDIE' ? 'Birdies (Pars)' 
+                                : selectedLeaderboardType === 'DOUBLE_BOGEY_PLUS' ? 'DB+' 
+                                : selectedLeaderboardType === 'PAR_PLUS_SERIES' ? 'Streak' 
+                                : selectedLeaderboardType === 'BEST_3_BRUTTO' ? 'Best 3 (Brutto)'
+                                : selectedLeaderboardType === 'BEST_3_NETTO' ? 'Best 3 (Netto)'
+                                : selectedLeaderboardType === 'BEST_AVG_BRUTTO' ? 'Avg Brutto'
+                                : selectedLeaderboardType === 'BEST_AVG_NETTO' ? 'Avg Netto'
+                                : 'Total Points')
                             }
                           </th>
                           <th className="px-2 py-2.5 md:px-4 md:py-4 text-center w-16 md:w-24">Played</th>
@@ -3340,7 +3399,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
                                 ) : (
                                   competition.showRelToPar && (selectedLeaderboardType === 'MAIN' || selectedLeaderboardType === 'STABLEFORD_NETTO' || selectedLeaderboardType === 'STABLEFORD_BRUTTO')
                                     ? (entry.relToPar === 0 ? "Even" : (entry.relToPar < 0 ? String(entry.relToPar) : `+${entry.relToPar}`))
-                                    : (selectedLeaderboardType === 'BIRDIE' ? `${entry.totalPoints} (${entry.pars})` : entry.totalPoints)
+                                    : (selectedLeaderboardType === 'BIRDIE' ? `${entry.totalPoints} (${entry.pars})` : (selectedLeaderboardType === 'BEST_AVG_BRUTTO' || selectedLeaderboardType === 'BEST_AVG_NETTO' ? entry.totalPoints.toFixed(1) : entry.totalPoints))
                                 )}
                               </td>
                               <td className="px-2 py-2.5 md:px-4 md:py-4 text-center font-mono text-slate-500 text-xs md:text-sm">
@@ -3412,7 +3471,15 @@ export function CompetitionClientView({ competition, session, courses = [], user
                               <th className="px-2 py-2.5 md:px-5 md:py-4 text-center w-20 md:w-28">
                                 {competition.showRelToPar && (selectedLeaderboardType === 'MAIN' || selectedLeaderboardType === 'STABLEFORD_NETTO' || selectedLeaderboardType === 'STABLEFORD_BRUTTO')
                                   ? 'Score (+/-)'
-                                  : (selectedLeaderboardType === 'STROKEPLAY' ? 'Gross Strokes' : selectedLeaderboardType === 'BIRDIE' ? 'Birdies (Pars)' : selectedLeaderboardType === 'DOUBLE_BOGEY_PLUS' ? 'DB+' : selectedLeaderboardType === 'PAR_PLUS_SERIES' ? 'Streak' : 'Total Points')
+                                  : (selectedLeaderboardType === 'STROKEPLAY' ? 'Gross Strokes' 
+                                    : selectedLeaderboardType === 'BIRDIE' ? 'Birdies (Pars)' 
+                                    : selectedLeaderboardType === 'DOUBLE_BOGEY_PLUS' ? 'DB+' 
+                                    : selectedLeaderboardType === 'PAR_PLUS_SERIES' ? 'Streak' 
+                                    : selectedLeaderboardType === 'BEST_3_BRUTTO' ? 'Best 3 (Brutto)'
+                                    : selectedLeaderboardType === 'BEST_3_NETTO' ? 'Best 3 (Netto)'
+                                    : selectedLeaderboardType === 'BEST_AVG_BRUTTO' ? 'Avg Brutto'
+                                    : selectedLeaderboardType === 'BEST_AVG_NETTO' ? 'Avg Netto'
+                                    : 'Total Points')
                                 }
                               </th>
                               <th className="px-2 py-2.5 md:px-4 md:py-4 text-center w-16 md:w-24">Played</th>
@@ -3449,7 +3516,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
                                     ) : (
                                       competition.showRelToPar && (selectedLeaderboardType === 'MAIN' || selectedLeaderboardType === 'STABLEFORD_NETTO' || selectedLeaderboardType === 'STABLEFORD_BRUTTO')
                                         ? (entry.relToPar === 0 ? "Even" : (entry.relToPar < 0 ? String(entry.relToPar) : `+${entry.relToPar}`))
-                                        : (selectedLeaderboardType === 'BIRDIE' ? `${entry.totalPoints} (${entry.pars})` : entry.totalPoints)
+                                        : (selectedLeaderboardType === 'BIRDIE' ? `${entry.totalPoints} (${entry.pars})` : (selectedLeaderboardType === 'BEST_AVG_BRUTTO' || selectedLeaderboardType === 'BEST_AVG_NETTO' ? entry.totalPoints.toFixed(1) : entry.totalPoints))
                                     )}
                                   </td>
                                   <td className="px-2 py-2.5 md:px-4 md:py-4 text-center font-mono text-slate-500 text-xs md:text-sm">
@@ -4128,6 +4195,10 @@ export function CompetitionClientView({ competition, session, courses = [], user
                               { id: 'STROKEPLAY', label: 'Strokeplay Gross', needsTeam: false, hideForModus: 'STROKEPLAY_GROSS' },
                               { id: 'STABLEFORD_NETTO', label: 'Stableford Netto', needsTeam: false, hideForModus: 'NETTO_STABLEFORD' },
                               { id: 'STABLEFORD_BRUTTO', label: 'Stableford Brutto', needsTeam: false, hideForModus: '' },
+                              { id: 'BEST_3_BRUTTO', label: 'Best 3 Rounds - Brutto', needsTeam: false, hideForModus: '' },
+                              { id: 'BEST_3_NETTO', label: 'Best 3 Rounds - Netto', needsTeam: false, hideForModus: '' },
+                              { id: 'BEST_AVG_BRUTTO', label: 'Best Average - Brutto', needsTeam: false, hideForModus: '' },
+                              { id: 'BEST_AVG_NETTO', label: 'Best Average - Netto', needsTeam: false, hideForModus: '' },
                               { id: 'BIRDIE', label: 'Birdie Leaderboard', needsTeam: false, hideForModus: '' },
                               { id: 'DOUBLE_BOGEY_PLUS', label: 'Double Bogey+ Leaderboard', needsTeam: false, hideForModus: '' },
                               { id: 'PAR_PLUS_SERIES', label: 'Par+ Streak Leaderboard', needsTeam: false, hideForModus: '' },

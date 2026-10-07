@@ -660,8 +660,10 @@ export function CompetitionClientView({ competition, session, courses = [], user
   const [isLoggingIn, setIsLoggingIn] = useState(false)
   
   // Score Entry setup state (persisted in localStorage)
-  const [selectedRoundId, setSelectedRoundId] = useState(competition.rounds[0]?.id || "")
+  const defaultRoundId = competition.rounds[competition.rounds.length - 1]?.id || competition.rounds[0]?.id || ""
+  const [selectedRoundId, setSelectedRoundId] = useState(defaultRoundId)
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([])
+  const [showAllPlayersForRound, setShowAllPlayersForRound] = useState(false)
   const [entryMode, setEntryMode] = useState<'LIVE' | 'BULK'>('LIVE')
   const [setupConfirmed, setSetupConfirmed] = useState(false)
   const [liveHoleIndex, setLiveHoleIndex] = useState(0)
@@ -900,13 +902,19 @@ export function CompetitionClientView({ competition, session, courses = [], user
       const savedLeaderboard = localStorage.getItem(`leaderboard-type-${competition.id}`)
       const savedRoundFilter = localStorage.getItem(`round-filter-${competition.id}`)
 
-      // Determine initial round ID (must exist in this competition)
+      // Determine initial round ID (must exist in this competition, fallback to newest round)
+      const defaultRound = competition.rounds[competition.rounds.length - 1]?.id || competition.rounds[0]?.id || ""
       const isValidSavedRound = competition.rounds.some((r: any) => r.id === savedRoundId)
       const initialRoundId = isValidSavedRound 
         ? (savedRoundId as string)
-        : (competition.rounds[0]?.id || "")
+        : defaultRound
 
       setSelectedRoundId(initialRoundId)
+
+      const initialRound = competition.rounds.find((r: any) => r.id === initialRoundId) || competition.rounds[0]
+      const initMatchPlayerIds = new Set<string>((initialRound?.matches || []).flatMap((m: any) => (m.matchPlayers || []).map((mp: any) => mp.participantId)))
+      const initScorePlayerIds = new Set<string>(competition.participants.filter((p: any) => p.scores?.some((s: any) => s.roundId === initialRound?.id)).map((p: any) => p.id))
+      const initActivePlayerIds = new Set<string>([...Array.from(initMatchPlayerIds), ...Array.from(initScorePlayerIds)])
 
       let activePlayerIds: string[] = []
       if (savedPlayers) {
@@ -914,13 +922,17 @@ export function CompetitionClientView({ competition, session, courses = [], user
           const parsedPlayers = JSON.parse(savedPlayers)
           if (Array.isArray(parsedPlayers)) {
             activePlayerIds = parsedPlayers.filter((pId: string) => 
-              competition.participants.some((p: any) => p.id === pId)
+              competition.participants.some((p: any) => p.id === pId) &&
+              (initActivePlayerIds.size === 0 || initActivePlayerIds.has(pId))
             )
             setSelectedPlayerIds(activePlayerIds)
           }
         } catch (_) {}
       } else {
-        if (competition.participants.length <= 4) {
+        if (initActivePlayerIds.size > 0 && initActivePlayerIds.size <= 4) {
+          activePlayerIds = Array.from(initActivePlayerIds)
+          setSelectedPlayerIds(activePlayerIds)
+        } else if (competition.participants.length <= 4) {
           activePlayerIds = competition.participants.map((p: any) => p.id)
           setSelectedPlayerIds(activePlayerIds)
         }
@@ -3811,8 +3823,24 @@ export function CompetitionClientView({ competition, session, courses = [], user
                         <select
                           value={selectedRoundId}
                           onChange={e => {
-                            setSelectedRoundId(e.target.value)
-                            saveSetupToStorage(e.target.value, selectedPlayerIds, entryMode, false)
+                            const newRoundId = e.target.value
+                            setSelectedRoundId(newRoundId)
+
+                            const nextRound = competition.rounds.find((r: any) => r.id === newRoundId)
+                            const nextMatchPlayerIds = new Set<string>((nextRound?.matches || []).flatMap((m: any) => (m.matchPlayers || []).map((mp: any) => mp.participantId)))
+                            const nextScorePlayerIds = new Set<string>(competition.participants.filter((p: any) => p.scores?.some((s: any) => s.roundId === nextRound?.id)).map((p: any) => p.id))
+                            const nextActivePlayerIds = new Set<string>([...Array.from(nextMatchPlayerIds), ...Array.from(nextScorePlayerIds)])
+
+                            let updated = selectedPlayerIds
+                            if (nextActivePlayerIds.size > 0) {
+                              updated = selectedPlayerIds.filter(id => nextActivePlayerIds.has(id))
+                              if (updated.length === 0 && session?.user?.id) {
+                                const myPart = competition.participants.find((p: any) => p.userId === session.user.id && nextActivePlayerIds.has(p.id))
+                                if (myPart) updated = [myPart.id]
+                              }
+                            }
+                            setSelectedPlayerIds(updated)
+                            saveSetupToStorage(newRoundId, updated, entryMode, false)
                           }}
                           className="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-2.5 text-sm text-slate-700 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                         >
@@ -3824,49 +3852,128 @@ export function CompetitionClientView({ competition, session, courses = [], user
                         </select>
                       </div>
 
-                      {/* Flight Players selection */}
-                      <div>
-                        <label className="block text-xs font-bold text-slate-500 mb-2 uppercase">Select Players (Max 4)</label>
-                        <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 divide-y divide-slate-200 max-h-60 overflow-y-auto scrollbar-thin">
-                          {competition.participants.map((p: any) => {
-                            const name = p.userId ? (p.user?.name || p.user?.email) : p.dummyName
-                            const isChecked = selectedPlayerIds.includes(p.id)
+                      {/* Flight / Matches Quick Selection if available */}
+                      {(() => {
+                        const currentRound = competition.rounds.find((r: any) => r.id === selectedRoundId) || competition.rounds[0]
+                        const matches = currentRound?.matches || []
+                        if (matches.length === 0) return null
 
-                            return (
-                              <label
-                                key={p.id}
-                                className="flex items-center justify-between py-2.5 cursor-pointer hover:bg-slate-100 select-none px-2 rounded-lg"
-                              >
-                                <div className="flex items-center space-x-3">
-                                  <input
-                                    type="checkbox"
-                                    checked={isChecked}
-                                    onChange={() => {
-                                      let updated = []
-                                      if (isChecked) {
-                                        updated = selectedPlayerIds.filter(id => id !== p.id)
-                                      } else {
-                                        if (selectedPlayerIds.length >= 4) {
-                                          alert("You can select a maximum of 4 players for scoring.")
-                                          return
-                                        }
-                                        updated = [...selectedPlayerIds, p.id]
-                                      }
+                        return (
+                          <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase">Flights / Spielgruppen</label>
+                            <div className="flex flex-wrap gap-2">
+                              {matches.map((match: any, idx: number) => {
+                                const matchPlayerIds: string[] = (match.matchPlayers || []).map((mp: any) => mp.participantId)
+                                const isMatchSelected = matchPlayerIds.length > 0 && matchPlayerIds.every((id: string) => selectedPlayerIds.includes(id)) && selectedPlayerIds.length === matchPlayerIds.length
+
+                                return (
+                                  <button
+                                    key={match.id || idx}
+                                    type="button"
+                                    onClick={() => {
+                                      const updated = matchPlayerIds.slice(0, 4)
                                       setSelectedPlayerIds(updated)
                                       saveSetupToStorage(selectedRoundId, updated, entryMode, false)
                                     }}
-                                    className="w-4 h-4 text-emerald-600 border-slate-300 rounded bg-white focus:ring-emerald-500 focus:outline-none"
-                                  />
-                                  <span className="text-sm font-bold text-slate-800">{name}</span>
-                                </div>
-                                <span className="text-xs font-mono font-bold text-slate-500 bg-white border border-slate-200 px-2 py-0.5 rounded font-bold">
-                                  HC {p.compHandicap !== null ? p.compHandicap.toFixed(1) : "-"}
-                                </span>
+                                    className={`px-3 py-2 rounded-xl text-xs font-bold border transition-all flex items-center space-x-2 ${
+                                      isMatchSelected
+                                        ? 'bg-emerald-600 text-white border-emerald-500 shadow-sm'
+                                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
+                                    }`}
+                                  >
+                                    <span>Flight {idx + 1}</span>
+                                    <span className="text-[10px] opacity-80 font-normal font-mono">({matchPlayerIds.length} Spieler)</span>
+                                  </button>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        )
+                      })()}
+
+                      {/* Flight Players selection */}
+                      {(() => {
+                        const currentRound = competition.rounds.find((r: any) => r.id === selectedRoundId) || competition.rounds[0]
+                        const matchParticipantIds = new Set<string>(
+                          (currentRound?.matches || []).flatMap((m: any) =>
+                            (m.matchPlayers || []).map((mp: any) => mp.participantId)
+                          )
+                        )
+                        const scoreParticipantIds = new Set<string>(
+                          competition.participants
+                            .filter((p: any) => p.scores?.some((s: any) => s.roundId === currentRound?.id))
+                            .map((p: any) => p.id)
+                        )
+                        const activeRoundParticipantIds = new Set<string>([
+                          ...Array.from(matchParticipantIds),
+                          ...Array.from(scoreParticipantIds)
+                        ])
+                        const hasRoundSpecificPlayers = activeRoundParticipantIds.size > 0
+                        const displayParticipants = (hasRoundSpecificPlayers && !showAllPlayersForRound)
+                          ? competition.participants.filter((p: any) => activeRoundParticipantIds.has(p.id))
+                          : competition.participants
+
+                        return (
+                          <div>
+                            <div className="flex items-center justify-between mb-2">
+                              <label className="block text-xs font-bold text-slate-500 uppercase">
+                                {hasRoundSpecificPlayers && !showAllPlayersForRound
+                                  ? `Spieler dieser Runde (${displayParticipants.length})`
+                                  : `Alle Turnierspieler (${displayParticipants.length})`}{" "}
+                                (Max 4)
                               </label>
-                            )
-                          })}
-                        </div>
-                      </div>
+                              {hasRoundSpecificPlayers && competition.participants.length > activeRoundParticipantIds.size && (
+                                <button
+                                  type="button"
+                                  onClick={() => setShowAllPlayersForRound(!showAllPlayersForRound)}
+                                  className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 hover:underline"
+                                >
+                                  {showAllPlayersForRound ? "Nur Spieler dieser Runde" : "+ Alle Turnierspieler"}
+                                </button>
+                              )}
+                            </div>
+                            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 divide-y divide-slate-200 max-h-60 overflow-y-auto scrollbar-thin">
+                              {displayParticipants.map((p: any) => {
+                                const name = p.userId ? (p.user?.name || p.user?.email) : p.dummyName
+                                const isChecked = selectedPlayerIds.includes(p.id)
+
+                                return (
+                                  <label
+                                    key={p.id}
+                                    className="flex items-center justify-between py-2.5 cursor-pointer hover:bg-slate-100 select-none px-2 rounded-lg"
+                                  >
+                                    <div className="flex items-center space-x-3">
+                                      <input
+                                        type="checkbox"
+                                        checked={isChecked}
+                                        onChange={() => {
+                                          let updated = []
+                                          if (isChecked) {
+                                            updated = selectedPlayerIds.filter(id => id !== p.id)
+                                          } else {
+                                            if (selectedPlayerIds.length >= 4) {
+                                              alert("You can select a maximum of 4 players for scoring.")
+                                              return
+                                            }
+                                            updated = [...selectedPlayerIds, p.id]
+                                          }
+                                          setSelectedPlayerIds(updated)
+                                          saveSetupToStorage(selectedRoundId, updated, entryMode, false)
+                                        }}
+                                        className="w-4 h-4 text-emerald-600 border-slate-300 rounded bg-white focus:ring-emerald-500 focus:outline-none"
+                                      />
+                                      <span className="text-sm font-bold text-slate-800">{name}</span>
+                                    </div>
+                                    <span className="text-xs font-mono font-bold text-slate-500 bg-white border border-slate-200 px-2 py-0.5 rounded font-bold">
+                                      HC {p.compHandicap !== null ? p.compHandicap.toFixed(1) : "-"}
+                                    </span>
+                                  </label>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        )
+                      })()}
 
                       {/* Entry Mode Selection */}
                       <div>

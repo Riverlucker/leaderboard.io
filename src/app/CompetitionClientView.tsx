@@ -34,6 +34,7 @@ import { getTeamColorConfig, TEAM_COLOR_LIST } from "@/lib/teamColors"
 
 import { 
   saveManualRoundHandicap, 
+  savePlayerRoundTee,
   recalculateRoundHandicaps, 
   recalculatePlayerHandicaps, 
   resetAllScores, 
@@ -112,23 +113,39 @@ export function getPlayingHandicap(p: any, round: any) {
   if (!round) return 0
   // Check manual override
   const manualHcp = p.manualRoundHandicaps?.find((mr: any) => mr.roundId === round.id)
-  if (manualHcp !== undefined && manualHcp !== null) {
+  if (manualHcp !== undefined && manualHcp !== null && manualHcp.handicapValue !== null && manualHcp.handicapValue !== undefined) {
     return manualHcp.handicapValue
   }
 
-  // Fall back to WHS formula using round tee and course
+  // Fall back to WHS formula using player's tee (or round tee) and course
   const course = round.course
   if (!course) return 0
 
-  const tee = round.tee ||
-              course.tees?.find((t: any) => t.name.toLowerCase().includes('yellow')) ||
-              course.tees?.find((t: any) => t.name.toLowerCase().includes('white')) ||
+  const tee = manualHcp?.tee ||
+              (manualHcp?.teeId && course.tees?.find((t: any) => t.id === manualHcp.teeId)) ||
+              round.tee ||
+              course.tees?.find((t: any) => t.name.toLowerCase().includes('yellow') || t.name.toLowerCase().includes('gelb')) ||
+              course.tees?.find((t: any) => t.name.toLowerCase().includes('white') || t.name.toLowerCase().includes('weiß')) ||
               course.tees?.[0]
 
   if (!tee || p.compHandicap === null || p.compHandicap === undefined) return 0
 
   const coursePar = course.holes.reduce((sum: number, h: any) => sum + h.par, 0)
   return calculateCourseHandicap(p.compHandicap, tee, coursePar)
+}
+
+export function getPlayerTeeForRound(p: any, round: any) {
+  if (!round) return null
+  const manualHcp = p.manualRoundHandicaps?.find((mr: any) => mr.roundId === round.id)
+  const course = round.course
+  if (manualHcp?.tee) return manualHcp.tee
+  if (manualHcp?.teeId && course?.tees) {
+    const found = course.tees.find((t: any) => t.id === manualHcp.teeId)
+    if (found) return found
+  }
+  return round.tee ||
+         course?.tees?.find((t: any) => t.name.toLowerCase().includes('yellow') || t.name.toLowerCase().includes('gelb')) ||
+         course?.tees?.[0] || null
 }
 
 export function parseAllowancePercentage(allowanceType?: string | null): number {
@@ -676,6 +693,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
   // Manual course handicaps editing state (overrides map)
   const [manualHandicapInputValues, setManualHandicapInputValues] = useState<Record<string, string>>({}) // key: "partId-courseId" -> string
   const [savingManualHandicap, setSavingManualHandicap] = useState<Record<string, boolean>>({})
+  const [savingPlayerTee, setSavingPlayerTee] = useState<Record<string, boolean>>({})
 
   // Editable compHandicap state
   const [compHandicapInputValues, setCompHandicapInputValues] = useState<Record<string, string>>({})
@@ -1495,6 +1513,26 @@ export function CompetitionClientView({ competition, session, courses = [], user
       console.error(e)
     } finally {
       setSavingManualHandicap(prev => ({ ...prev, [key]: false }))
+    }
+  }
+
+  const handlePlayerTeeChange = async (partId: string, roundId: string, teeId: string) => {
+    const key = `${partId}-${roundId}`
+    setSavingPlayerTee(prev => ({ ...prev, [key]: true }))
+    try {
+      const res = await savePlayerRoundTee(partId, roundId, teeId)
+      if (res.success) {
+        setManualHandicapInputValues(prev => {
+          const copy = { ...prev }
+          delete copy[key]
+          return copy
+        })
+        router.refresh()
+      }
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setSavingPlayerTee(prev => ({ ...prev, [key]: false }))
     }
   }
 
@@ -5052,33 +5090,59 @@ export function CompetitionClientView({ competition, session, courses = [], user
 
                                     const isModified = manualRecord !== undefined && manualRecord !== null
                                     const isSaving = savingManualHandicap[key]
+                                    const isSavingTee = savingPlayerTee[key]
+                                    const currentTeeId = manualRecord?.teeId || round.teeId || round.course?.tees?.[0]?.id || ""
+                                    const tees = round.course?.tees || []
 
                                     return (
-                                      <td key={round.id} className="px-3 py-2 text-center border-l border-slate-200">
-                                        <div className="flex items-center justify-center gap-1">
-                                          <input
-                                            type="text"
-                                            value={currentValStr}
-                                            onChange={e => handleManualHandicapChange(p.id, round.id, e.target.value)}
-                                            onKeyDown={e => {
-                                              if (e.key === 'Enter') saveManualHandicap(p.id, round.id)
-                                            }}
-                                            className={`w-12 py-0.5 text-center text-xs font-black rounded border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
-                                              isModified
-                                                ? 'border-emerald-500 bg-emerald-50 text-emerald-700 font-black'
-                                                : 'border-slate-300 bg-slate-50 text-slate-700'
-                                            }`}
-                                            title={isModified ? "Manually overwritten round handicap" : "Automatically computed standard playing handicap"}
-                                          />
-                                          {currentValStr !== String(calculatedVal) && (
-                                            <button
-                                              onClick={() => saveManualHandicap(p.id, round.id)}
-                                              disabled={isSaving}
-                                              className="p-1 bg-white hover:bg-emerald-50 border border-slate-350 text-slate-500 hover:text-emerald-600 rounded"
-                                            >
-                                              {isSaving ? <Loader2 size={10} className="animate-spin" /> : <Save size={10} />}
-                                            </button>
+                                      <td key={round.id} className="px-2 py-2 text-center border-l border-slate-200">
+                                        <div className="flex flex-col items-center justify-center gap-1.5">
+                                          {/* Player Tee Selector */}
+                                          {tees.length > 0 && (
+                                            <div className="flex items-center gap-1">
+                                              <select
+                                                value={currentTeeId}
+                                                disabled={isSavingTee}
+                                                onChange={e => handlePlayerTeeChange(p.id, round.id, e.target.value)}
+                                                className="text-[10px] font-bold px-1.5 py-0.5 rounded border border-slate-300 bg-white text-slate-700 hover:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 max-w-[95px] truncate"
+                                                title="Abschlag / Tee Box für diesen Spieler in dieser Runde"
+                                              >
+                                                {tees.map((t: any) => (
+                                                  <option key={t.id} value={t.id}>
+                                                    {t.name} (CR {t.courseRating})
+                                                  </option>
+                                                ))}
+                                              </select>
+                                              {isSavingTee && <Loader2 size={10} className="animate-spin text-emerald-600" />}
+                                            </div>
                                           )}
+
+                                          {/* Playing Handicap input */}
+                                          <div className="flex items-center justify-center gap-1">
+                                            <input
+                                              type="text"
+                                              value={currentValStr}
+                                              onChange={e => handleManualHandicapChange(p.id, round.id, e.target.value)}
+                                              onKeyDown={e => {
+                                                if (e.key === 'Enter') saveManualHandicap(p.id, round.id)
+                                              }}
+                                              className={`w-11 py-0.5 text-center text-xs font-black rounded border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                                                isModified
+                                                  ? 'border-emerald-500 bg-emerald-50 text-emerald-700 font-black'
+                                                  : 'border-slate-300 bg-slate-50 text-slate-700'
+                                              }`}
+                                              title={isModified ? "Manuell oder durch Abschlag festgelegte Spielvorgabe" : "Automatisch berechnete Spielvorgabe"}
+                                            />
+                                            {currentValStr !== String(calculatedVal) && (
+                                              <button
+                                                onClick={() => saveManualHandicap(p.id, round.id)}
+                                                disabled={isSaving}
+                                                className="p-1 bg-white hover:bg-emerald-50 border border-slate-350 text-slate-500 hover:text-emerald-600 rounded"
+                                              >
+                                                {isSaving ? <Loader2 size={10} className="animate-spin" /> : <Save size={10} />}
+                                              </button>
+                                            )}
+                                          </div>
                                         </div>
                                       </td>
                                     )

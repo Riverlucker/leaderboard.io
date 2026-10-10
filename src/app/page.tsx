@@ -69,7 +69,9 @@ export default async function Home({ searchParams }: HomeProps) {
           include: {
             user: true,
             team: true,
-            manualRoundHandicaps: true,
+            manualRoundHandicaps: {
+              include: { tee: true }
+            },
             scores: {
               include: {
                 hole: true
@@ -151,7 +153,9 @@ export default async function Home({ searchParams }: HomeProps) {
               include: {
                 user: true,
                 team: true,
-                manualRoundHandicaps: true,
+                manualRoundHandicaps: {
+                  include: { tee: true }
+                },
                 scores: {
                   include: {
                     hole: true

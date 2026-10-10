@@ -390,8 +390,14 @@ export async function clearPlayerRoundScores(roundId: string, participantId: str
 export async function saveManualRoundHandicap(
   participantId: string,
   roundId: string,
-  value: number
+  value: number,
+  teeId?: string | null
 ) {
+  const updateData: any = { handicapValue: value }
+  if (teeId !== undefined) {
+    updateData.teeId = teeId
+  }
+
   await prisma.manualRoundHandicap.upsert({
     where: {
       participantId_roundId: {
@@ -399,13 +405,12 @@ export async function saveManualRoundHandicap(
         roundId
       }
     },
-    update: {
-      handicapValue: value
-    },
+    update: updateData,
     create: {
       participantId,
       roundId,
-      handicapValue: value
+      handicapValue: value,
+      teeId: teeId || null
     }
   })
 
@@ -414,8 +419,59 @@ export async function saveManualRoundHandicap(
   })
   if (part) {
     revalidatePath(`/admin/competitions/${part.competitionId}`)
+    revalidatePath('/')
   }
   return { success: true }
+}
+
+export async function savePlayerRoundTee(
+  participantId: string,
+  roundId: string,
+  teeId: string | null
+) {
+  const participant = await prisma.participant.findUnique({
+    where: { id: participantId },
+    include: { user: true }
+  })
+  if (!participant) return { success: false, error: "Participant not found" }
+
+  const round = await prisma.round.findUnique({
+    where: { id: roundId },
+    include: { course: { include: { tees: true, holes: true } }, tee: true }
+  })
+  if (!round) return { success: false, error: "Round not found" }
+
+  const tee = teeId 
+    ? (round.course.tees.find((t: any) => t.id === teeId) || round.tee || round.course.tees[0])
+    : (round.tee || round.course.tees[0])
+  if (!tee) return { success: false, error: "Tee not found" }
+
+  const coursePar = round.course.holes.reduce((sum: number, h: any) => sum + h.par, 0)
+  const hcp = participant.compHandicap ?? participant.user?.handicap ?? 0
+  const calculatedHandicap = calculateCourseHandicap(hcp, tee, coursePar)
+
+  await prisma.manualRoundHandicap.upsert({
+    where: {
+      participantId_roundId: {
+        participantId,
+        roundId
+      }
+    },
+    update: {
+      teeId: tee.id,
+      handicapValue: calculatedHandicap
+    },
+    create: {
+      participantId,
+      roundId,
+      teeId: tee.id,
+      handicapValue: calculatedHandicap
+    }
+  })
+
+  revalidatePath(`/admin/competitions/${participant.competitionId}`)
+  revalidatePath('/')
+  return { success: true, handicapValue: calculatedHandicap, teeId: tee.id }
 }
 
 export async function recalculateRoundHandicaps(compId: string, roundId: string) {
@@ -425,23 +481,27 @@ export async function recalculateRoundHandicaps(compId: string, roundId: string)
   })
   if (!round) return { success: false, error: "Round not found" }
 
-  const tee = round.tee ||
-              round.course.tees.find((t: any) => t.name.toLowerCase().includes('yellow')) ||
-              round.course.tees.find((t: any) => t.name.toLowerCase().includes('white')) ||
-              round.course.tees[0]
+  const defaultTee = round.tee ||
+                     round.course.tees.find((t: any) => t.name.toLowerCase().includes('yellow')) ||
+                     round.course.tees.find((t: any) => t.name.toLowerCase().includes('white')) ||
+                     round.course.tees[0]
 
-  if (!tee) return { success: false, error: "Tee not found" }
+  if (!defaultTee) return { success: false, error: "Tee not found" }
 
   const coursePar = round.course.holes.reduce((sum: number, h: any) => sum + h.par, 0)
 
   const participants = await prisma.participant.findMany({
-    where: { competitionId: compId }
+    where: { competitionId: compId },
+    include: { manualRoundHandicaps: true }
   })
 
   for (const p of participants) {
     if (p.compHandicap === null || p.compHandicap === undefined) continue
 
-    const handicapValue = calculateCourseHandicap(p.compHandicap, tee, coursePar)
+    const existingRecord = p.manualRoundHandicaps.find(mr => mr.roundId === round.id)
+    const activeTee = (existingRecord?.teeId && round.course.tees.find(t => t.id === existingRecord.teeId)) || defaultTee
+
+    const handicapValue = calculateCourseHandicap(p.compHandicap, activeTee, coursePar)
 
     await prisma.manualRoundHandicap.upsert({
       where: {
@@ -450,11 +510,12 @@ export async function recalculateRoundHandicaps(compId: string, roundId: string)
           roundId: round.id
         }
       },
-      update: { handicapValue },
+      update: { handicapValue, teeId: activeTee.id },
       create: {
         participantId: p.id,
         roundId: round.id,
-        handicapValue
+        handicapValue,
+        teeId: activeTee.id
       }
     })
   }
@@ -466,7 +527,8 @@ export async function recalculateRoundHandicaps(compId: string, roundId: string)
 
 export async function recalculatePlayerHandicaps(compId: string, participantId: string) {
   const participant = await prisma.participant.findUnique({
-    where: { id: participantId }
+    where: { id: participantId },
+    include: { manualRoundHandicaps: true }
   })
   if (!participant || participant.compHandicap === null || participant.compHandicap === undefined) {
     return { success: true }
@@ -483,7 +545,9 @@ export async function recalculatePlayerHandicaps(compId: string, participantId: 
   })
 
   for (const round of rounds) {
-    const tee = round.tee ||
+    const existingRecord = participant.manualRoundHandicaps.find(mr => mr.roundId === round.id)
+    const tee = (existingRecord?.teeId && round.course.tees.find(t => t.id === existingRecord.teeId)) ||
+                round.tee ||
                 round.course.tees.find((t: any) => t.name.toLowerCase().includes('yellow')) ||
                 round.course.tees.find((t: any) => t.name.toLowerCase().includes('white')) ||
                 round.course.tees[0]
@@ -499,11 +563,12 @@ export async function recalculatePlayerHandicaps(compId: string, participantId: 
           roundId: round.id
         }
       },
-      update: { handicapValue },
+      update: { handicapValue, teeId: tee.id },
       create: {
         participantId: participantId,
         roundId: round.id,
-        handicapValue
+        handicapValue,
+        teeId: tee.id
       }
     })
   }

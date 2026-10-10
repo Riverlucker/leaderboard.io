@@ -54,6 +54,7 @@ model Tee {
   courseRating Float
   slope        Int
   rounds       Round[]
+  manualRoundHandicaps ManualRoundHandicap[]
 }
 
 model Hole {
@@ -246,6 +247,8 @@ model ManualRoundHandicap {
   roundId       String
   round         Round       @relation(fields: [roundId], references: [id], onDelete: Cascade)
   handicapValue Int
+  teeId         String?
+  tee           Tee?        @relation(fields: [teeId], references: [id], onDelete: SetNull)
   @@unique([participantId, roundId])
 }
 

@@ -1622,6 +1622,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
 
   // Build Leaderboard Entries based on selected filter
   const computeLeaderboardForParticipants = (targetParticipants: any[]) => {
+    if (!targetParticipants || targetParticipants.length === 0) return []
     const rounds = competition.rounds || []
     const activeRounds = selectedRoundFilter === 'TOTAL' 
       ? rounds 
@@ -2076,8 +2077,10 @@ export function CompetitionClientView({ competition, session, courses = [], user
 
       const isBestball = competition.type === 'TEAM_MATCHPLAY'
 
-      const teamEntries = competition.teams.map((t: any) => {
-        const teamParticipants = competition.participants.filter((p: any) => p.teamId === t.id)
+      const teamEntries = competition.teams
+        .filter((t: any) => targetParticipants.some((p: any) => p.teamId === t.id))
+        .map((t: any) => {
+          const teamParticipants = targetParticipants.filter((p: any) => p.teamId === t.id)
 
         let teamPoints = 0
         let teamStrokes = 0
@@ -3314,7 +3317,8 @@ export function CompetitionClientView({ competition, session, courses = [], user
                 )
               }
 
-              if (!selectedLeaderboardType.startsWith('TEAM_')) {
+              const isTeamLeaderboard = selectedLeaderboardType.startsWith('TEAM_') || selectedLeaderboardType === 'FOUR_BALL_TWO_BEST_BALL'
+              if (!isTeamLeaderboard) {
                 const displayedRounds = selectedRoundFilter === 'TOTAL'
                   ? competition.rounds
                   : competition.rounds.filter((r: any) => r.id === selectedRoundFilter)

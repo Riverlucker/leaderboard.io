@@ -134,6 +134,20 @@ export function TeamScorecardModal({
           </div>
         )}
 
+        {/* Legend for 4 Ball 2 Best Ball */}
+        {is4Ball2BestBall && (
+          <div className="flex items-center gap-4 text-[10px] text-slate-550 pt-0.5 pb-0.5 px-0.5 border-b border-slate-100">
+            <div className="flex items-center gap-1.5">
+              <span className="w-3.5 h-3.5 rounded bg-emerald-100/90 ring-1 ring-emerald-400/80 inline-block" />
+              <span className="font-semibold text-slate-700">Beste Wertung (Solo)</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-3.5 h-3.5 rounded bg-emerald-50/80 ring-1 ring-emerald-250/70 inline-block" />
+              <span className="font-semibold text-slate-700">Geteilte Wertung (Tie)</span>
+            </div>
+          </div>
+        )}
+
         {/* Scorecard Body */}
         <div className="flex-1 overflow-y-auto space-y-6 scrollbar-thin">
           {(() => {
@@ -228,28 +242,52 @@ export function TeamScorecardModal({
               const holeBest2 = holeNums.map((num, i) => {
                 const validList = mStats
                   .map((ms, pIdx) => ({ pIdx, ...ms.list[i] }))
-                  .filter(item => item.net !== null)
+                  .filter(item => item.net !== null && !item.isWiped)
                   .sort((a, b) => (a.net as number) - (b.net as number))
 
-                const countingPIndices = new Set<number>()
+                const primaryPIndices = new Set<number>()
+                const sharedPIndices = new Set<number>()
                 let teamHoleNet = 0
-                if (validList.length >= 2) {
-                  countingPIndices.add(validList[0].pIdx)
-                  countingPIndices.add(validList[1].pIdx)
-                  teamHoleNet = (validList[0].net as number) + (validList[1].net as number)
-                } else if (validList.length === 1) {
-                  countingPIndices.add(validList[0].pIdx)
-                  const hole = round.course.holes.find((h: any) => h.number === num)
-                  teamHoleNet = (validList[0].net as number) + ((hole?.par || 4) + 3)
-                }
 
                 const hole = round.course.holes.find((h: any) => h.number === num)
                 const holePar = hole?.par || 4
+
+                if (validList.length >= 2) {
+                  const distinctNets = Array.from(new Set(validList.map(v => v.net as number))).sort((a, b) => a - b)
+                  const bestNet = distinctNets[0]
+                  const bestPlayers = validList.filter(v => v.net === bestNet)
+
+                  if (bestPlayers.length >= 2) {
+                    // Mehrere Spieler teilen die beste Netto-Schlagzahl
+                    bestPlayers.forEach(p => sharedPIndices.add(p.pIdx))
+                    teamHoleNet = bestNet * 2
+                  } else {
+                    // Genau ein Spieler hat die beste Netto-Schlagzahl -> intensiv
+                    primaryPIndices.add(bestPlayers[0].pIdx)
+
+                    const secondBestNet = distinctNets[1]
+                    const secondBestPlayers = validList.filter(v => v.net === secondBestNet)
+
+                    if (secondBestPlayers.length === 1) {
+                      // Genau ein Spieler hat die 2. beste Netto-Schlagzahl -> intensiv
+                      primaryPIndices.add(secondBestPlayers[0].pIdx)
+                    } else if (secondBestPlayers.length > 1) {
+                      // Mehrere Spieler teilen die 2. beste Netto-Schlagzahl -> weniger intensiv
+                      secondBestPlayers.forEach(p => sharedPIndices.add(p.pIdx))
+                    }
+                    teamHoleNet = bestNet + (secondBestNet ?? (holePar + 3))
+                  }
+                } else if (validList.length === 1) {
+                  primaryPIndices.add(validList[0].pIdx)
+                  teamHoleNet = (validList[0].net as number) + (holePar + 3)
+                }
+
                 const teamHolePar = holePar * 2
                 const rel = teamHoleNet - teamHolePar
 
                 return {
-                  countingPIndices,
+                  primaryPIndices,
+                  sharedPIndices,
                   teamHoleNet,
                   teamHolePar,
                   rel,
@@ -319,20 +357,31 @@ export function TeamScorecardModal({
                               </td>
                               {holeNums.map((num, i) => {
                                 const { displayVal, isWiped, net, hcpStrokes } = ms.list[i]
-                                const isCounting = is4Ball2BestBall && holeBest2[i].countingPIndices.has(pIdx)
+                                const isPrimary = is4Ball2BestBall && holeBest2[i].primaryPIndices.has(pIdx)
+                                const isShared = is4Ball2BestBall && holeBest2[i].sharedPIndices.has(pIdx)
+
+                                let cellClasses = "text-slate-500"
+                                let grossClasses = isWiped ? "text-red-500 font-black" : ""
+                                let netClasses = "text-slate-400"
+
+                                if (isPrimary) {
+                                  cellClasses = "bg-emerald-100/90 text-emerald-950 font-black ring-1 ring-emerald-400/80 shadow-sm"
+                                  if (!isWiped) grossClasses = "text-emerald-950 font-black text-[11px]"
+                                  netClasses = "text-emerald-900 font-black"
+                                } else if (isShared) {
+                                  cellClasses = "bg-emerald-50/75 text-emerald-900 font-bold ring-1 ring-emerald-250/70"
+                                  if (!isWiped) grossClasses = "text-emerald-900 font-bold text-[10.5px]"
+                                  netClasses = "text-emerald-700 font-bold"
+                                }
 
                                 return (
                                   <td 
                                     key={num} 
-                                    className={`px-1 py-1 border-r border-slate-200/85 font-mono text-[10px] transition-all ${
-                                      isCounting 
-                                        ? 'bg-emerald-100/90 text-emerald-950 font-black ring-1 ring-emerald-400/80' 
-                                        : 'text-slate-500'
-                                    }`}
+                                    className={`px-1 py-1 border-r border-slate-200/85 font-mono text-[10px] transition-all ${cellClasses}`}
                                   >
                                     <div className="flex flex-col items-center justify-center leading-none py-0.5">
                                       <div className="flex items-center gap-0.5">
-                                        <span className={`${isWiped ? 'text-red-500 font-black' : (isCounting ? 'text-emerald-950 font-black text-[11px]' : '')}`}>
+                                        <span className={grossClasses}>
                                           {displayVal}
                                         </span>
                                         {hcpStrokes > 0 && (
@@ -342,7 +391,7 @@ export function TeamScorecardModal({
                                         )}
                                       </div>
                                       {is4Ball2BestBall && net !== null && (
-                                        <span className={`text-[8px] mt-0.5 ${isCounting ? 'text-emerald-800 font-black' : 'text-slate-400'}`}>
+                                        <span className={`text-[8px] mt-0.5 ${netClasses}`}>
                                           {net}
                                         </span>
                                       )}

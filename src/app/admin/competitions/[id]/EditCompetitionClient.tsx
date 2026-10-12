@@ -804,7 +804,8 @@ export function EditCompetitionClient({
                         { id: 'PAR_PLUS_SERIES', label: 'Par+ Streak Leaderboard', needsTeam: false, hideForModus: '' },
                         { id: 'TEAM_STROKEPLAY', label: 'Team Strokeplay', needsTeam: true, hideForModus: '' },
                         { id: 'TEAM_STABLEFORD_NETTO', label: 'Team Stableford Netto', needsTeam: true, hideForModus: '' },
-                        { id: 'TEAM_STABLEFORD_BRUTTO', label: 'Team Stableford Brutto', needsTeam: true, hideForModus: '' }
+                        { id: 'TEAM_STABLEFORD_BRUTTO', label: 'Team Stableford Brutto', needsTeam: true, hideForModus: '' },
+                        { id: 'FOUR_BALL_TWO_BEST_BALL', label: '4 Ball 2 Best Ball Netto Strokeplay', needsTeam: false, hideForModus: '' }
                       ].map(opt => {
                         const disabled = (opt.needsTeam && !isTeamComp) || (opt.hideForModus && type === opt.hideForModus)
                         const checked = selectedExtraLeaderboards.includes(opt.id)

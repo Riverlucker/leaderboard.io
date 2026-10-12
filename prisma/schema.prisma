@@ -247,6 +247,7 @@ model ManualRoundHandicap {
   roundId       String
   round         Round       @relation(fields: [roundId], references: [id], onDelete: Cascade)
   handicapValue Int
+  teamHandicapValue Int?
   teeId         String?
   tee           Tee?        @relation(fields: [teeId], references: [id], onDelete: SetNull)
   @@unique([participantId, roundId])

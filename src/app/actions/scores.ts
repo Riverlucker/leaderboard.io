@@ -424,6 +424,39 @@ export async function saveManualRoundHandicap(
   return { success: true }
 }
 
+export async function saveManualRoundTeamHandicap(
+  participantId: string,
+  roundId: string,
+  value: number | null
+) {
+  await prisma.manualRoundHandicap.upsert({
+    where: {
+      participantId_roundId: {
+        participantId,
+        roundId
+      }
+    },
+    update: {
+      teamHandicapValue: value
+    },
+    create: {
+      participantId,
+      roundId,
+      handicapValue: value ?? 0,
+      teamHandicapValue: value
+    }
+  })
+
+  const part = await prisma.participant.findUnique({
+    where: { id: participantId }
+  })
+  if (part) {
+    revalidatePath(`/admin/competitions/${part.competitionId}`)
+    revalidatePath('/')
+  }
+  return { success: true }
+}
+
 export async function savePlayerRoundTee(
   participantId: string,
   roundId: string,

@@ -33,7 +33,8 @@ import {
 import { getTeamColorConfig, TEAM_COLOR_LIST } from "@/lib/teamColors"
 
 import { 
-  saveManualRoundHandicap, 
+  saveManualRoundHandicap,
+  saveManualRoundTeamHandicap, 
   savePlayerRoundTee,
   recalculateRoundHandicaps, 
   recalculatePlayerHandicaps, 
@@ -694,6 +695,41 @@ export function CompetitionClientView({ competition, session, courses = [], user
   const [manualHandicapInputValues, setManualHandicapInputValues] = useState<Record<string, string>>({}) // key: "partId-courseId" -> string
   const [savingManualHandicap, setSavingManualHandicap] = useState<Record<string, boolean>>({})
   const [savingPlayerTee, setSavingPlayerTee] = useState<Record<string, boolean>>({})
+  const [manualTeamHandicapInputValues, setManualTeamHandicapInputValues] = useState<Record<string, string>>({})
+  const [savingManualTeamHandicap, setSavingManualTeamHandicap] = useState<Record<string, boolean>>({})
+
+  const handleManualTeamHandicapChange = (partId: string, roundId: string, val: string) => {
+    setManualTeamHandicapInputValues(prev => ({
+      ...prev,
+      [`${partId}-${roundId}`]: val
+    }))
+  }
+
+  const saveManualTeamHandicap = async (partId: string, roundId: string) => {
+    const key = `${partId}-${roundId}`
+    const val = manualTeamHandicapInputValues[key]
+    if (val === undefined) return
+
+    setSavingManualTeamHandicap(prev => ({ ...prev, [key]: true }))
+    try {
+      const parsedVal = parseInt(val)
+      if (isNaN(parsedVal)) {
+        alert("Please enter a valid integer score.")
+        return
+      }
+      await saveManualRoundTeamHandicap(partId, roundId, parsedVal)
+      setManualTeamHandicapInputValues(prev => {
+        const copy = { ...prev }
+        delete copy[key]
+        return copy
+      })
+      router.refresh()
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setSavingManualTeamHandicap(prev => ({ ...prev, [key]: false }))
+    }
+  }
 
   // Editable compHandicap state
   const [compHandicapInputValues, setCompHandicapInputValues] = useState<Record<string, string>>({})
@@ -2032,7 +2068,8 @@ export function CompetitionClientView({ competition, session, courses = [], user
     }
 
     // TEAM STANDINGS CALCULATIONS
-    if (selectedLeaderboardType.startsWith('TEAM_')) {
+    if (selectedLeaderboardType.startsWith('TEAM_') || selectedLeaderboardType === 'FOUR_BALL_TWO_BEST_BALL') {
+      const is4Ball2BestBall = selectedLeaderboardType === 'FOUR_BALL_TWO_BEST_BALL'
       const isStroke = selectedLeaderboardType === 'TEAM_STROKEPLAY'
       const isNet = selectedLeaderboardType === 'TEAM_STABLEFORD_NETTO'
       const isBrut = selectedLeaderboardType === 'TEAM_STABLEFORD_BRUTTO'
@@ -2096,7 +2133,39 @@ export function CompetitionClientView({ competition, session, courses = [], user
               rPlayedHoles++
             }
 
-            if (isBestball) {
+            if (is4Ball2BestBall) {
+              // 4 Ball 2 Best Ball Netto Strokeplay
+              // Only consider rounds 2-4 for Peninsula Challenge
+              const isPeninsulaR1 = competition.uniqueSlug === 'peninsula-challenge' && round.name?.toLowerCase().includes('sonntag')
+              if (!isPeninsulaR1) {
+                const memberNets: number[] = []
+                for (const p of teamParticipants) {
+                  const manualRec = p.manualRoundHandicaps?.find((mr: any) => mr.roundId === round.id)
+                  let phcp = manualRec?.teamHandicapValue
+                  if (phcp === null || phcp === undefined) {
+                    if (p.user?.name?.toLowerCase().includes('lee')) {
+                      phcp = 0
+                    } else {
+                      phcp = Math.round(getPlayingHandicap(p, round) * 0.85)
+                    }
+                  }
+                  const score = p.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
+                  if (score && score.status !== 'WIPED' && score.grossStrokes && score.grossStrokes > 0) {
+                    const hcpStrokes = getHandicapStrokesOnHole(phcp, holeStrokeIndex)
+                    memberNets.push(Math.max(0, score.grossStrokes - hcpStrokes))
+                  }
+                }
+                if (memberNets.length >= 2) {
+                  memberNets.sort((a, b) => a - b)
+                  const teamHoleNet = memberNets[0] + memberNets[1]
+                  rStrokes += teamHoleNet
+                  rPoints += (holePar * 2) // store 2x par in rPoints for par comparison
+                } else if (memberNets.length === 1) {
+                  rStrokes += memberNets[0] + (holePar + 3)
+                  rPoints += (holePar * 2)
+                }
+              }
+            } else if (isBestball) {
               rPoints += Math.max(...memberHoleStats.map(m => m.pts), 0)
               const activeStrokes = memberHoleStats.map(m => m.str).filter(s => s > 0)
               rStrokes += activeStrokes.length > 0 ? Math.min(...activeStrokes) : (holePar + 3)
@@ -2109,8 +2178,13 @@ export function CompetitionClientView({ competition, session, courses = [], user
           teamPoints += rPoints
           teamStrokes += rStrokes
 
-          roundPoints[round.id] = rPoints
-          roundRelToPar[round.id] = (rPlayedHoles * 2) - rPoints
+          if (is4Ball2BestBall) {
+            roundPoints[round.id] = rStrokes
+            roundRelToPar[round.id] = rStrokes - rPoints // rPoints stores 2x par
+          } else {
+            roundPoints[round.id] = rPoints
+            roundRelToPar[round.id] = (rPlayedHoles * 2) - rPoints
+          }
         }
 
         const totalRelToPar = Object.values(roundRelToPar).reduce((sum, val) => sum + val, 0)
@@ -3008,6 +3082,9 @@ export function CompetitionClientView({ competition, session, courses = [], user
                     {competition.type !== 'RYDER_CUP' && isTeamComp && selectedExtraLeaderboards.includes('TEAM_STABLEFORD_BRUTTO') && (
                       <option value="TEAM_STABLEFORD_BRUTTO">Team Stableford Brutto</option>
                     )}
+                    {competition.type !== 'RYDER_CUP' && selectedExtraLeaderboards.includes('FOUR_BALL_TWO_BEST_BALL') && (
+                      <option value="FOUR_BALL_TWO_BEST_BALL">4 Ball 2 Best Ball Netto Strokeplay</option>
+                    )}
                     {competition.type !== 'RYDER_CUP' && competition.rounds.some((r: any) => r.matches?.some((m: any) => m.type === "SINGLES")) && competition.type !== 'MATCHPLAY' && (
                       <option value="MATCHPLAY">Matchplays</option>
                     )}
@@ -3592,9 +3669,11 @@ export function CompetitionClientView({ competition, session, courses = [], user
                         <th className="px-2 py-2.5 md:px-5 md:py-4 text-center w-10 md:w-14">Rank</th>
                         <th className="px-3 py-2.5 md:px-5 md:py-4 min-w-[110px] md:min-w-[140px]">Team Name</th>
                         <th className="px-2 py-2.5 md:px-5 md:py-4 text-center w-20 md:w-28">
-                          {competition.showRelToPar && (selectedLeaderboardType === 'TEAM_STABLEFORD_NETTO' || selectedLeaderboardType === 'TEAM_STABLEFORD_BRUTTO')
-                            ? 'Score (+/-)'
-                            : (selectedLeaderboardType === 'TEAM_STROKEPLAY' ? 'Gross Strokes' : 'Total Points')
+                          {selectedLeaderboardType === 'FOUR_BALL_TWO_BEST_BALL'
+                            ? 'Score (+/- Net Par)'
+                            : (competition.showRelToPar && (selectedLeaderboardType === 'TEAM_STABLEFORD_NETTO' || selectedLeaderboardType === 'TEAM_STABLEFORD_BRUTTO')
+                              ? 'Score (+/-)'
+                              : (selectedLeaderboardType === 'TEAM_STROKEPLAY' ? 'Gross Strokes' : 'Total Points'))
                           }
                         </th>
                         <th className="px-2 py-2.5 md:px-4 md:py-4 text-center w-16 md:w-24">Played</th>
@@ -3631,9 +3710,11 @@ export function CompetitionClientView({ competition, session, courses = [], user
                               {entry.name}
                             </td>
                             <td className="px-2 py-2.5 md:px-5 md:py-4 text-center text-emerald-600 font-black text-base md:text-xl">
-                              {competition.showRelToPar && (selectedLeaderboardType === 'TEAM_STABLEFORD_NETTO' || selectedLeaderboardType === 'TEAM_STABLEFORD_BRUTTO')
+                              {selectedLeaderboardType === 'FOUR_BALL_TWO_BEST_BALL'
                                 ? (entry.relToPar === 0 ? "Even" : (entry.relToPar < 0 ? String(entry.relToPar) : `+${entry.relToPar}`))
-                                : entry.totalPoints
+                                : (competition.showRelToPar && (selectedLeaderboardType === 'TEAM_STABLEFORD_NETTO' || selectedLeaderboardType === 'TEAM_STABLEFORD_BRUTTO')
+                                  ? (entry.relToPar === 0 ? "Even" : (entry.relToPar < 0 ? String(entry.relToPar) : `+${entry.relToPar}`))
+                                  : entry.totalPoints)
                               }
                             </td>
                             <td className="px-2 py-2.5 md:px-4 md:py-4 text-center font-mono text-slate-500 text-xs md:text-sm">
@@ -4322,7 +4403,8 @@ export function CompetitionClientView({ competition, session, courses = [], user
                               { id: 'PAR_PLUS_SERIES', label: 'Par+ Streak Leaderboard', needsTeam: false, hideForModus: '' },
                               { id: 'TEAM_STROKEPLAY', label: 'Team Strokeplay', needsTeam: true, hideForModus: '' },
                               { id: 'TEAM_STABLEFORD_NETTO', label: 'Team Stableford Netto', needsTeam: true, hideForModus: '' },
-                              { id: 'TEAM_STABLEFORD_BRUTTO', label: 'Team Stableford Brutto', needsTeam: true, hideForModus: '' }
+                              { id: 'TEAM_STABLEFORD_BRUTTO', label: 'Team Stableford Brutto', needsTeam: true, hideForModus: '' },
+                              { id: 'FOUR_BALL_TWO_BEST_BALL', label: '4 Ball 2 Best Ball Netto Strokeplay', needsTeam: false, hideForModus: '' }
                             ].map(opt => {
                               const disabled = (opt.needsTeam && !isTeamComp) || (opt.hideForModus && compType === opt.hideForModus)
                               const checked = selectedExtraLeaderboards.includes(opt.id)
@@ -5117,6 +5199,44 @@ export function CompetitionClientView({ competition, session, courses = [], user
                                             </div>
                                           )}
 
+                                          {/* Team 85% Handicap input (if FOUR_BALL_TWO_BEST_BALL enabled) */}
+                                          {selectedExtraLeaderboards.includes('FOUR_BALL_TWO_BEST_BALL') && (
+                                            <div className="flex items-center justify-center gap-1 text-[9px] text-slate-500 font-semibold" title="Team Spielvorgabe (85% Handicap)">
+                                              <span className="text-[9px] text-emerald-700 font-bold">Team:</span>
+                                              {(() => {
+                                                const currentTeamValStr = manualTeamHandicapInputValues[key] !== undefined
+                                                  ? manualTeamHandicapInputValues[key]
+                                                  : (manualRecord?.teamHandicapValue !== null && manualRecord?.teamHandicapValue !== undefined
+                                                    ? String(manualRecord.teamHandicapValue)
+                                                    : (p.user?.name?.toLowerCase().includes('lee') ? "0" : String(Math.round(calculatedVal * 0.85))))
+                                                const isTeamSaving = savingManualTeamHandicap[key]
+                                                return (
+                                                  <div className="flex items-center gap-0.5">
+                                                    <input
+                                                      type="text"
+                                                      value={currentTeamValStr}
+                                                      onChange={e => handleManualTeamHandicapChange(p.id, round.id, e.target.value)}
+                                                      onKeyDown={e => {
+                                                        if (e.key === 'Enter') saveManualTeamHandicap(p.id, round.id)
+                                                      }}
+                                                      className="w-8 py-0.2 text-center text-[10px] font-black rounded border border-emerald-300 bg-emerald-50 text-emerald-800 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                                      title="Team Spielvorgabe (85% Vorgabe)"
+                                                    />
+                                                    {manualTeamHandicapInputValues[key] !== undefined && manualTeamHandicapInputValues[key] !== String(manualRecord?.teamHandicapValue ?? "") && (
+                                                      <button
+                                                        onClick={() => saveManualTeamHandicap(p.id, round.id)}
+                                                        disabled={isTeamSaving}
+                                                        className="p-0.5 bg-white hover:bg-emerald-50 border border-slate-350 text-emerald-600 rounded"
+                                                      >
+                                                        {isTeamSaving ? <Loader2 size={8} className="animate-spin" /> : <Save size={8} />}
+                                                      </button>
+                                                    )}
+                                                  </div>
+                                                )
+                                              })()}
+                                            </div>
+                                          )}
+
                                           {/* Playing Handicap input */}
                                           <div className="flex items-center justify-center gap-1">
                                             <input
@@ -5819,6 +5939,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
         <TeamScorecardModal
           selectedTeamForScorecard={selectedTeamForScorecard}
           competition={competition}
+          selectedLeaderboardType={selectedLeaderboardType}
           onClose={() => {
             setSelectedTeamForScorecard(null)
             clearScorecardUrlParams()

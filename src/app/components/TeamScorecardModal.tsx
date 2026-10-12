@@ -139,7 +139,7 @@ export function TeamScorecardModal({
           <div className="flex items-center gap-4 text-[10px] text-slate-550 pt-0.5 pb-0.5 px-0.5 border-b border-slate-100">
             <div className="flex items-center gap-1.5">
               <span className="w-3.5 h-3.5 rounded bg-emerald-100/90 ring-1 ring-emerald-400/80 inline-block" />
-              <span className="font-semibold text-slate-700">Beste Wertung (Solo)</span>
+              <span className="font-semibold text-slate-700">Gewerteter Score</span>
             </div>
             <div className="flex items-center gap-1.5">
               <span className="w-3.5 h-3.5 rounded bg-emerald-50/80 ring-1 ring-emerald-250/70 inline-block" />
@@ -257,8 +257,12 @@ export function TeamScorecardModal({
                   const bestNet = distinctNets[0]
                   const bestPlayers = validList.filter(v => v.net === bestNet)
 
-                  if (bestPlayers.length >= 2) {
-                    // Mehrere Spieler teilen die beste Netto-Schlagzahl
+                  if (bestPlayers.length === 2) {
+                    // Genau 2 Spieler teilen sich die beste Score und beide fließen komplett in die 2-Best-Ball Wertung ein -> normal intensiv
+                    bestPlayers.forEach(p => primaryPIndices.add(p.pIdx))
+                    teamHoleNet = bestNet * 2
+                  } else if (bestPlayers.length > 2) {
+                    // Mehr als 2 Spieler teilen sich die beste Score (z.B. 3 oder 4) -> unentschieden -> weniger intensiv
                     bestPlayers.forEach(p => sharedPIndices.add(p.pIdx))
                     teamHoleNet = bestNet * 2
                   } else {

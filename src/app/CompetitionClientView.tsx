@@ -2081,15 +2081,22 @@ export function CompetitionClientView({ competition, session, courses = [], user
 
         let teamPoints = 0
         let teamStrokes = 0
+        let teamPar = 0
         let holesPlayedCount = 0
         let totalHolesCount = 0
 
         const roundPoints: Record<string, number> = {}
         const roundRelToPar: Record<string, number> = {}
 
-        for (const round of activeRounds) {
+        // For Peninsula Challenge 4Ball2BestBall, exclude Round 1 (Sonntag)
+        const eligibleRounds = is4Ball2BestBall && competition.uniqueSlug === 'peninsula-challenge'
+          ? activeRounds.filter((r: any) => !r.name?.toLowerCase().includes('sonntag'))
+          : activeRounds
+
+        for (const round of eligibleRounds) {
           let rPoints = 0
           let rStrokes = 0
+          let rPar = 0
           let rPlayedHoles = 0
 
           const roundHoles = getPlayableHolesForRound(round)
@@ -2104,90 +2111,95 @@ export function CompetitionClientView({ competition, session, courses = [], user
             const holePar = adjusted ? adjusted.par : hole.par
             const holeStrokeIndex = adjusted ? adjusted.strokeIndex : hole.strokeIndex
 
-            // Calculate score for each member on this hole
-            const memberHoleStats: { pts: number; str: number }[] = teamParticipants.map((p: any) => {
-              const courseHandicap = getPlayingHandicap(p, round)
-              const score = p.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
-              let pts = 0
-              let str = 0
-              if (score && (score.grossStrokes !== null || (score.status !== null && score.status !== 'NOT_PLAYED'))) {
-                if (score.status === 'WIPED') {
-                  str = holePar + 3
-                } else if (score.grossStrokes !== null) {
-                  str = score.grossStrokes
-                  const hcpStrokes = getHandicapStrokesOnHole(courseHandicap, holeStrokeIndex)
-                  const pStableford = calculateStablefordPoints(score.grossStrokes, holePar, hcpStrokes, isNet)
-                  if (pStableford !== null) pts = pStableford
-                }
-              }
-              return { pts, str }
-            })
-
-            // A team has played a hole if at least one participant has grossStrokes or status WIPED
-            const anyPlayed = teamParticipants.some((p: any) => {
-              const score = p.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
-              return score && (score.grossStrokes !== null || score.status === 'WIPED')
-            })
-            if (anyPlayed) {
-              holesPlayedCount++
-              rPlayedHoles++
-            }
-
             if (is4Ball2BestBall) {
-              // 4 Ball 2 Best Ball Netto Strokeplay
-              // Only consider rounds 2-4 for Peninsula Challenge
-              const isPeninsulaR1 = competition.uniqueSlug === 'peninsula-challenge' && round.name?.toLowerCase().includes('sonntag')
-              if (!isPeninsulaR1) {
-                const memberNets: number[] = []
-                for (const p of teamParticipants) {
-                  const manualRec = p.manualRoundHandicaps?.find((mr: any) => mr.roundId === round.id)
-                  let phcp = manualRec?.teamHandicapValue
-                  if (phcp === null || phcp === undefined) {
-                    if (p.user?.name?.toLowerCase().includes('lee')) {
-                      phcp = 0
-                    } else {
-                      phcp = Math.round(getPlayingHandicap(p, round) * 0.85)
-                    }
-                  }
-                  const score = p.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
-                  if (score && score.status !== 'WIPED' && score.grossStrokes && score.grossStrokes > 0) {
-                    const hcpStrokes = getHandicapStrokesOnHole(phcp, holeStrokeIndex)
-                    memberNets.push(Math.max(0, score.grossStrokes - hcpStrokes))
+              const memberNets: number[] = []
+              for (const p of teamParticipants) {
+                const manualRec = p.manualRoundHandicaps?.find((mr: any) => mr.roundId === round.id)
+                let phcp = manualRec?.teamHandicapValue
+                if (phcp === null || phcp === undefined) {
+                  if (p.user?.name?.toLowerCase().includes('lee')) {
+                    phcp = 0
+                  } else {
+                    phcp = Math.round(getPlayingHandicap(p, round) * 0.85)
                   }
                 }
-                if (memberNets.length >= 2) {
-                  memberNets.sort((a, b) => a - b)
-                  const teamHoleNet = memberNets[0] + memberNets[1]
-                  rStrokes += teamHoleNet
-                  rPoints += (holePar * 2) // store 2x par in rPoints for par comparison
-                } else if (memberNets.length === 1) {
-                  rStrokes += memberNets[0] + (holePar + 3)
-                  rPoints += (holePar * 2)
+                const score = p.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
+                if (score && score.status !== 'WIPED' && score.grossStrokes && score.grossStrokes > 0) {
+                  const hcpStrokes = getHandicapStrokesOnHole(phcp, holeStrokeIndex)
+                  memberNets.push(Math.max(0, score.grossStrokes - hcpStrokes))
                 }
               }
-            } else if (isBestball) {
-              rPoints += Math.max(...memberHoleStats.map(m => m.pts), 0)
-              const activeStrokes = memberHoleStats.map(m => m.str).filter(s => s > 0)
-              rStrokes += activeStrokes.length > 0 ? Math.min(...activeStrokes) : (holePar + 3)
+              if (memberNets.length >= 2) {
+                memberNets.sort((a, b) => a - b)
+                const teamHoleNet = memberNets[0] + memberNets[1]
+                rStrokes += teamHoleNet
+                rPar += (holePar * 2)
+                rPlayedHoles++
+                holesPlayedCount++
+              } else if (memberNets.length === 1) {
+                rStrokes += memberNets[0] + (holePar + 3)
+                rPar += (holePar * 2)
+                rPlayedHoles++
+                holesPlayedCount++
+              }
             } else {
-              rPoints += memberHoleStats.reduce((sum, m) => sum + m.pts, 0)
-              rStrokes += memberHoleStats.reduce((sum, m) => sum + m.str, 0)
+              // Calculate score for each member on this hole
+              const memberHoleStats: { pts: number; str: number }[] = teamParticipants.map((p: any) => {
+                const courseHandicap = getPlayingHandicap(p, round)
+                const score = p.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
+                let pts = 0
+                let str = 0
+                if (score && (score.grossStrokes !== null || (score.status !== null && score.status !== 'NOT_PLAYED'))) {
+                  if (score.status === 'WIPED') {
+                    str = holePar + 3
+                  } else if (score.grossStrokes !== null) {
+                    str = score.grossStrokes
+                    const hcpStrokes = getHandicapStrokesOnHole(courseHandicap, holeStrokeIndex)
+                    const pStableford = calculateStablefordPoints(score.grossStrokes, holePar, hcpStrokes, isNet)
+                    if (pStableford !== null) pts = pStableford
+                  }
+                }
+                return { pts, str }
+              })
+
+              const anyPlayed = teamParticipants.some((p: any) => {
+                const score = p.scores.find((s: any) => s.roundId === round.id && s.holeId === hole.id)
+                return score && (score.grossStrokes !== null || score.status === 'WIPED')
+              })
+              if (anyPlayed) {
+                holesPlayedCount++
+                rPlayedHoles++
+              }
+
+              if (isBestball) {
+                rPoints += Math.max(...memberHoleStats.map(m => m.pts), 0)
+                const activeStrokes = memberHoleStats.map(m => m.str).filter(s => s > 0)
+                rStrokes += activeStrokes.length > 0 ? Math.min(...activeStrokes) : (holePar + 3)
+              } else {
+                rPoints += memberHoleStats.reduce((sum, m) => sum + m.pts, 0)
+                rStrokes += memberHoleStats.reduce((sum, m) => sum + m.str, 0)
+              }
             }
           }
 
-          teamPoints += rPoints
-          teamStrokes += rStrokes
-
-          if (is4Ball2BestBall) {
-            roundPoints[round.id] = rStrokes
-            roundRelToPar[round.id] = rStrokes - rPoints // rPoints stores 2x par
-          } else {
-            roundPoints[round.id] = rPoints
-            roundRelToPar[round.id] = (rPlayedHoles * 2) - rPoints
+          if (rPlayedHoles > 0) {
+            if (is4Ball2BestBall) {
+              roundPoints[round.id] = rStrokes
+              roundRelToPar[round.id] = rStrokes - rPar
+              teamStrokes += rStrokes
+              teamPar += rPar
+            } else {
+              teamPoints += rPoints
+              teamStrokes += rStrokes
+              roundPoints[round.id] = rPoints
+              roundRelToPar[round.id] = (rPlayedHoles * 2) - rPoints
+            }
           }
         }
 
-        const totalRelToPar = Object.values(roundRelToPar).reduce((sum, val) => sum + val, 0)
+        const totalRelToPar = is4Ball2BestBall
+          ? (holesPlayedCount > 0 ? (teamStrokes - teamPar) : 0)
+          : Object.values(roundRelToPar).reduce((sum, val) => sum + val, 0)
 
         const memberNames = teamParticipants
           .map((p: any) => p.userId ? (p.user?.name || p.user?.email) : p.dummyName)
@@ -2198,7 +2210,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
           team: t,
           name: t.name,
           memberNames,
-          totalPoints: isStroke ? teamStrokes : teamPoints,
+          totalPoints: is4Ball2BestBall ? totalRelToPar : (isStroke ? teamStrokes : teamPoints),
           totalStrokes: teamStrokes,
           holesPlayed: holesPlayedCount,
           totalHoles: totalHolesCount,
@@ -2210,7 +2222,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
 
       // Sort
       let sorted = []
-      if (isStroke) {
+      if (isStroke || is4Ball2BestBall) {
         sorted = [...teamEntries].sort((a, b) => a.totalPoints - b.totalPoints)
       } else {
         sorted = [...teamEntries].sort((a, b) => b.totalPoints - a.totalPoints)
@@ -3005,8 +3017,10 @@ export function CompetitionClientView({ competition, session, courses = [], user
                         <option value="DAY_3">📅 Tag 3 (T-Golf Calvia)</option>
                       </>
                     )}
-                    {competition.rounds.map((round: any) => (
-                      <option key={round.id} value={round.id}>{round.name}</option>
+                    {competition.rounds
+                      .filter((r: any) => !(selectedLeaderboardType === 'FOUR_BALL_TWO_BEST_BALL' && competition.uniqueSlug === 'peninsula-challenge' && r.name?.toLowerCase().includes('sonntag')))
+                      .map((round: any) => (
+                        <option key={round.id} value={round.id}>{round.name}</option>
                     ))}
                   </select>
                 </div>
@@ -3657,9 +3671,13 @@ export function CompetitionClientView({ competition, session, courses = [], user
               )
             }
 
-            const displayedRounds = selectedRoundFilter === 'TOTAL' 
+            const is4Ball = selectedLeaderboardType === 'FOUR_BALL_TWO_BEST_BALL'
+            const isEligibleTeamRound = (r: any) => !(is4Ball && competition.uniqueSlug === 'peninsula-challenge' && r.name?.toLowerCase().includes('sonntag'))
+
+            const displayedRounds = (selectedRoundFilter === 'TOTAL' 
               ? (competition.rounds || []) 
               : (competition.rounds || []).filter((r: any) => r.id === selectedRoundFilter)
+            ).filter(isEligibleTeamRound)
 
             return (
                 <div className="bg-white/35 backdrop-blur-sm border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
@@ -3740,6 +3758,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
                                   <button
                                     onClick={() => {
                                       setSelectedTeamForScorecard(entry.team)
+                                      setSelectedRoundIdForScorecard(round.id)
                                     }}
                                     className="px-2 py-0.5 md:px-2.5 md:py-1 text-xs font-extrabold bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-250 text-slate-700 hover:text-emerald-600 rounded-md transition-all font-mono shadow-sm"
                                     title={`View Round ${round.name} Team Scorecard`}
@@ -5938,10 +5957,12 @@ export function CompetitionClientView({ competition, session, courses = [], user
       {selectedTeamForScorecard && (
         <TeamScorecardModal
           selectedTeamForScorecard={selectedTeamForScorecard}
+          selectedRoundIdForScorecard={selectedRoundIdForScorecard}
           competition={competition}
           selectedLeaderboardType={selectedLeaderboardType}
           onClose={() => {
             setSelectedTeamForScorecard(null)
+            setSelectedRoundIdForScorecard(null)
             clearScorecardUrlParams()
           }}
           onShare={handleShareTeamScorecard}

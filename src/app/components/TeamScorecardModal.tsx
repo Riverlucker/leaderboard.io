@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react"
 import { X, Share2, CheckCircle, RefreshCw } from "lucide-react"
 import { getHandicapStrokesOnHole, calculateStablefordPoints, getRoundHoleInfo } from "@/lib/scoring"
 import { getPlayingHandicap, getCompactName } from "../CompetitionClientView"
@@ -49,6 +49,12 @@ export function TeamScorecardModal({
     : (eligibleRounds[0]?.id || competition.rounds[0]?.id)
 
   const [activeRoundId, setActiveRoundId] = useState<string>(initialRoundId)
+
+  useEffect(() => {
+    if (selectedRoundIdForScorecard && eligibleRounds.some((r: any) => r.id === selectedRoundIdForScorecard)) {
+      setActiveRoundId(selectedRoundIdForScorecard)
+    }
+  }, [selectedRoundIdForScorecard])
 
   const activeRound = competition.rounds.find((r: any) => r.id === activeRoundId) || eligibleRounds[0] || competition.rounds[0]
 

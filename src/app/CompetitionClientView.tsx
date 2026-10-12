@@ -3692,7 +3692,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
                         <th className="px-3 py-2.5 md:px-5 md:py-4 min-w-[110px] md:min-w-[140px]">Team Name</th>
                         <th className="px-2 py-2.5 md:px-5 md:py-4 text-center w-20 md:w-28">
                           {selectedLeaderboardType === 'FOUR_BALL_TWO_BEST_BALL'
-                            ? 'Score (+/- Net Par)'
+                            ? 'Netto Shots'
                             : (competition.showRelToPar && (selectedLeaderboardType === 'TEAM_STABLEFORD_NETTO' || selectedLeaderboardType === 'TEAM_STABLEFORD_BRUTTO')
                               ? 'Score (+/-)'
                               : (selectedLeaderboardType === 'TEAM_STROKEPLAY' ? 'Gross Strokes' : 'Total Points'))
@@ -3716,8 +3716,13 @@ export function CompetitionClientView({ competition, session, courses = [], user
                     </thead>
                     <tbody className="divide-y divide-slate-100 bg-white/15 text-slate-700">
                       {leaderboardList.map((entry) => {
+                        const is4Ball = selectedLeaderboardType === 'FOUR_BALL_TWO_BEST_BALL'
                         const totalHolesForFilter = selectedRoundFilter === 'TOTAL'
-                          ? totalCompHoles
+                          ? (is4Ball
+                              ? competition.rounds
+                                  .filter((r: any) => !(competition.uniqueSlug === 'peninsula-challenge' && r.name?.toLowerCase().includes('sonntag')))
+                                  .reduce((sum: number, r: any) => sum + getPlayableHolesForRound(r).length, 0)
+                              : totalCompHoles)
                           : (() => {
                               const r = competition.rounds.find((r: any) => r.id === selectedRoundFilter)
                               return r ? getPlayableHolesForRound(r).length : 18
@@ -3733,7 +3738,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
                             </td>
                             <td className="px-2 py-2.5 md:px-5 md:py-4 text-center text-emerald-600 font-black text-base md:text-xl">
                               {selectedLeaderboardType === 'FOUR_BALL_TWO_BEST_BALL'
-                                ? (entry.relToPar === 0 ? "Even" : (entry.relToPar < 0 ? String(entry.relToPar) : `+${entry.relToPar}`))
+                                ? (entry.relToPar === 0 ? "Even" : (entry.relToPar > 0 ? `+${entry.relToPar}` : String(entry.relToPar)))
                                 : (competition.showRelToPar && (selectedLeaderboardType === 'TEAM_STABLEFORD_NETTO' || selectedLeaderboardType === 'TEAM_STABLEFORD_BRUTTO')
                                   ? (entry.relToPar === 0 ? "Even" : (entry.relToPar < 0 ? String(entry.relToPar) : `+${entry.relToPar}`))
                                   : entry.totalPoints)
@@ -3745,13 +3750,14 @@ export function CompetitionClientView({ competition, session, courses = [], user
 
                             {displayedRounds.map((round: any) => {
                               const pts = entry.roundPoints[round.id]
-                              const showRel = competition.showRelToPar && (selectedLeaderboardType === 'TEAM_STABLEFORD_NETTO' || selectedLeaderboardType === 'TEAM_STABLEFORD_BRUTTO')
+                              const is4Ball = selectedLeaderboardType === 'FOUR_BALL_TWO_BEST_BALL'
+                              const showRel = is4Ball || (competition.showRelToPar && (selectedLeaderboardType === 'TEAM_STABLEFORD_NETTO' || selectedLeaderboardType === 'TEAM_STABLEFORD_BRUTTO'))
                               
                               let displayVal = "-"
                               if (pts !== undefined) {
                                 if (showRel) {
                                   const rel = entry.roundRelToPar?.[round.id] ?? 0
-                                  displayVal = rel === 0 ? "Even" : (rel < 0 ? String(rel) : `+${rel}`)
+                                  displayVal = rel === 0 ? "Even" : (rel > 0 ? `+${rel}` : String(rel))
                                 } else {
                                   displayVal = String(pts)
                                 }

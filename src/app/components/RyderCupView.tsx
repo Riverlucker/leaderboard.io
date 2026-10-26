@@ -9,6 +9,7 @@ import {
 } from "lucide-react"
 import { MatchplayScorecardModal } from "./MatchplayScorecardModal"
 import { PlayerProfileModal } from "./PlayerProfileModal"
+import { ContextMenu, ContextMenuOption } from "./ContextMenu"
 import { 
   getPlayingHandicap, 
   getMatchAllowance, 
@@ -49,6 +50,81 @@ export function RyderCupView({ competition, session }: RyderCupViewProps) {
 
   // Player Profile modal state
   const [profileModalPlayer, setProfileModalPlayer] = useState<any>(null)
+
+  // Context menu state
+  const [contextMenuState, setContextMenuState] = useState<{
+    x: number
+    y: number
+    options: ContextMenuOption[]
+  } | null>(null)
+
+  const handleMatchplayContextMenu = (e: React.MouseEvent, match: any) => {
+    e.preventDefault()
+    e.stopPropagation()
+
+    const options: ContextMenuOption[] = []
+    const addedIds = new Set<string>()
+
+    if (match.matchPlayers && match.matchPlayers.length > 0) {
+      match.matchPlayers.forEach((mp: any) => {
+        const part = competition.participants.find((p: any) => p.id === mp.participantId)
+        if (part && !addedIds.has(part.id)) {
+          addedIds.add(part.id)
+          const name = part.userId ? (part.user?.name || part.user?.email) : part.dummyName
+          if (name) {
+            options.push({
+              label: `Show player profile (${name})`,
+              onClick: () => {
+                setProfileModalPlayer({
+                  userId: part.userId,
+                  dummyName: part.dummyName,
+                  name,
+                  stars: competition.hasBadges ? part.stars : undefined,
+                  competitionId: competition.id
+                })
+              }
+            })
+          }
+        }
+      })
+    }
+
+    if (options.length > 0) {
+      setContextMenuState({
+        x: e.clientX,
+        y: e.clientY,
+        options
+      })
+    }
+  }
+
+  const handleSinglePlayerContextMenu = (e: React.MouseEvent, participant: any) => {
+    if (!participant) return
+    e.preventDefault()
+    e.stopPropagation()
+
+    const name = participant.userId ? (participant.user?.name || participant.user?.email) : participant.dummyName
+    if (!name) return
+
+    setContextMenuState({
+      x: e.clientX,
+      y: e.clientY,
+      options: [
+        {
+          label: `Show player profile (${name})`,
+          onClick: () => {
+            setProfileModalPlayer({
+              userId: participant.userId,
+              dummyName: participant.dummyName,
+              name,
+              stars: competition.hasBadges ? participant.stars : undefined,
+              competitionId: competition.id
+            })
+          }
+        }
+      ]
+    })
+  }
 
   const handleRefresh = () => {
     setManualRefreshing(true)
@@ -845,6 +921,7 @@ export function RyderCupView({ competition, session }: RyderCupViewProps) {
                             setSelectedMatchForScorecard(match)
                             setSelectedMatchRoundForScorecard(round)
                           }}
+                          onContextMenu={(e) => handleMatchplayContextMenu(e, match)}
                           className="flex items-stretch min-h-[50px] sm:min-h-[56px] hover:bg-stone-50 transition-colors cursor-pointer select-none group"
                         >
                           {/* Col 1: Left Score / Lead (Diamond) */}
@@ -1003,7 +1080,11 @@ export function RyderCupView({ competition, session }: RyderCupViewProps) {
                     const isDiamond = item.teamId === diamondTeam.id
                     const name = item.participant.userId ? item.participant.user?.name : item.participant.dummyName || "Spieler"
                     return (
-                      <tr key={item.participant.id} className="hover:bg-slate-800/30 transition-colors">
+                      <tr 
+                        key={item.participant.id} 
+                        onContextMenu={(e) => handleSinglePlayerContextMenu(e, item.participant)}
+                        className="hover:bg-slate-800/30 transition-colors cursor-pointer"
+                      >
                         <td className="py-3 px-3 font-mono font-bold text-slate-400">
                           {idx === 0 ? "🥇 1" : idx === 1 ? "🥈 2" : idx === 2 ? "🥉 3" : `${idx + 1}`}
                         </td>
@@ -1082,7 +1163,11 @@ export function RyderCupView({ competition, session }: RyderCupViewProps) {
                     const isZero = item.points === 0
 
                     return (
-                      <tr key={item.participant.id} className="hover:bg-slate-800/30 transition-colors">
+                      <tr 
+                        key={item.participant.id} 
+                        onContextMenu={(e) => handleSinglePlayerContextMenu(e, item.participant)}
+                        className="hover:bg-slate-800/30 transition-colors cursor-pointer"
+                      >
                         <td className="py-3 px-3 font-mono font-bold text-slate-400">
                           {isDonutKing ? "🍩👑 1" : isZero ? `🍩 ${idx + 1}` : `${idx + 1}`}
                         </td>
@@ -1169,6 +1254,16 @@ export function RyderCupView({ competition, session }: RyderCupViewProps) {
         <PlayerProfileModal
           player={profileModalPlayer}
           onClose={() => setProfileModalPlayer(null)}
+        />
+      )}
+
+      {/* Context Menu */}
+      {contextMenuState && (
+        <ContextMenu
+          x={contextMenuState.x}
+          y={contextMenuState.y}
+          options={contextMenuState.options}
+          onClose={() => setContextMenuState(null)}
         />
       )}
     </div>

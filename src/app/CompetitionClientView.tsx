@@ -573,32 +573,38 @@ export function CompetitionClientView({ competition, session, courses = [], user
   }
 
   const handleMatchplayContextMenu = (e: React.MouseEvent, match: any) => {
-    if (!match || !match.matchPlayers || match.matchPlayers.length === 0) return
     e.preventDefault()
     e.stopPropagation()
 
     const options: ContextMenuOption[] = []
+    const addedIds = new Set<string>()
 
-    match.matchPlayers.forEach((mp: any) => {
-      const part = competition.participants.find((p: any) => p.id === mp.participantId)
-      if (part) {
-        const name = part.userId ? (part.user?.name || part.user?.email) : part.dummyName
-        if (name) {
-          options.push({
-            label: `Show player profile (${name})`,
-            onClick: () => {
-              setHistoryModalPlayer({
-                userId: part.userId,
-                dummyName: part.dummyName,
-                name,
-                stars: competition.hasBadges ? part.stars : undefined,
-                competitionId: competition.id
-              })
-            }
-          })
-        }
+    const addPart = (part: any) => {
+      if (!part || addedIds.has(String(part.id))) return
+      addedIds.add(String(part.id))
+      const name = part.userId ? (part.user?.name || part.user?.email) : part.dummyName
+      if (name) {
+        options.push({
+          label: `Show player profile (${name})`,
+          onClick: () => {
+            setHistoryModalPlayer({
+              userId: part.userId,
+              dummyName: part.dummyName,
+              name,
+              stars: competition.hasBadges ? part.stars : undefined,
+              competitionId: competition.id
+            })
+          }
+        })
       }
-    })
+    }
+
+    if (match.matchPlayers && match.matchPlayers.length > 0) {
+      match.matchPlayers.forEach((mp: any) => {
+        const part = competition.participants.find((p: any) => String(p.id) === String(mp.participantId))
+        if (part) addPart(part)
+      })
+    }
 
     if (options.length > 0) {
       setContextMenuState({
@@ -3166,11 +3172,34 @@ export function CompetitionClientView({ competition, session, courses = [], user
             {(() => {
               // For Ryder Cup competitions:
               if (competition.type === 'RYDER_CUP') {
+                const handleSelectPlayerProfile = (p: any) => {
+                  const name = p.userId ? (p.user?.name || p.user?.email) : p.dummyName
+                  setHistoryModalPlayer({
+                    userId: p.userId,
+                    dummyName: p.dummyName,
+                    name: name || "Spieler",
+                    stars: competition.hasBadges ? p.stars : undefined,
+                    competitionId: competition.id
+                  })
+                }
+
                 if (selectedLeaderboardType === 'MVP') {
-                  return <RyderCupMvpStandings competition={competition} />
+                  return (
+                    <RyderCupMvpStandings 
+                      competition={competition} 
+                      onContextMenuPlayer={(e, p) => handleSinglePlayerContextMenu(e, p)}
+                      onSelectPlayer={handleSelectPlayerProfile}
+                    />
+                  )
                 }
                 if (selectedLeaderboardType === 'DONUTS') {
-                  return <RyderCupDonutStandings competition={competition} />
+                  return (
+                    <RyderCupDonutStandings 
+                      competition={competition} 
+                      onContextMenuPlayer={(e, p) => handleSinglePlayerContextMenu(e, p)}
+                      onSelectPlayer={handleSelectPlayerProfile}
+                    />
+                  )
                 }
                 return (
                   <RyderCupMainStandings
@@ -3180,6 +3209,8 @@ export function CompetitionClientView({ competition, session, courses = [], user
                       setSelectedMatchForScorecard(m)
                       setSelectedMatchRoundForScorecard(r)
                     }}
+                    onContextMenuMatch={(e, m) => handleMatchplayContextMenu(e, m)}
+                    onSelectPlayer={handleSelectPlayerProfile}
                   />
                 )
               }

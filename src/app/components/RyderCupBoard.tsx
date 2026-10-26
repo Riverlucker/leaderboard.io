@@ -530,11 +530,15 @@ export function getMatchTeeTime(match: any, round: any, mIdx: number): string {
 export function RyderCupMainStandings({
   competition,
   selectedRoundFilter,
-  onSelectMatch
+  onSelectMatch,
+  onContextMenuMatch,
+  onSelectPlayer
 }: {
   competition: any
   selectedRoundFilter: string
   onSelectMatch: (match: any, round: any) => void
+  onContextMenuMatch?: (e: React.MouseEvent, match: any) => void
+  onSelectPlayer?: (participant: any) => void
 }) {
   const { diamondTeam, heartsTeam } = calculateRyderCupPoints(competition)
   const rounds = competition.rounds || []
@@ -654,10 +658,11 @@ export function RyderCupMainStandings({
                   <div
                     key={match.id}
                     onClick={isRoundAnon ? undefined : () => onSelectMatch(match, round)}
+                    onContextMenu={isRoundAnon ? undefined : (e) => onContextMenuMatch?.(e, match)}
                     className={`flex items-stretch min-h-[50px] sm:min-h-[56px] hover:bg-stone-50 transition-colors select-none group ${
                       isRoundAnon ? "cursor-default" : "cursor-pointer"
                     }`}
-                    title={isRoundAnon ? "Paarungen werden noch bekanntgegeben" : "Scorecard anzeigen"}
+                    title={isRoundAnon ? "Paarungen werden noch bekanntgegeben" : "Scorecard anzeigen (Rechtsklick für Spielerprofile)"}
                   >
                     {/* Col 1: Left Standing (Diamond) */}
                     <div className="w-14 sm:w-20 shrink-0 flex items-center justify-center font-black text-xs sm:text-base">
@@ -678,13 +683,28 @@ export function RyderCupMainStandings({
                     <div className={`flex-1 px-2 sm:px-4 py-2 flex flex-col justify-center items-end text-right min-w-0 transition-colors ${
                       diamondLead ? "bg-[#3765e9] text-white" : "bg-white text-slate-900"
                     }`}>
-                      {t1Names.map((name: string, i: number) => (
-                        <div key={i} className={`truncate uppercase font-black text-xs sm:text-sm tracking-tight leading-snug ${
-                          diamondLead ? "text-white" : "text-slate-900"
-                        }`}>
-                          {name}
-                        </div>
-                      ))}
+                      {t1Names.map((name: string, i: number) => {
+                        const p = status.team1Players[i]
+                        return (
+                          <div 
+                            key={i} 
+                            onClick={(e) => {
+                              if (!isRoundAnon && onSelectPlayer && p) {
+                                e.stopPropagation()
+                                onSelectPlayer(p)
+                              }
+                            }}
+                            className={`truncate uppercase font-black text-xs sm:text-sm tracking-tight leading-snug ${
+                              !isRoundAnon ? "hover:underline cursor-pointer" : ""
+                            } ${
+                              diamondLead ? "text-white" : "text-slate-900"
+                            }`}
+                            title={!isRoundAnon ? `Profil von ${name} anzeigen` : undefined}
+                          >
+                            {name}
+                          </div>
+                        )
+                      })}
                     </div>
 
                     {/* Col 3: Center Status Box (Clean TV Style) */}
@@ -706,13 +726,28 @@ export function RyderCupMainStandings({
                     <div className={`flex-1 px-2 sm:px-4 py-2 flex flex-col justify-center items-start text-left min-w-0 transition-colors ${
                       heartsLead ? "bg-[#cb3838] text-white" : "bg-white text-slate-900"
                     }`}>
-                      {t2Names.map((name: string, i: number) => (
-                        <div key={i} className={`truncate uppercase font-black text-xs sm:text-sm tracking-tight leading-snug ${
-                          heartsLead ? "text-white" : "text-slate-900"
-                        }`}>
-                          {name}
-                        </div>
-                      ))}
+                      {t2Names.map((name: string, i: number) => {
+                        const p = status.team2Players[i]
+                        return (
+                          <div 
+                            key={i} 
+                            onClick={(e) => {
+                              if (!isRoundAnon && onSelectPlayer && p) {
+                                e.stopPropagation()
+                                onSelectPlayer(p)
+                              }
+                            }}
+                            className={`truncate uppercase font-black text-xs sm:text-sm tracking-tight leading-snug ${
+                              !isRoundAnon ? "hover:underline cursor-pointer" : ""
+                            } ${
+                              heartsLead ? "text-white" : "text-slate-900"
+                            }`}
+                            title={!isRoundAnon ? `Profil von ${name} anzeigen` : undefined}
+                          >
+                            {name}
+                          </div>
+                        )
+                      })}
                     </div>
 
                     {/* Col 5: Right Standing (Hearts) */}
@@ -741,7 +776,15 @@ export function RyderCupMainStandings({
 }
 
 // 3. MVP STANDINGS (Ranked by most team points)
-export function RyderCupMvpStandings({ competition }: { competition: any }) {
+export function RyderCupMvpStandings({ 
+  competition,
+  onContextMenuPlayer,
+  onSelectPlayer
+}: { 
+  competition: any
+  onContextMenuPlayer?: (e: React.MouseEvent, participant: any) => void
+  onSelectPlayer?: (participant: any) => void
+}) {
   const { diamondTeam, sortedMvp } = calculateRyderCupPoints(competition)
 
   return (
@@ -773,11 +816,19 @@ export function RyderCupMvpStandings({ competition }: { competition: any }) {
               const isDiamond = item.teamId === diamondTeam.id
               const name = item.participant.userId ? item.participant.user?.name : item.participant.dummyName || "Spieler"
               return (
-                <tr key={item.participant.id} className="hover:bg-slate-50 transition-colors">
+                <tr 
+                  key={item.participant.id} 
+                  onContextMenu={(e) => onContextMenuPlayer?.(e, item.participant)}
+                  className="hover:bg-slate-50 transition-colors"
+                >
                   <td className="py-3 px-3 font-mono font-bold text-slate-500">
                     {idx === 0 ? "🥇 1" : idx === 1 ? "🥈 2" : idx === 2 ? "🥉 3" : `${idx + 1}`}
                   </td>
-                  <td className="py-3 px-4 text-slate-900 font-bold">
+                  <td 
+                    onClick={() => onSelectPlayer?.(item.participant)}
+                    className="py-3 px-4 text-slate-900 font-bold hover:text-emerald-700 cursor-pointer transition-colors"
+                    title="Show player profile"
+                  >
                     {name}
                     <span className="text-[10px] text-slate-400 ml-1.5 font-mono">({item.participant.compHandicap})</span>
                   </td>
@@ -806,7 +857,15 @@ export function RyderCupMvpStandings({ competition }: { competition: any }) {
 }
 
 // 4. DONUT STANDINGS (Ranked by FEWEST team points - opposite of MVP)
-export function RyderCupDonutStandings({ competition }: { competition: any }) {
+export function RyderCupDonutStandings({ 
+  competition,
+  onContextMenuPlayer,
+  onSelectPlayer
+}: { 
+  competition: any
+  onContextMenuPlayer?: (e: React.MouseEvent, participant: any) => void
+  onSelectPlayer?: (participant: any) => void
+}) {
   const { diamondTeam, sortedDonuts } = calculateRyderCupPoints(competition)
 
   return (
@@ -844,11 +903,19 @@ export function RyderCupDonutStandings({ competition }: { competition: any }) {
               const isZero = item.points === 0
 
               return (
-                <tr key={item.participant.id} className="hover:bg-slate-50 transition-colors">
+                <tr 
+                  key={item.participant.id} 
+                  onContextMenu={(e) => onContextMenuPlayer?.(e, item.participant)}
+                  className="hover:bg-slate-50 transition-colors"
+                >
                   <td className="py-3 px-3 font-mono font-bold text-slate-500">
                     {isDonutKing ? "🍩👑 1" : isZero ? `🍩 ${idx + 1}` : `${idx + 1}`}
                   </td>
-                  <td className="py-3 px-4 text-slate-900 font-bold">
+                  <td 
+                    onClick={() => onSelectPlayer?.(item.participant)}
+                    className="py-3 px-4 text-slate-900 font-bold hover:text-pink-700 cursor-pointer transition-colors"
+                    title="Show player profile"
+                  >
                     {name}
                     <span className="text-[10px] text-slate-400 ml-1.5 font-mono">({item.participant.compHandicap})</span>
                   </td>

@@ -3448,17 +3448,32 @@ export function CompetitionClientView({ competition, session, courses = [], user
                             : {}
 
                           return (
-                            <tr key={entry.participantId} style={rowStyle} className="hover:bg-slate-50/50 transition-colors">
+                            <tr 
+                              key={entry.participantId} 
+                              style={rowStyle} 
+                              onContextMenu={(e) => handleSinglePlayerContextMenu(e, entry.participant)}
+                              className="hover:bg-slate-50/50 transition-colors"
+                            >
                               <td className="px-2 py-2.5 md:px-5 md:py-4 text-center font-extrabold font-mono text-slate-700">
                                 {entry.rank}
                               </td>
                               <td
                                 className="px-3 py-2.5 md:px-5 md:py-4 cursor-pointer hover:bg-emerald-50/40 rounded transition-colors"
-                                onContextMenu={(e) => handleSinglePlayerContextMenu(e, entry.participant)}
+                                onClick={() => {
+                                  const name = entry.participant?.userId ? (entry.participant?.user?.name || entry.participant?.user?.email) : entry.participant?.dummyName
+                                  setHistoryModalPlayer({
+                                    userId: entry.participant?.userId,
+                                    dummyName: entry.participant?.dummyName,
+                                    name: name || entry.name,
+                                    stars: competition.hasBadges ? entry.participant?.stars : undefined,
+                                    competitionId: competition.id
+                                  })
+                                }}
+                                title="Show player profile"
                               >
                                 <div 
                                   style={isTeamComp && highlightTeam && team ? { color: `hsl(${getTeamHue(team, competition.teams)}, 75%, 25%)` } : {}}
-                                  className="font-extrabold text-slate-900 text-sm md:text-base leading-tight"
+                                  className="font-extrabold text-slate-900 text-sm md:text-base leading-tight hover:underline"
                                 >
                                   {entry.name}
                                 </div>
@@ -3631,15 +3646,25 @@ export function CompetitionClientView({ competition, session, courses = [], user
                               const totalHolesForFilter = getParticipantTotalHoles(entry.participant)
 
                               return (
-                                <tr key={entry.participantId} className="hover:bg-purple-50/40 transition-colors">
+                                <tr key={entry.participantId} onContextMenu={(e) => handleSinglePlayerContextMenu(e, entry.participant)} className="hover:bg-purple-50/40 transition-colors">
                                   <td className="px-2 py-2.5 md:px-5 md:py-4 text-center font-extrabold font-mono text-purple-700">
                                     {entry.rank}
                                   </td>
                                   <td
                                     className="px-3 py-2.5 md:px-5 md:py-4 cursor-pointer hover:bg-purple-100/50 rounded transition-colors"
-                                    onContextMenu={(e) => handleSinglePlayerContextMenu(e, entry.participant)}
+                                    onClick={() => {
+                                      const name = entry.participant?.userId ? (entry.participant?.user?.name || entry.participant?.user?.email) : entry.participant?.dummyName
+                                      setHistoryModalPlayer({
+                                        userId: entry.participant?.userId,
+                                        dummyName: entry.participant?.dummyName,
+                                        name: name || entry.name,
+                                        stars: competition.hasBadges ? entry.participant?.stars : undefined,
+                                        competitionId: competition.id
+                                      })
+                                    }}
+                                    title="Show player profile"
                                   >
-                                    <div className="font-extrabold text-slate-900 text-sm md:text-base leading-tight">
+                                    <div className="font-extrabold text-slate-900 text-sm md:text-base leading-tight hover:underline">
                                       {entry.name}
                                     </div>
                                   </td>

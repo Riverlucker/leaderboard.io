@@ -6,11 +6,13 @@ import { useRouter } from "next/navigation"
 import { signIn, signOut } from "next-auth/react"
 import { 
   Trophy, Home, LogOut, Key, Share2, BookOpen, Settings, Edit, 
-  CheckCircle, CheckCircle2, Edit3, Award, Calendar, Clock, Lock, EyeOff, RefreshCw
+  CheckCircle, CheckCircle2, Edit3, Award, Calendar, Clock, Lock, EyeOff, RefreshCw, User
 } from "lucide-react"
 import { WintercupScoreModal } from "./WintercupScoreModal"
 import { WintercupScheduleModal } from "./WintercupScheduleModal"
 import { WintercupAdminView } from "./WintercupAdminView"
+import { ContextMenu, ContextMenuOption } from "./ContextMenu"
+import { PlayerProfileModal } from "./PlayerProfileModal"
 import { getClConfig, isRoundPairingsAnonymized, getQualificationStructure } from "@/lib/clFormat"
 
 interface WintercupViewProps {
@@ -113,6 +115,100 @@ export function WintercupView({ competition, session }: WintercupViewProps) {
 
   const participants = competition.participants || []
   const rounds = competition.rounds || []
+
+  // Player Profile Modal state
+  const [profileModalPlayer, setProfileModalPlayer] = useState<any>(null)
+
+  // Context menu state
+  const [contextMenuState, setContextMenuState] = useState<{
+    x: number
+    y: number
+    options: ContextMenuOption[]
+  } | null>(null)
+
+  const handleSinglePlayerContextMenu = (e: React.MouseEvent, participant: any) => {
+    if (!participant) return
+    e.preventDefault()
+    e.stopPropagation()
+
+    const name = participant.userId ? (participant.user?.name || participant.user?.email) : participant.dummyName
+    if (!name) return
+
+    setContextMenuState({
+      x: e.clientX,
+      y: e.clientY,
+      options: [
+        {
+          label: `Show player profile (${name})`,
+          onClick: () => {
+            setProfileModalPlayer({
+              userId: participant.userId,
+              dummyName: participant.dummyName,
+              name,
+              stars: competition.hasBadges ? participant.stars : undefined,
+              competitionId: competition.id
+            })
+          }
+        }
+      ]
+    })
+  }
+
+  const handleMatchContextMenu = (e: React.MouseEvent, match: any) => {
+    e.preventDefault()
+    e.stopPropagation()
+
+    const options: ContextMenuOption[] = []
+    const addedIds = new Set<string>()
+
+    const addPart = (part: any) => {
+      if (!part || addedIds.has(String(part.id))) return
+      addedIds.add(String(part.id))
+      const name = part.userId ? (part.user?.name || part.user?.email) : part.dummyName
+      if (name) {
+        options.push({
+          label: `Show player profile (${name})`,
+          onClick: () => {
+            setProfileModalPlayer({
+              userId: part.userId,
+              dummyName: part.dummyName,
+              name,
+              stars: competition.hasBadges ? part.stars : undefined,
+              competitionId: competition.id
+            })
+          }
+        })
+      }
+    }
+
+    if (match.matchPlayers && match.matchPlayers.length > 0) {
+      match.matchPlayers.forEach((mp: any) => {
+        const part = participants.find((p: any) => String(p.id) === String(mp.participantId))
+        if (part) addPart(part)
+      })
+    }
+
+    if (options.length > 0) {
+      setContextMenuState({
+        x: e.clientX,
+        y: e.clientY,
+        options
+      })
+    }
+  }
+
+  const handleOpenPlayerProfile = (participant: any) => {
+    if (!participant) return
+    const name = participant.userId ? (participant.user?.name || participant.user?.email) : participant.dummyName
+    if (!name) return
+    setProfileModalPlayer({
+      userId: participant.userId,
+      dummyName: participant.dummyName,
+      name,
+      stars: competition.hasBadges ? participant.stars : undefined,
+      competitionId: competition.id
+    })
+  }
 
   const vorrundeRounds = rounds
     .filter((r: any) => r.name.startsWith("Vorrunde"))
@@ -562,6 +658,25 @@ export function WintercupView({ competition, session }: WintercupViewProps) {
         </div>
 
         <div className="flex items-center space-x-1.5 md:space-x-2.5">
+          {session?.user && (
+            <button
+              onClick={() => {
+                const myPart = participants.find((p: any) => p.userId === session.user.id)
+                setProfileModalPlayer({
+                  userId: session.user.id,
+                  name: session.user.name || session.user.email || "Mein Profil",
+                  stars: competition.hasBadges ? myPart?.stars : undefined,
+                  competitionId: competition.id
+                })
+              }}
+              className="px-2 py-1 md:px-3 md:py-1.5 bg-slate-50 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 rounded-lg border border-slate-200 transition-colors shadow-sm text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer"
+              title="Mein Spielerprofil anzeigen & bearbeiten"
+            >
+              <User size={14} className="text-emerald-600" />
+              <span className="hidden sm:inline">{session.user.name || session.user.email}</span>
+            </button>
+          )}
+
           <button 
             onClick={() => {
               if (typeof window !== "undefined") {
@@ -779,6 +894,7 @@ export function WintercupView({ competition, session }: WintercupViewProps) {
                           return (
                             <div 
                               key={match.id}
+                              onContextMenu={(e) => !isAnonymized && handleMatchContextMenu(e, match)}
                               className="bg-white/60 backdrop-blur-sm border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3 hover:border-emerald-400 hover:shadow-md transition-all"
                             >
                               {/* Card Header & Status Badge */}
@@ -820,7 +936,12 @@ export function WintercupView({ competition, session }: WintercupViewProps) {
                                   return (
                                     <div 
                                       key={p.id}
-                                      className="bg-white border border-slate-200 rounded-xl p-2.5 flex justify-between items-center shadow-xs"
+                                      onContextMenu={(e) => !isAnonymized && handleSinglePlayerContextMenu(e, p)}
+                                      onClick={() => !isAnonymized && handleOpenPlayerProfile(p)}
+                                      className={`bg-white border border-slate-200 rounded-xl p-2.5 flex justify-between items-center shadow-xs ${
+                                        !isAnonymized ? "cursor-pointer hover:border-emerald-400 hover:bg-emerald-50/20 transition-all" : ""
+                                      }`}
+                                      title={!isAnonymized ? `Profil von ${pName} anzeigen` : undefined}
                                     >
                                       <div className="flex items-center space-x-2">
                                         <span className="font-extrabold text-sm text-slate-900">{pName}</span>
@@ -1106,6 +1227,7 @@ export function WintercupView({ competition, session }: WintercupViewProps) {
                         return (
                           <div 
                             key={match.id}
+                            onContextMenu={(e) => !isAnonymized && handleMatchContextMenu(e, match)}
                             className="bg-white/60 backdrop-blur-sm border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3 hover:border-emerald-400 hover:shadow-md transition-all"
                           >
                             {/* Card Header & Status Badge */}
@@ -1147,7 +1269,12 @@ export function WintercupView({ competition, session }: WintercupViewProps) {
                                 return (
                                   <div 
                                     key={p.id}
-                                    className="bg-white border border-slate-200 rounded-xl p-2.5 flex justify-between items-center shadow-xs"
+                                    onContextMenu={(e) => !isAnonymized && handleSinglePlayerContextMenu(e, p)}
+                                    onClick={() => !isAnonymized && handleOpenPlayerProfile(p)}
+                                    className={`bg-white border border-slate-200 rounded-xl p-2.5 flex justify-between items-center shadow-xs ${
+                                      !isAnonymized ? "cursor-pointer hover:border-emerald-400 hover:bg-emerald-50/20 transition-all" : ""
+                                    }`}
+                                    title={!isAnonymized ? `Profil von ${pName} anzeigen` : undefined}
                                   >
                                     <div className="flex items-center space-x-2">
                                       <span className="font-extrabold text-sm text-slate-900">{pName}</span>
@@ -1743,7 +1870,8 @@ export function WintercupView({ competition, session }: WintercupViewProps) {
                           return (
                             <tr 
                               key={row.participant.id}
-                              className={`hover:bg-slate-50 transition-colors ${
+                              onContextMenu={(e) => handleSinglePlayerContextMenu(e, row.participant)}
+                              className={`hover:bg-slate-50 transition-colors cursor-pointer ${
                                 isDirectPlayoff 
                                   ? "bg-emerald-50/40 border-l-4 border-l-emerald-500" 
                                   : isPlayIn 
@@ -1755,7 +1883,11 @@ export function WintercupView({ competition, session }: WintercupViewProps) {
                                 {row.rankDisplay}
                               </td>
 
-                              <td className="py-3.5 px-4 font-extrabold text-slate-900">
+                              <td 
+                                onClick={() => handleOpenPlayerProfile(row.participant)}
+                                className="py-3.5 px-4 font-extrabold text-slate-900 hover:text-emerald-700 cursor-pointer transition-colors"
+                                title="Show player profile"
+                              >
                                 {row.name}
                               </td>
 
@@ -1863,6 +1995,24 @@ export function WintercupView({ competition, session }: WintercupViewProps) {
           session={session}
           onClose={() => setActiveScheduleMatch(null)}
           onSuccess={() => router.refresh()}
+        />
+      )}
+
+      {/* PLAYER PROFILE MODAL */}
+      {profileModalPlayer && (
+        <PlayerProfileModal
+          player={profileModalPlayer}
+          onClose={() => setProfileModalPlayer(null)}
+        />
+      )}
+
+      {/* CONTEXT MENU */}
+      {contextMenuState && (
+        <ContextMenu
+          x={contextMenuState.x}
+          y={contextMenuState.y}
+          options={contextMenuState.options}
+          onClose={() => setContextMenuState(null)}
         />
       )}
     </div>

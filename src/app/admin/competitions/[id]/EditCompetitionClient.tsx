@@ -6,16 +6,20 @@ import Link from "next/link"
 import { 
   ArrowLeft, Save, Plus, Trash2, Calendar, 
   Settings, Layers, Users, Users2, ShieldAlert, Trophy,
-  Edit2, Check, X
+  Edit2, Check, X, Star, Clock, Award
 } from "lucide-react"
 import { 
   updateCompetitionGeneral, 
   addRound, deleteRound, updateRoundHoles,
   addTeam, deleteTeam, updateTeamColor,
-  addParticipant, deleteParticipant, 
+  addParticipant, deleteParticipant, updateParticipantStars,
   addMatch, deleteMatch, updateMatchAllowance, updateMatchPlayUntilEnd, updateMatchHoleRange,
   updateMatchPlayerAllowance
 } from "../actions"
+import { 
+  getPendingHandicapRequestsForCompetition, 
+  reviewHandicapRequest 
+} from "@/app/actions/playerProfile"
 import { WintercupAdminView } from "@/app/components/WintercupAdminView"
 import { TEAM_COLOR_LIST, getTeamColorConfig } from "@/lib/teamColors"
 import { getPlayingHandicap, getMatchAllowance, getPlayerCalculatedAllowance, parseHoleRangeString, getHoleRangeString } from "@/app/CompetitionClientView"
@@ -57,7 +61,7 @@ export function EditCompetitionClient({
   users: any[]
 }) {
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState<'settings' | 'rounds' | 'teams' | 'participants' | 'pairings'>('settings')
+  const [activeTab, setActiveTab] = useState<'settings' | 'rounds' | 'teams' | 'participants' | 'pairings' | 'handicap_requests'>('settings')
 
   // Get unique courses played in this competition's rounds
   const uniqueCoursesMap = new Map<string, any>()
@@ -74,6 +78,7 @@ export function EditCompetitionClient({
   const [type, setType] = useState(competition.type)
   const [isTeamComp, setIsTeamComp] = useState(competition.isTeamComp)
   const [showRelToPar, setShowRelToPar] = useState(competition.showRelToPar || false)
+  const [hasBadges, setHasBadges] = useState(competition.hasBadges || false)
   const [selectedExtraLeaderboards, setSelectedExtraLeaderboards] = useState<string[]>(competition.extraLeaderboards || [])
   const [startDate, setStartDate] = useState(formatDateInput(competition.startDate))
   const [endDate, setEndDate] = useState(formatDateInput(competition.endDate))
@@ -82,6 +87,21 @@ export function EditCompetitionClient({
   const [generalError, setGeneralError] = useState("")
   const [generalSuccess, setGeneralSuccess] = useState(false)
   const [isSavingGeneral, setIsSavingGeneral] = useState(false)
+
+  // Pending Handicap Requests state
+  const [pendingHcpRequests, setPendingHcpRequests] = useState<any[]>([])
+  const [hcpActionSuccess, setHcpActionSuccess] = useState<string | null>(null)
+
+  const loadPendingHcpRequests = async () => {
+    const res = await getPendingHandicapRequestsForCompetition(competition.id)
+    if (res.success && res.data) {
+      setPendingHcpRequests(res.data)
+    }
+  }
+
+  useEffect(() => {
+    loadPendingHcpRequests()
+  }, [competition.id])
 
   // Add Round Form state
   const [roundName, setRoundName] = useState("")
@@ -113,6 +133,7 @@ export function EditCompetitionClient({
   const [partDummyName, setPartDummyName] = useState("")
   const [partHandicap, setPartHandicap] = useState("")
   const [partTeamId, setPartTeamId] = useState("")
+  const [partStars, setPartStars] = useState("0")
   const [partError, setPartError] = useState("")
   const [isAddingParticipant, setIsAddingParticipant] = useState(false)
 
@@ -159,6 +180,7 @@ export function EditCompetitionClient({
         type,
         isTeamComp,
         showRelToPar,
+        hasBadges,
         startDate: startDate || null,
         endDate: endDate || null,
         cssConfig: cssConfig || null,
@@ -365,13 +387,15 @@ export function EditCompetitionClient({
         userId: participantMode === 'registered' ? partUserId : null,
         dummyName: participantMode === 'dummy' ? partDummyName : null,
         compHandicap: hcVal,
-        teamId: partTeamId || null
+        teamId: partTeamId || null,
+        stars: parseInt(partStars, 10) || 0
       })
 
       setPartUserId("")
       setPartDummyName("")
       setPartHandicap("")
       setPartTeamId("")
+      setPartStars("0")
       router.refresh()
     } catch (err: any) {
       setPartError(err.message || "Failed to add participant.")
@@ -608,6 +632,23 @@ export function EditCompetitionClient({
         >
           <Calendar size={16} />
           <span>Pairings & Matches</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('handicap_requests')}
+          className={`flex items-center space-x-2 px-6 py-3 border-b-2 text-sm font-medium transition-all ${
+            activeTab === 'handicap_requests' 
+              ? 'border-emerald-500 text-emerald-400 bg-slate-900/30' 
+              : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-800'
+          }`}
+        >
+          <Award size={16} />
+          <span>Handicap-Anträge</span>
+          {pendingHcpRequests.length > 0 && (
+            <span className="bg-amber-500 text-slate-950 text-[10px] font-black px-1.5 py-0.2 rounded-full">
+              {pendingHcpRequests.length}
+            </span>
+          )}
         </button>
 
         {(competition.type === 'WINTERCUP' || competition.type === 'CL_FORMAT') && (
@@ -857,6 +898,19 @@ export function EditCompetitionClient({
                       />
                       <label htmlFor="showRelToParGeneral" className="text-sm text-slate-300 select-none cursor-pointer">
                         Show leaderboard +/- relative to par
+                      </label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="hasBadgesGeneral"
+                        checked={hasBadges}
+                        onChange={e => setHasBadges(e.target.checked)}
+                        className="w-4 h-4 text-emerald-500 border-slate-700 rounded bg-slate-950 focus:ring-emerald-500"
+                      />
+                      <label htmlFor="hasBadgesGeneral" className="text-sm text-slate-300 select-none cursor-pointer flex items-center gap-1.5">
+                        <Star size={14} className="text-amber-400" />
+                        <span>Abzeichen / Sterne für Spieler aktivieren (0-5 Sterne)</span>
                       </label>
                     </div>
                   </div>
@@ -1322,6 +1376,11 @@ export function EditCompetitionClient({
                             {course.name.replace("Diamond - ", "")} HCP
                           </th>
                         ))}
+                        {(competition.hasBadges || hasBadges) && (
+                          <th className="px-4 py-3 text-center text-xs font-semibold text-amber-400 uppercase tracking-wider">
+                            Abzeichen
+                          </th>
+                        )}
                         {isTeamComp && <th className="px-4 py-3">Team</th>}
                         <th className="px-4 py-3 text-right">Actions</th>
                       </tr>
@@ -1361,6 +1420,26 @@ export function EditCompetitionClient({
                               </td>
                             )
                           })}
+                          {(competition.hasBadges || hasBadges) && (
+                            <td className="px-4 py-3.5 text-center">
+                              <select
+                                value={p.stars ?? 0}
+                                onChange={async (e) => {
+                                  const val = parseInt(e.target.value, 10) || 0
+                                  await updateParticipantStars(p.id, competition.id, val)
+                                  router.refresh()
+                                }}
+                                className="bg-slate-950 border border-slate-700 text-amber-400 font-bold text-xs rounded px-2 py-1 focus:ring-1 focus:ring-amber-400 cursor-pointer"
+                              >
+                                <option value={0}>0 ★</option>
+                                <option value={1}>⭐ 1 Stern</option>
+                                <option value={2}>⭐⭐ 2 Sterne</option>
+                                <option value={3}>⭐⭐⭐ 3 Sterne</option>
+                                <option value={4}>⭐⭐⭐⭐ 4 Sterne</option>
+                                <option value={5}>⭐⭐⭐⭐⭐ 5 Sterne</option>
+                              </select>
+                            </td>
+                          )}
                           {isTeamComp && (
                             <td className="px-4 py-3.5">
                               {p.team ? (
@@ -1492,6 +1571,24 @@ export function EditCompetitionClient({
                       {competition.teams.map((t: any) => (
                         <option key={t.id} value={t.id}>{t.name}</option>
                       ))}
+                    </select>
+                  </div>
+                )}
+
+                {(competition.hasBadges || hasBadges) && (
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-400 mb-1">Abzeichen (Sterne)</label>
+                    <select
+                      value={partStars}
+                      onChange={e => setPartStars(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-sm text-amber-400 font-bold"
+                    >
+                      <option value="0">0 Sterne</option>
+                      <option value="1">⭐ 1 Stern</option>
+                      <option value="2">⭐⭐ 2 Sterne</option>
+                      <option value="3">⭐⭐⭐ 3 Sterne</option>
+                      <option value="4">⭐⭐⭐⭐ 4 Sterne</option>
+                      <option value="5">⭐⭐⭐⭐⭐ 5 Sterne</option>
                     </select>
                   </div>
                 )}
@@ -1922,6 +2019,128 @@ export function EditCompetitionClient({
                 </button>
               </form>
             </div>
+          </div>
+        )}
+
+        {/* Tab 6: Handicap Requests */}
+        {activeTab === 'handicap_requests' && (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <div>
+                <h3 className="text-lg font-bold text-slate-100 flex items-center gap-2">
+                  <Award size={20} className="text-emerald-400" />
+                  <span>Handicap-Änderungsanträge</span>
+                  {pendingHcpRequests.length > 0 && (
+                    <span className="text-xs bg-amber-500 text-slate-950 font-black px-2 py-0.5 rounded-full">
+                      {pendingHcpRequests.length} offen
+                    </span>
+                  )}
+                </h3>
+                <p className="text-xs text-slate-400 mt-1">
+                  Hier erscheinen Anträge von Spielern auf Handicap-Änderungen. Eine genehmigte Änderung passt das Stamm-Handicap des Spielers sowie zukünftige Spielvorgaben an — vergangene Runden und Ergebnisse bleiben unberührt.
+                </p>
+              </div>
+            </div>
+
+            {hcpActionSuccess && (
+              <div className="bg-emerald-950/60 border border-emerald-800 text-emerald-300 px-4 py-3 rounded-lg text-sm flex items-center gap-2">
+                <Check size={16} />
+                <span>{hcpActionSuccess}</span>
+              </div>
+            )}
+
+            {pendingHcpRequests.length === 0 ? (
+              <div className="bg-slate-900 border border-slate-800 rounded-xl p-12 text-center text-slate-500 space-y-2">
+                <Check size={32} className="mx-auto text-emerald-500 opacity-60" />
+                <p className="font-bold text-slate-300">Keine offenen Handicap-Anträge</p>
+                <p className="text-xs">Alle Anträge wurden bearbeitet.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {pendingHcpRequests.map(req => (
+                  <div key={req.id} className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm space-y-4">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 rounded-full bg-slate-800 overflow-hidden flex items-center justify-center border border-slate-700 text-slate-300 font-bold">
+                          {req.userImage ? (
+                            <img src={req.userImage} alt={req.userName} className="w-full h-full object-cover" />
+                          ) : (
+                            req.userName.charAt(0)
+                          )}
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-slate-100">{req.userName}</h4>
+                          <p className="text-xs text-slate-400">{req.userEmail || "Keine E-Mail"}</p>
+                        </div>
+                      </div>
+                      <span className="text-[10px] text-slate-500 font-mono">
+                        {new Date(req.createdAt).toLocaleDateString()}
+                      </span>
+                    </div>
+
+                    <div className="bg-slate-950 p-3 rounded-lg border border-slate-850 flex items-center justify-between text-xs">
+                      <div>
+                        <span className="text-slate-400 block text-[10px] uppercase font-bold">Aktuelles HCP</span>
+                        <span className="font-mono font-bold text-slate-300">
+                          {req.currentHandicap !== null && req.currentHandicap !== undefined ? req.currentHandicap.toFixed(1) : "–"}
+                        </span>
+                      </div>
+                      <div className="text-slate-500 font-black">➔</div>
+                      <div>
+                        <span className="text-emerald-400 block text-[10px] uppercase font-bold">Beantragtes HCP</span>
+                        <span className="font-mono font-black text-emerald-400 text-sm">
+                          {req.requestedHandicap.toFixed(1)}
+                        </span>
+                      </div>
+                    </div>
+
+                    {req.reason && (
+                      <div className="text-xs text-slate-300 bg-slate-850/50 p-2.5 rounded-lg border border-slate-800 italic">
+                        "{req.reason}"
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-end space-x-2 pt-2 border-t border-slate-800/80">
+                      <button
+                        onClick={async () => {
+                          const res = await reviewHandicapRequest({
+                            requestId: req.id,
+                            action: 'REJECT'
+                          })
+                          if (res.success) {
+                            setHcpActionSuccess("Antrag abgelehnt.")
+                            setTimeout(() => setHcpActionSuccess(null), 3000)
+                            loadPendingHcpRequests()
+                            router.refresh()
+                          }
+                        }}
+                        className="px-3 py-1.5 bg-slate-800 hover:bg-red-950/60 text-slate-300 hover:text-red-300 border border-slate-700 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+                      >
+                        Ablehnen
+                      </button>
+                      <button
+                        onClick={async () => {
+                          const res = await reviewHandicapRequest({
+                            requestId: req.id,
+                            action: 'APPROVE',
+                            applyToFutureCompetitions: true
+                          })
+                          if (res.success) {
+                            setHcpActionSuccess("Handicap erfolgreich aktualisiert!")
+                            setTimeout(() => setHcpActionSuccess(null), 3000)
+                            loadPendingHcpRequests()
+                            router.refresh()
+                          }
+                        }}
+                        className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition-colors shadow-sm cursor-pointer"
+                      >
+                        Genehmigen
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

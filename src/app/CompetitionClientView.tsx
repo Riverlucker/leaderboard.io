@@ -4,7 +4,7 @@ import { TeamScorecardModal } from "./components/TeamScorecardModal"
 import { MatchplayScorecardModal } from "./components/MatchplayScorecardModal"
 import { PlayerScorecardModal } from "./components/PlayerScorecardModal"
 import { ContextMenu, ContextMenuOption } from "./components/ContextMenu"
-import { PlayerHistoryModal } from "./components/PlayerHistoryModal"
+import { PlayerProfileModal } from "./components/PlayerProfileModal"
 import { 
   RyderCupHeroBanner, 
   RyderCupMainStandings, 
@@ -20,7 +20,7 @@ import {
   Trophy, BookOpen, Key, LogOut, CheckCircle, 
   Settings, ChevronRight, Users, Play, Edit, 
   HelpCircle, Eye, RefreshCw, X, Loader2, Save, Trash2, ShieldAlert, Home, Plus, Share2,
-  Calendar, FileText
+  Calendar, FileText, User
 } from "lucide-react"
 
 import { 
@@ -543,6 +543,8 @@ export function CompetitionClientView({ competition, session, courses = [], user
     userId?: string | null
     dummyName?: string | null
     name: string
+    stars?: number | null
+    competitionId?: string | null
   } | null>(null)
 
   const handleSinglePlayerContextMenu = (e: React.MouseEvent, participant: any) => {
@@ -555,12 +557,14 @@ export function CompetitionClientView({ competition, session, courses = [], user
       y: e.clientY,
       options: [
         {
-          label: `View last rounds ${name || ""}`.trim(),
+          label: "Show player profile",
           onClick: () => {
             setHistoryModalPlayer({
               userId: participant.userId,
               dummyName: participant.dummyName,
-              name: name || "Player"
+              name: name || "Player",
+              stars: competition.hasBadges ? participant.stars : undefined,
+              competitionId: competition.id
             })
           }
         }
@@ -581,12 +585,14 @@ export function CompetitionClientView({ competition, session, courses = [], user
         const name = part.userId ? (part.user?.name || part.user?.email) : part.dummyName
         if (name) {
           options.push({
-            label: `View last rounds ${name}`,
+            label: `Show player profile (${name})`,
             onClick: () => {
               setHistoryModalPlayer({
                 userId: part.userId,
                 dummyName: part.dummyName,
-                name
+                name,
+                stars: competition.hasBadges ? part.stars : undefined,
+                competitionId: competition.id
               })
             }
           })
@@ -2876,9 +2882,24 @@ export function CompetitionClientView({ competition, session, courses = [], user
             {/* User Session / Login / Logout */}
             {session ? (
               <div className="flex items-center space-x-1.5 md:space-x-2">
-                <span className="text-xs text-slate-600 font-bold hidden md:inline landscape:hidden">
-                  {session.user.name || session.user.email}
-                </span>
+                <button
+                  onClick={() => {
+                    const myPart = competition.participants?.find((p: any) => p.userId === session.user.id)
+                    setHistoryModalPlayer({
+                      userId: session.user.id,
+                      name: session.user.name || session.user.email || "Mein Profil",
+                      stars: competition.hasBadges ? myPart?.stars : undefined,
+                      competitionId: competition.id
+                    })
+                  }}
+                  className="flex items-center space-x-1.5 px-2.5 py-1.5 bg-slate-50 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 rounded-lg border border-slate-200 transition-colors shadow-2xs cursor-pointer"
+                  title="Mein Spielerprofil anzeigen & bearbeiten"
+                >
+                  <User size={14} className="text-emerald-600 shrink-0" />
+                  <span className="text-xs font-bold hidden md:inline landscape:hidden">
+                    {session.user.name || session.user.email}
+                  </span>
+                </button>
                 <button 
                   onClick={() => signOut({ callbackUrl: `/?comp=${competition.uniqueSlug}` })}
                   className="p-1.5 md:p-2 bg-slate-50 hover:bg-red-50 text-slate-500 hover:text-red-600 rounded-lg border border-slate-200 transition-colors shadow-sm cursor-pointer"
@@ -5992,9 +6013,9 @@ export function CompetitionClientView({ competition, session, courses = [], user
         />
       )}
 
-      {/* Player History Overview Modal */}
+      {/* Player Profile / History Modal */}
       {historyModalPlayer && (
-        <PlayerHistoryModal
+        <PlayerProfileModal
           player={historyModalPlayer}
           onClose={() => setHistoryModalPlayer(null)}
           onOpenScorecard={(round, participant, comp) => {

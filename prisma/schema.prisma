@@ -30,6 +30,7 @@ model User {
   participants  Participant[]
   accounts      Account[]
   sessions      Session[]
+  handicapRequests HandicapRequest[]
 }
 
 model Course {
@@ -76,6 +77,8 @@ model Competition {
   type           String    // e.g., "STROKEPLAY_GROSS", "NETTO_STABLEFORD", "MATCHPLAY"
   isTeamComp     Boolean   @default(false)
   showRelToPar   Boolean   @default(false)
+  hasBadges      Boolean   @default(false)
+  badgeType      String?   @default("STARS")
   
   startDate      DateTime?
   endDate        DateTime?
@@ -89,6 +92,7 @@ model Competition {
   auditLogs      AuditLog[]
   extraLeaderboards String[]
   shortTrackLimit   Int?
+  handicapRequests HandicapRequest[]
 }
 
 model Team {
@@ -115,6 +119,7 @@ model Participant {
   compHandicap  Float?  
   dummyName     String? 
   isOutOfCompetition Boolean @default(false)
+  stars         Int?    @default(0)
   
   scores        Score[]
   matchPlayers  MatchPlayer[]
@@ -251,5 +256,21 @@ model ManualRoundHandicap {
   teeId         String?
   tee           Tee?        @relation(fields: [teeId], references: [id], onDelete: SetNull)
   @@unique([participantId, roundId])
+}
+
+model HandicapRequest {
+  id                String       @id @default(cuid())
+  userId            String
+  user              User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  requestedHandicap Float
+  currentHandicap   Float?
+  reason            String?
+  status            String       @default("PENDING") // PENDING, APPROVED, REJECTED
+  competitionId     String?
+  competition       Competition? @relation(fields: [competitionId], references: [id], onDelete: SetNull)
+  adminNote         String?
+  reviewedBy        String?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
 }
 

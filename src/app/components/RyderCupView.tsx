@@ -5,9 +5,10 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { 
   Trophy, Share2, CheckCircle, RefreshCw, Calendar, 
-  MapPin, Clock, Shield, Sparkles, ChevronRight, Award
+  MapPin, Clock, Shield, Sparkles, ChevronRight, Award, User
 } from "lucide-react"
 import { MatchplayScorecardModal } from "./MatchplayScorecardModal"
+import { PlayerProfileModal } from "./PlayerProfileModal"
 import { 
   getPlayingHandicap, 
   getMatchAllowance, 
@@ -45,6 +46,9 @@ export function RyderCupView({ competition, session }: RyderCupViewProps) {
   // Scorecard modal state
   const [selectedMatchForScorecard, setSelectedMatchForScorecard] = useState<any>(null)
   const [selectedMatchRoundForScorecard, setSelectedMatchRoundForScorecard] = useState<any>(null)
+
+  // Player Profile modal state
+  const [profileModalPlayer, setProfileModalPlayer] = useState<any>(null)
 
   const handleRefresh = () => {
     setManualRefreshing(true)
@@ -532,6 +536,24 @@ export function RyderCupView({ competition, session }: RyderCupViewProps) {
               <RefreshCw size={15} className={isRefreshing ? "animate-spin text-amber-400" : ""} />
             </button>
             {session?.user && (
+              <button
+                onClick={() => {
+                  const myPart = competition.participants?.find((p: any) => p.userId === session.user.id)
+                  setProfileModalPlayer({
+                    userId: session.user.id,
+                    name: session.user.name || session.user.email || "Mein Profil",
+                    stars: competition.hasBadges ? myPart?.stars : undefined,
+                    competitionId: competition.id
+                  })
+                }}
+                className="p-2 sm:px-3 sm:py-2 bg-slate-800/80 hover:bg-slate-700 text-slate-200 rounded-xl border border-slate-700/60 transition-all shadow-sm text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                title="Mein Spielerprofil anzeigen & bearbeiten"
+              >
+                <User size={14} className="text-emerald-400" />
+                <span className="hidden sm:inline">{session.user.name || session.user.email}</span>
+              </button>
+            )}
+            {session?.user && (
               <Link
                 href={`/admin/competitions/${competition.id}`}
                 className="p-2.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 rounded-xl border border-amber-500/40 transition-all shadow-sm text-xs font-bold"
@@ -842,16 +864,35 @@ export function RyderCupView({ competition, session }: RyderCupViewProps) {
 
                           {/* Col 2: Diamond Players */}
                           <div className="flex-1 px-2 sm:px-4 py-2 flex flex-col justify-center items-end text-right min-w-0">
-                            {t1Names.map((name: string, i: number) => (
-                              <div key={i} className="truncate uppercase font-extrabold text-slate-900 group-hover:text-blue-700 transition-colors text-xs sm:text-sm tracking-tight leading-snug">
-                                {name}
-                                {status.team1Allowance[i] > 0 && (
-                                  <span className="ml-1 text-[10px] font-mono text-blue-600 font-bold">
-                                    (+{status.team1Allowance[i]})
-                                  </span>
-                                )}
-                              </div>
-                            ))}
+                            {t1Names.map((name: string, i: number) => {
+                              const p = status.team1Players[i]
+                              return (
+                                <div 
+                                  key={i} 
+                                  onClick={(e) => {
+                                    if (p) {
+                                      e.stopPropagation()
+                                      setProfileModalPlayer({
+                                        userId: p.userId,
+                                        dummyName: p.dummyName,
+                                        name,
+                                        stars: competition.hasBadges ? p.stars : undefined,
+                                        competitionId: competition.id
+                                      })
+                                    }
+                                  }}
+                                  className="truncate uppercase font-extrabold text-slate-900 group-hover:text-blue-700 hover:underline transition-colors text-xs sm:text-sm tracking-tight leading-snug cursor-pointer"
+                                  title="Show player profile"
+                                >
+                                  {name}
+                                  {status.team1Allowance[i] > 0 && (
+                                    <span className="ml-1 text-[10px] font-mono text-blue-600 font-bold">
+                                      (+{status.team1Allowance[i]})
+                                    </span>
+                                  )}
+                                </div>
+                              )
+                            })}
                           </div>
 
                           {/* Col 3: Center Status Box (Gold #f0cb46) */}
@@ -875,16 +916,35 @@ export function RyderCupView({ competition, session }: RyderCupViewProps) {
 
                           {/* Col 4: Hearts Players */}
                           <div className="flex-1 px-2 sm:px-4 py-2 flex flex-col justify-center items-start text-left min-w-0">
-                            {t2Names.map((name: string, i: number) => (
-                              <div key={i} className="truncate uppercase font-extrabold text-slate-900 group-hover:text-red-700 transition-colors text-xs sm:text-sm tracking-tight leading-snug">
-                                {name}
-                                {status.team2Allowance[i] > 0 && (
-                                  <span className="ml-1 text-[10px] font-mono text-red-600 font-bold">
-                                    (+{status.team2Allowance[i]})
-                                  </span>
-                                )}
-                              </div>
-                            ))}
+                            {t2Names.map((name: string, i: number) => {
+                              const p = status.team2Players[i]
+                              return (
+                                <div 
+                                  key={i} 
+                                  onClick={(e) => {
+                                    if (p) {
+                                      e.stopPropagation()
+                                      setProfileModalPlayer({
+                                        userId: p.userId,
+                                        dummyName: p.dummyName,
+                                        name,
+                                        stars: competition.hasBadges ? p.stars : undefined,
+                                        competitionId: competition.id
+                                      })
+                                    }
+                                  }}
+                                  className="truncate uppercase font-extrabold text-slate-900 group-hover:text-red-700 hover:underline transition-colors text-xs sm:text-sm tracking-tight leading-snug cursor-pointer"
+                                  title="Show player profile"
+                                >
+                                  {name}
+                                  {status.team2Allowance[i] > 0 && (
+                                    <span className="ml-1 text-[10px] font-mono text-red-600 font-bold">
+                                      (+{status.team2Allowance[i]})
+                                    </span>
+                                  )}
+                                </div>
+                              )
+                            })}
                           </div>
 
                           {/* Col 5: Right Score / Lead (Hearts) */}
@@ -947,7 +1007,19 @@ export function RyderCupView({ competition, session }: RyderCupViewProps) {
                         <td className="py-3 px-3 font-mono font-bold text-slate-400">
                           {idx === 0 ? "🥇 1" : idx === 1 ? "🥈 2" : idx === 2 ? "🥉 3" : `${idx + 1}`}
                         </td>
-                        <td className="py-3 px-4 text-white font-bold">
+                        <td 
+                          onClick={() => {
+                            setProfileModalPlayer({
+                              userId: item.participant.userId,
+                              dummyName: item.participant.dummyName,
+                              name,
+                              stars: competition.hasBadges ? item.participant.stars : undefined,
+                              competitionId: competition.id
+                            })
+                          }}
+                          className="py-3 px-4 text-white font-bold hover:text-amber-400 cursor-pointer transition-colors"
+                          title="Show player profile"
+                        >
                           {name}
                           <span className="text-[10px] text-slate-400 ml-1.5 font-mono">({item.participant.compHandicap})</span>
                         </td>
@@ -1014,7 +1086,19 @@ export function RyderCupView({ competition, session }: RyderCupViewProps) {
                         <td className="py-3 px-3 font-mono font-bold text-slate-400">
                           {isDonutKing ? "🍩👑 1" : isZero ? `🍩 ${idx + 1}` : `${idx + 1}`}
                         </td>
-                        <td className="py-3 px-4 text-white font-bold">
+                        <td 
+                          onClick={() => {
+                            setProfileModalPlayer({
+                              userId: item.participant.userId,
+                              dummyName: item.participant.dummyName,
+                              name,
+                              stars: competition.hasBadges ? item.participant.stars : undefined,
+                              competitionId: competition.id
+                            })
+                          }}
+                          className="py-3 px-4 text-white font-bold hover:text-pink-400 cursor-pointer transition-colors"
+                          title="Show player profile"
+                        >
                           {name}
                           <span className="text-[10px] text-slate-400 ml-1.5 font-mono">({item.participant.compHandicap})</span>
                         </td>
@@ -1077,6 +1161,14 @@ export function RyderCupView({ competition, session }: RyderCupViewProps) {
           shareCopied={shareCopied}
           onRefresh={handleRefresh}
           isRefreshing={isRefreshing}
+        />
+      )}
+
+      {/* Player Profile Modal */}
+      {profileModalPlayer && (
+        <PlayerProfileModal
+          player={profileModalPlayer}
+          onClose={() => setProfileModalPlayer(null)}
         />
       )}
     </div>

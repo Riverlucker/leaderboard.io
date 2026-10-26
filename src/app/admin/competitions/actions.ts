@@ -62,6 +62,8 @@ export async function updateCompetitionGeneral(id: string, data: {
   cssConfig?: string | null
   bgImage?: string | null
   extraLeaderboards?: string[]
+  hasBadges?: boolean
+  badgeType?: string | null
 }) {
   const nameVal = data.name?.trim()
   const slugVal = data.uniqueSlug?.trim()
@@ -97,6 +99,12 @@ export async function updateCompetitionGeneral(id: string, data: {
   }
   if (data.extraLeaderboards !== undefined) {
     updateData.extraLeaderboards = data.extraLeaderboards
+  }
+  if (data.hasBadges !== undefined) {
+    updateData.hasBadges = data.hasBadges
+  }
+  if (data.badgeType !== undefined) {
+    updateData.badgeType = data.badgeType
   }
 
   await prisma.competition.update({
@@ -274,6 +282,7 @@ export async function addParticipant(compId: string, data: {
   compHandicap?: number | null
   teamId?: string | null
   isOutOfCompetition?: boolean
+  stars?: number | null
 }) {
   const dummyVal = data.dummyName?.trim()
   
@@ -300,7 +309,8 @@ export async function addParticipant(compId: string, data: {
       dummyName: data.userId ? null : dummyVal,
       compHandicap: data.compHandicap,
       teamId: data.teamId || null,
-      isOutOfCompetition: data.isOutOfCompetition || false
+      isOutOfCompetition: data.isOutOfCompetition || false,
+      stars: data.stars ?? 0
     }
   })
 
@@ -350,6 +360,7 @@ export async function updateParticipant(partId: string, compId: string, data: {
   compHandicap?: number | null
   teamId?: string | null
   isOutOfCompetition?: boolean
+  stars?: number | null
 }) {
   const updateData: any = {
     compHandicap: data.compHandicap,
@@ -357,6 +368,9 @@ export async function updateParticipant(partId: string, compId: string, data: {
   }
   if (data.isOutOfCompetition !== undefined) {
     updateData.isOutOfCompetition = data.isOutOfCompetition
+  }
+  if (data.stars !== undefined && data.stars !== null) {
+    updateData.stars = Math.max(0, Math.min(5, data.stars))
   }
 
   await prisma.participant.update({
@@ -404,6 +418,16 @@ export async function updateParticipant(partId: string, compId: string, data: {
     }
   }
 
+  revalidatePath(`/admin/competitions/${compId}`)
+  revalidatePath('/')
+  return { success: true }
+}
+
+export async function updateParticipantStars(partId: string, compId: string, stars: number) {
+  await prisma.participant.update({
+    where: { id: partId },
+    data: { stars: Math.max(0, Math.min(5, stars)) }
+  })
   revalidatePath(`/admin/competitions/${compId}`)
   revalidatePath('/')
   return { success: true }

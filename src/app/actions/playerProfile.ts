@@ -22,6 +22,8 @@ export interface UserProfileData {
     teamName: string | null
     teamColor: string | null
     compHandicap: number | null
+    hasBadges?: boolean
+    badgeType?: string | null
     stars: number | null
   }[]
   pendingHandicapRequest?: {
@@ -90,7 +92,9 @@ export async function getPlayerProfile(input: {
           teamName: p.team?.name || null,
           teamColor: p.team?.color || null,
           compHandicap: p.compHandicap,
-          stars: p.stars
+          hasBadges: Boolean(p.competition.hasBadges),
+          badgeType: p.competition.badgeType || null,
+          stars: p.competition.hasBadges ? (p.stars ?? 0) : null
         }))
 
       return {
@@ -124,7 +128,9 @@ export async function getPlayerProfile(input: {
         teamName: p.team?.name || null,
         teamColor: p.team?.color || null,
         compHandicap: p.compHandicap,
-        stars: p.stars
+        hasBadges: Boolean(p.competition.hasBadges),
+        badgeType: p.competition.badgeType || null,
+        stars: p.competition.hasBadges ? (p.stars ?? 0) : null
       }))
 
     const pendingReq = targetUser.handicapRequests && targetUser.handicapRequests.length > 0

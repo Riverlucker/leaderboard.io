@@ -316,12 +316,17 @@ export function PlayerProfileModal({ player, onClose, onOpenScorecard }: PlayerP
     return result
   }, [rounds, periodFilter, courseFilter, holesFilter, lastXFilter])
 
-  // Stars count: either passed from participant in competition with badges or from profile
-  const starsCount = player.stars !== undefined && player.stars !== null 
-    ? player.stars 
-    : (profileData?.activeCompetitions?.find(c => c.id === player.competitionId)?.stars ?? null)
+  // Stars badge: ONLY shown when viewing in a competition where badges/stars are enabled (e.g. TRRC)
+  const currentComp = profileData?.activeCompetitions?.find(c => String(c.id) === String(player.competitionId))
+  const isBadgeCompetition = player.stars !== undefined && player.stars !== null 
+    ? true 
+    : Boolean(currentComp?.hasBadges)
 
-  const showStars = starsCount !== null && starsCount !== undefined
+  const starsCount = isBadgeCompetition 
+    ? (player.stars !== undefined && player.stars !== null ? player.stars : (currentComp?.stars ?? null))
+    : null
+
+  const showStars = isBadgeCompetition && starsCount !== null && starsCount !== undefined
 
   return (
     <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[80] flex items-center justify-center p-3 sm:p-4">

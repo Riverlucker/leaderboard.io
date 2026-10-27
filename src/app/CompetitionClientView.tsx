@@ -765,6 +765,8 @@ export function CompetitionClientView({ competition, session, courses = [], user
     }
   }, [competition?.extraLeaderboards])
   const [showRelToPar, setShowRelToPar] = useState(competition.showRelToPar || false)
+  const [showProfilePicture, setShowProfilePicture] = useState(competition.showProfilePicture || false)
+  const [hasBadges, setHasBadges] = useState(competition.hasBadges || false)
   const [isSavingGeneral, setIsSavingGeneral] = useState(false)
   const [generalError, setGeneralError] = useState("")
   const [generalSuccess, setGeneralSuccess] = useState(false)
@@ -2442,6 +2444,8 @@ export function CompetitionClientView({ competition, session, courses = [], user
         type: compType,
         isTeamComp,
         showRelToPar,
+        showProfilePicture,
+        hasBadges,
         startDate: startDate || null,
         endDate: endDate || null,
         cssConfig: cssConfig || null,
@@ -4532,6 +4536,24 @@ export function CompetitionClientView({ competition, session, courses = [], user
                               className="w-4 h-4 text-emerald-600 rounded bg-slate-50 border-slate-300"
                             />
                             <span>SHOW LEADERBOARD +/- RELATIVE TO PAR?</span>
+                          </label>
+                          <label className="flex items-center space-x-2 text-xs font-bold text-slate-700 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={showProfilePicture}
+                              onChange={e => setShowProfilePicture(e.target.checked)}
+                              className="w-4 h-4 text-emerald-600 rounded bg-slate-50 border-slate-300"
+                            />
+                            <span>SHOW PROFILE PICTURE IN LEADERBOARD</span>
+                          </label>
+                          <label className="flex items-center space-x-2 text-xs font-bold text-slate-700 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={hasBadges}
+                              onChange={e => setHasBadges(e.target.checked)}
+                              className="w-4 h-4 text-emerald-600 rounded bg-slate-50 border-slate-300"
+                            />
+                            <span>ABZEICHEN / STERNE FÜR SPIELER AKTIVIEREN (0-5 STERNE)</span>
                           </label>
                         </div>
 

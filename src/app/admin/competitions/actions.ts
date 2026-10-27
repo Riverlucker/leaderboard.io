@@ -64,6 +64,7 @@ export async function updateCompetitionGeneral(id: string, data: {
   extraLeaderboards?: string[]
   hasBadges?: boolean
   badgeType?: string | null
+  showProfilePicture?: boolean
 }) {
   const nameVal = data.name?.trim()
   const slugVal = data.uniqueSlug?.trim()
@@ -105,6 +106,9 @@ export async function updateCompetitionGeneral(id: string, data: {
   }
   if (data.badgeType !== undefined) {
     updateData.badgeType = data.badgeType
+  }
+  if (data.showProfilePicture !== undefined) {
+    updateData.showProfilePicture = data.showProfilePicture
   }
 
   await prisma.competition.update({

@@ -13,6 +13,7 @@ import { WintercupScheduleModal } from "./WintercupScheduleModal"
 import { WintercupAdminView } from "./WintercupAdminView"
 import { ContextMenu, ContextMenuOption } from "./ContextMenu"
 import { PlayerProfileModal } from "./PlayerProfileModal"
+import { PlayerAvatar } from "./PlayerAvatar"
 import { getClConfig, isRoundPairingsAnonymized, getQualificationStructure } from "@/lib/clFormat"
 
 interface WintercupViewProps {
@@ -944,6 +945,9 @@ export function WintercupView({ competition, session }: WintercupViewProps) {
                                       title={!isAnonymized ? `Profil von ${pName} anzeigen` : undefined}
                                     >
                                       <div className="flex items-center space-x-2">
+                                        {competition.showProfilePicture && !isAnonymized && (
+                                          <PlayerAvatar participant={p} />
+                                        )}
                                         <span className="font-extrabold text-sm text-slate-900">{pName}</span>
                                         <span className="text-[10px] font-bold text-slate-500 bg-slate-100 border border-slate-200 px-1.5 py-0.2 rounded">
                                           Hcp {hcp}
@@ -1277,6 +1281,9 @@ export function WintercupView({ competition, session }: WintercupViewProps) {
                                     title={!isAnonymized ? `Profil von ${pName} anzeigen` : undefined}
                                   >
                                     <div className="flex items-center space-x-2">
+                                      {competition.showProfilePicture && !isAnonymized && (
+                                        <PlayerAvatar participant={p} />
+                                      )}
                                       <span className="font-extrabold text-sm text-slate-900">{pName}</span>
                                       <span className="text-[10px] font-bold text-slate-500 bg-slate-100 border border-slate-200 px-1.5 py-0.2 rounded">
                                         Hcp {hcp}

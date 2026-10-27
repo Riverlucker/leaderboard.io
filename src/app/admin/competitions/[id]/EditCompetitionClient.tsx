@@ -6,7 +6,7 @@ import Link from "next/link"
 import { 
   ArrowLeft, Save, Plus, Trash2, Calendar, 
   Settings, Layers, Users, Users2, ShieldAlert, Trophy,
-  Edit2, Check, X, Star, Clock, Award
+  Edit2, Check, X, Star, Clock, Award, User
 } from "lucide-react"
 import { 
   updateCompetitionGeneral, 
@@ -79,6 +79,7 @@ export function EditCompetitionClient({
   const [isTeamComp, setIsTeamComp] = useState(competition.isTeamComp)
   const [showRelToPar, setShowRelToPar] = useState(competition.showRelToPar || false)
   const [hasBadges, setHasBadges] = useState(competition.hasBadges || false)
+  const [showProfilePicture, setShowProfilePicture] = useState(competition.showProfilePicture || false)
   const [selectedExtraLeaderboards, setSelectedExtraLeaderboards] = useState<string[]>(competition.extraLeaderboards || [])
   const [startDate, setStartDate] = useState(formatDateInput(competition.startDate))
   const [endDate, setEndDate] = useState(formatDateInput(competition.endDate))
@@ -181,6 +182,7 @@ export function EditCompetitionClient({
         isTeamComp,
         showRelToPar,
         hasBadges,
+        showProfilePicture,
         startDate: startDate || null,
         endDate: endDate || null,
         cssConfig: cssConfig || null,
@@ -911,6 +913,19 @@ export function EditCompetitionClient({
                       <label htmlFor="hasBadgesGeneral" className="text-sm text-slate-300 select-none cursor-pointer flex items-center gap-1.5">
                         <Star size={14} className="text-amber-400" />
                         <span>Abzeichen / Sterne für Spieler aktivieren (0-5 Sterne)</span>
+                      </label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="showProfilePictureGeneral"
+                        checked={showProfilePicture}
+                        onChange={e => setShowProfilePicture(e.target.checked)}
+                        className="w-4 h-4 text-emerald-500 border-slate-700 rounded bg-slate-950 focus:ring-emerald-500"
+                      />
+                      <label htmlFor="showProfilePictureGeneral" className="text-sm text-slate-300 select-none cursor-pointer flex items-center gap-1.5">
+                        <User size={14} className="text-cyan-400" />
+                        <span>Show profile picture in leaderboard</span>
                       </label>
                     </div>
                   </div>

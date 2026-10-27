@@ -13,6 +13,7 @@ import {
 } from "./components/RyderCupBoard"
 import { RyderCupAgendaTab, RyderCupRulesTab } from "./components/RyderCupAgendaRules"
 import { WintercupView } from "./components/WintercupView"
+import { PlayerAvatar } from "./components/PlayerAvatar"
 import { useState, useEffect, useTransition } from "react"
 import { signIn, signOut } from "next-auth/react"
 import { useRouter } from "next/navigation"
@@ -1368,6 +1369,8 @@ export function CompetitionClientView({ competition, session, courses = [], user
         player4Allowance: allowance2_2,
         isFinished: decidedInfo !== null || (holesPlayedCount + excludedHolesCount === matchHoles.length),
         isTeamMatchplay: true,
+        team1Participants: team1Players,
+        team2Participants: team2Players,
         lead
       }
     } else {
@@ -1500,6 +1503,8 @@ export function CompetitionClientView({ competition, session, courses = [], user
         player4Allowance: 0,
         isFinished: decidedInfo !== null || (holesPlayedCount + excludedHolesCount === matchHoles.length),
         isTeamMatchplay: false,
+        team1Participants: [p1],
+        team2Participants: [p2],
         lead
       }
     }
@@ -3294,7 +3299,7 @@ export function CompetitionClientView({ competition, session, courses = [], user
                           })
 
                           return evaluated.map(({ round, match, status }) => {
-                            const { statusText, holesPlayed, totalHoles, player1Name, player2Name, player3Name, player4Name, player1Allowance, player2Allowance, player3Allowance, player4Allowance, isTeamMatchplay, lead } = status
+                            const { statusText, holesPlayed, totalHoles, player1Name, player2Name, player3Name, player4Name, player1Allowance, player2Allowance, player3Allowance, player4Allowance, isTeamMatchplay, lead, team1Participants, team2Participants } = status
                             return (
                               <tr
                                 key={match.id}
@@ -3308,40 +3313,66 @@ export function CompetitionClientView({ competition, session, courses = [], user
                                 <td className="px-5 py-4 font-bold text-slate-900">{round.name}</td>
                                 <td className="px-5 py-4">
                                   {isTeamMatchplay ? (
-                                    <div className="flex flex-col space-y-0.5 text-left font-semibold text-slate-800 leading-tight">
-                                      <span>
-                                        {player1Name}
-                                        {player1Allowance > 0 && ` (${player1Allowance})`}
-                                        {` & `}
-                                        {player2Name}
-                                        {player2Allowance > 0 && ` (${player2Allowance})`}
-                                        <span className="text-slate-400 font-normal ml-1">v</span>
-                                      </span>
-                                      <span>
-                                        {player3Name}
-                                        {player3Allowance > 0 && ` (${player3Allowance})`}
-                                        {` & `}
-                                        {player4Name}
-                                        {player4Allowance > 0 && ` (${player4Allowance})`}
-                                        {match.holeRange && match.holeRange !== "1-18" && (
-                                          <span className="ml-1.5 text-[8px] bg-slate-100 text-slate-500 px-1 py-0.2 rounded font-mono">({match.holeRange})</span>
+                                    <div className="flex items-center gap-2 text-left font-semibold text-slate-800 leading-tight">
+                                      {/* Left Team: Names + Avatars to their right */}
+                                      <div className="flex items-center gap-1.5 justify-end">
+                                        <div className="flex flex-col text-right">
+                                          <span>{player1Name}{player1Allowance > 0 && ` (${player1Allowance})`}</span>
+                                          <span>{player2Name}{player2Allowance > 0 && ` (${player2Allowance})`}</span>
+                                        </div>
+                                        {competition.showProfilePicture && team1Participants && team1Participants.length > 0 && (
+                                          <div className="flex items-center gap-1 shrink-0">
+                                            {team1Participants.map((p: any) => p && <PlayerAvatar key={p.id} participant={p} />)}
+                                          </div>
                                         )}
-                                      </span>
+                                      </div>
+
+                                      <span className="text-slate-400 font-normal px-1">v</span>
+
+                                      {/* Right Team: Avatars to their left + Names */}
+                                      <div className="flex items-center gap-1.5 justify-start">
+                                        {competition.showProfilePicture && team2Participants && team2Participants.length > 0 && (
+                                          <div className="flex items-center gap-1 shrink-0">
+                                            {team2Participants.map((p: any) => p && <PlayerAvatar key={p.id} participant={p} />)}
+                                          </div>
+                                        )}
+                                        <div className="flex flex-col text-left">
+                                          <span>{player3Name}{player3Allowance > 0 && ` (${player3Allowance})`}</span>
+                                          <span>{player4Name}{player4Allowance > 0 && ` (${player4Allowance})`}</span>
+                                        </div>
+                                      </div>
+
+                                      {match.holeRange && match.holeRange !== "1-18" && (
+                                        <span className="ml-1.5 text-[8px] bg-slate-100 text-slate-500 px-1 py-0.2 rounded font-mono">({match.holeRange})</span>
+                                      )}
                                     </div>
                                   ) : (
-                                    <div className="flex flex-col space-y-0.5 text-left font-semibold text-slate-800 leading-tight">
-                                      <span>
-                                        {player1Name}
-                                        {player1Allowance > 0 && ` (${player1Allowance})`}
-                                        <span className="text-slate-400 font-normal ml-1">v</span>
-                                      </span>
-                                      <span>
-                                        {player2Name}
-                                        {player2Allowance > 0 && ` (${player2Allowance})`}
-                                        {match.holeRange && match.holeRange !== "1-18" && (
-                                          <span className="ml-1.5 text-[8px] bg-slate-100 text-slate-500 px-1 py-0.2 rounded font-mono">({match.holeRange})</span>
+                                    <div className="flex items-center gap-2 text-left font-semibold text-slate-800 leading-tight">
+                                      {/* Left Player: Name + Avatar to right */}
+                                      <div className="flex items-center gap-1.5 justify-end">
+                                        <span>{player1Name}{player1Allowance > 0 && ` (${player1Allowance})`}</span>
+                                        {competition.showProfilePicture && team1Participants && team1Participants.length > 0 && (
+                                          <div className="flex items-center gap-1 shrink-0">
+                                            {team1Participants.map((p: any) => p && <PlayerAvatar key={p.id} participant={p} />)}
+                                          </div>
                                         )}
-                                      </span>
+                                      </div>
+
+                                      <span className="text-slate-400 font-normal px-1">v</span>
+
+                                      {/* Right Player: Avatar to left + Name */}
+                                      <div className="flex items-center gap-1.5 justify-start">
+                                        {competition.showProfilePicture && team2Participants && team2Participants.length > 0 && (
+                                          <div className="flex items-center gap-1 shrink-0">
+                                            {team2Participants.map((p: any) => p && <PlayerAvatar key={p.id} participant={p} />)}
+                                          </div>
+                                        )}
+                                        <span>{player2Name}{player2Allowance > 0 && ` (${player2Allowance})`}</span>
+                                      </div>
+
+                                      {match.holeRange && match.holeRange !== "1-18" && (
+                                        <span className="ml-1.5 text-[8px] bg-slate-100 text-slate-500 px-1 py-0.2 rounded font-mono">({match.holeRange})</span>
+                                      )}
                                     </div>
                                   )}
                                 </td>
@@ -3471,28 +3502,35 @@ export function CompetitionClientView({ competition, session, courses = [], user
                                 }}
                                 title="Show player profile"
                               >
-                                <div 
-                                  style={isTeamComp && highlightTeam && team ? { color: `hsl(${getTeamHue(team, competition.teams)}, 75%, 25%)` } : {}}
-                                  className="font-extrabold text-slate-900 text-sm md:text-base leading-tight hover:underline"
-                                >
-                                  {entry.name}
-                                </div>
-                                {team && (
-                                  isTeamComp && highlightTeam ? (
-                                    <span 
-                                      style={{
-                                        backgroundColor: `hsla(${getTeamHue(team, competition.teams)}, 80%, 92%, 0.85)`,
-                                        color: `hsl(${getTeamHue(team, competition.teams)}, 85%, 25%)`,
-                                        border: `1px solid hsla(${getTeamHue(team, competition.teams)}, 80%, 75%, 0.9)`
-                                      }}
-                                      className="inline-block text-[9px] font-extrabold px-1.5 py-0.5 rounded uppercase tracking-wider mt-1"
+                                <div className="flex items-center gap-2 sm:gap-2.5">
+                                  {competition.showProfilePicture && (
+                                    <PlayerAvatar participant={entry.participant} />
+                                  )}
+                                  <div>
+                                    <div 
+                                      style={isTeamComp && highlightTeam && team ? { color: `hsl(${getTeamHue(team, competition.teams)}, 75%, 25%)` } : {}}
+                                      className="font-extrabold text-slate-900 text-sm md:text-base leading-tight hover:underline"
                                     >
-                                      {team.name}
-                                    </span>
-                                  ) : (
-                                    <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">{team.name}</div>
-                                  )
-                                )}
+                                      {entry.name}
+                                    </div>
+                                    {team && (
+                                      isTeamComp && highlightTeam ? (
+                                        <span 
+                                          style={{
+                                            backgroundColor: `hsla(${getTeamHue(team, competition.teams)}, 80%, 92%, 0.85)`,
+                                            color: `hsl(${getTeamHue(team, competition.teams)}, 85%, 25%)`,
+                                            border: `1px solid hsla(${getTeamHue(team, competition.teams)}, 80%, 75%, 0.9)`
+                                          }}
+                                          className="inline-block text-[9px] font-extrabold px-1.5 py-0.5 rounded uppercase tracking-wider mt-1"
+                                        >
+                                          {team.name}
+                                        </span>
+                                      ) : (
+                                        <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">{team.name}</div>
+                                      )
+                                    )}
+                                  </div>
+                                </div>
                               </td>
                                <td className="px-2 py-2.5 md:px-5 md:py-4 text-center text-emerald-600 font-black text-base md:text-xl">
                                 {entry.holesPlayed === 0 ? (
@@ -3664,8 +3702,13 @@ export function CompetitionClientView({ competition, session, courses = [], user
                                     }}
                                     title="Show player profile"
                                   >
-                                    <div className="font-extrabold text-slate-900 text-sm md:text-base leading-tight hover:underline">
-                                      {entry.name}
+                                    <div className="flex items-center gap-2 sm:gap-2.5">
+                                      {competition.showProfilePicture && (
+                                        <PlayerAvatar participant={entry.participant} />
+                                      )}
+                                      <div className="font-extrabold text-slate-900 text-sm md:text-base leading-tight hover:underline">
+                                        {entry.name}
+                                      </div>
                                     </div>
                                   </td>
                                   <td className="px-2 py-2.5 md:px-5 md:py-4 text-center text-purple-700 font-black text-base md:text-xl">

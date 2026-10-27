@@ -79,6 +79,7 @@ model Competition {
   showRelToPar   Boolean   @default(false)
   hasBadges      Boolean   @default(false)
   badgeType      String?   @default("STARS")
+  showProfilePicture Boolean @default(false)
   
   startDate      DateTime?
   endDate        DateTime?

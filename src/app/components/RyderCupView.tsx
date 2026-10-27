@@ -10,6 +10,7 @@ import {
 import { MatchplayScorecardModal } from "./MatchplayScorecardModal"
 import { PlayerProfileModal } from "./PlayerProfileModal"
 import { ContextMenu, ContextMenuOption } from "./ContextMenu"
+import { PlayerAvatar } from "./PlayerAvatar"
 import { 
   getPlayingHandicap, 
   getMatchAllowance, 
@@ -940,36 +941,50 @@ export function RyderCupView({ competition, session }: RyderCupViewProps) {
                           </div>
 
                           {/* Col 2: Diamond Players */}
-                          <div className="flex-1 px-2 sm:px-4 py-2 flex flex-col justify-center items-end text-right min-w-0">
-                            {t1Names.map((name: string, i: number) => {
-                              const p = status.team1Players[i]
-                              return (
-                                <div 
-                                  key={i} 
-                                  onClick={(e) => {
-                                    if (p) {
-                                      e.stopPropagation()
-                                      setProfileModalPlayer({
-                                        userId: p.userId,
-                                        dummyName: p.dummyName,
-                                        name,
-                                        stars: competition.hasBadges ? p.stars : undefined,
-                                        competitionId: competition.id
-                                      })
-                                    }
-                                  }}
-                                  className="truncate uppercase font-extrabold text-slate-900 group-hover:text-blue-700 hover:underline transition-colors text-xs sm:text-sm tracking-tight leading-snug cursor-pointer"
-                                  title="Show player profile"
-                                >
-                                  {name}
-                                  {status.team1Allowance[i] > 0 && (
-                                    <span className="ml-1 text-[10px] font-mono text-blue-600 font-bold">
-                                      (+{status.team1Allowance[i]})
-                                    </span>
-                                  )}
-                                </div>
-                              )
-                            })}
+                          <div className="flex-1 px-2 sm:px-4 py-2 flex items-center justify-end gap-2 sm:gap-2.5 min-w-0">
+                            <div className="flex flex-col justify-center items-end text-right min-w-0">
+                              {t1Names.map((name: string, i: number) => {
+                                const p = status.team1Players[i]
+                                return (
+                                  <div 
+                                    key={i} 
+                                    onClick={(e) => {
+                                      if (p) {
+                                        e.stopPropagation()
+                                        setProfileModalPlayer({
+                                          userId: p.userId,
+                                          dummyName: p.dummyName,
+                                          name,
+                                          stars: competition.hasBadges ? p.stars : undefined,
+                                          competitionId: competition.id
+                                        })
+                                      }
+                                    }}
+                                    className="truncate uppercase font-extrabold text-slate-900 group-hover:text-blue-700 hover:underline transition-colors text-xs sm:text-sm tracking-tight leading-snug cursor-pointer"
+                                    title="Show player profile"
+                                  >
+                                    {name}
+                                    {status.team1Allowance[i] > 0 && (
+                                      <span className="ml-1 text-[10px] font-mono text-blue-600 font-bold">
+                                        (+{status.team1Allowance[i]})
+                                      </span>
+                                    )}
+                                  </div>
+                                )
+                              })}
+                            </div>
+
+                            {/* Diamond Profile Pictures (centrally to the right of the names) */}
+                            {competition.showProfilePicture && status.team1Players.length > 0 && (
+                              <div className="flex items-center gap-1 shrink-0">
+                                {status.team1Players.map((p: any) => (
+                                  <PlayerAvatar 
+                                    key={p.id} 
+                                    participant={p} 
+                                  />
+                                ))}
+                              </div>
+                            )}
                           </div>
 
                           {/* Col 3: Center Status Box (Gold #f0cb46) */}
@@ -992,36 +1007,50 @@ export function RyderCupView({ competition, session }: RyderCupViewProps) {
                           </div>
 
                           {/* Col 4: Hearts Players */}
-                          <div className="flex-1 px-2 sm:px-4 py-2 flex flex-col justify-center items-start text-left min-w-0">
-                            {t2Names.map((name: string, i: number) => {
-                              const p = status.team2Players[i]
-                              return (
-                                <div 
-                                  key={i} 
-                                  onClick={(e) => {
-                                    if (p) {
-                                      e.stopPropagation()
-                                      setProfileModalPlayer({
-                                        userId: p.userId,
-                                        dummyName: p.dummyName,
-                                        name,
-                                        stars: competition.hasBadges ? p.stars : undefined,
-                                        competitionId: competition.id
-                                      })
-                                    }
-                                  }}
-                                  className="truncate uppercase font-extrabold text-slate-900 group-hover:text-red-700 hover:underline transition-colors text-xs sm:text-sm tracking-tight leading-snug cursor-pointer"
-                                  title="Show player profile"
-                                >
-                                  {name}
-                                  {status.team2Allowance[i] > 0 && (
-                                    <span className="ml-1 text-[10px] font-mono text-red-600 font-bold">
-                                      (+{status.team2Allowance[i]})
-                                    </span>
-                                  )}
-                                </div>
-                              )
-                            })}
+                          <div className="flex-1 px-2 sm:px-4 py-2 flex items-center justify-start gap-2 sm:gap-2.5 min-w-0">
+                            {/* Hearts Profile Pictures (centrally to the left of the names) */}
+                            {competition.showProfilePicture && status.team2Players.length > 0 && (
+                              <div className="flex items-center gap-1 shrink-0">
+                                {status.team2Players.map((p: any) => (
+                                  <PlayerAvatar 
+                                    key={p.id} 
+                                    participant={p} 
+                                  />
+                                ))}
+                              </div>
+                            )}
+
+                            <div className="flex flex-col justify-center items-start text-left min-w-0">
+                              {t2Names.map((name: string, i: number) => {
+                                const p = status.team2Players[i]
+                                return (
+                                  <div 
+                                    key={i} 
+                                    onClick={(e) => {
+                                      if (p) {
+                                        e.stopPropagation()
+                                        setProfileModalPlayer({
+                                          userId: p.userId,
+                                          dummyName: p.dummyName,
+                                          name,
+                                          stars: competition.hasBadges ? p.stars : undefined,
+                                          competitionId: competition.id
+                                        })
+                                      }
+                                    }}
+                                    className="truncate uppercase font-extrabold text-slate-900 group-hover:text-red-700 hover:underline transition-colors text-xs sm:text-sm tracking-tight leading-snug cursor-pointer"
+                                    title="Show player profile"
+                                  >
+                                    {name}
+                                    {status.team2Allowance[i] > 0 && (
+                                      <span className="ml-1 text-[10px] font-mono text-red-600 font-bold">
+                                        (+{status.team2Allowance[i]})
+                                      </span>
+                                    )}
+                                  </div>
+                                )
+                              })}
+                            </div>
                           </div>
 
                           {/* Col 5: Right Score / Lead (Hearts) */}
@@ -1101,8 +1130,15 @@ export function RyderCupView({ competition, session }: RyderCupViewProps) {
                           className="py-3 px-4 text-white font-bold hover:text-amber-400 cursor-pointer transition-colors"
                           title="Show player profile"
                         >
-                          {name}
-                          <span className="text-[10px] text-slate-400 ml-1.5 font-mono">({item.participant.compHandicap})</span>
+                          <div className="flex items-center gap-2">
+                            {competition.showProfilePicture && (
+                              <PlayerAvatar participant={item.participant} />
+                            )}
+                            <div>
+                              {name}
+                              <span className="text-[10px] text-slate-400 ml-1.5 font-mono">({item.participant.compHandicap})</span>
+                            </div>
+                          </div>
                         </td>
                         <td className="py-3 px-3">
                           <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold uppercase ${
@@ -1184,8 +1220,15 @@ export function RyderCupView({ competition, session }: RyderCupViewProps) {
                           className="py-3 px-4 text-white font-bold hover:text-pink-400 cursor-pointer transition-colors"
                           title="Show player profile"
                         >
-                          {name}
-                          <span className="text-[10px] text-slate-400 ml-1.5 font-mono">({item.participant.compHandicap})</span>
+                          <div className="flex items-center gap-2">
+                            {competition.showProfilePicture && (
+                              <PlayerAvatar participant={item.participant} />
+                            )}
+                            <div>
+                              {name}
+                              <span className="text-[10px] text-slate-400 ml-1.5 font-mono">({item.participant.compHandicap})</span>
+                            </div>
+                          </div>
                         </td>
                         <td className="py-3 px-3">
                           <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold uppercase ${

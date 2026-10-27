@@ -9,6 +9,7 @@ import {
   parseHoleRange, 
   parseAllowancePercentage 
 } from "../CompetitionClientView"
+import { PlayerAvatar } from "./PlayerAvatar"
 
 export function formatCupScore(score: number): string {
   const whole = Math.floor(score)
@@ -680,31 +681,46 @@ export function RyderCupMainStandings({
                     </div>
 
                     {/* Col 2: Diamond Players (Clean: Without Handicap Allowances) */}
-                    <div className={`flex-1 px-2 sm:px-4 py-2 flex flex-col justify-center items-end text-right min-w-0 transition-colors ${
+                    <div className={`flex-1 px-2 sm:px-4 py-2 flex items-center justify-end gap-2 sm:gap-2.5 min-w-0 transition-colors ${
                       diamondLead ? "bg-[#3765e9] text-white" : "bg-white text-slate-900"
                     }`}>
-                      {t1Names.map((name: string, i: number) => {
-                        const p = status.team1Players[i]
-                        return (
-                          <div 
-                            key={i} 
-                            onClick={(e) => {
-                              if (!isRoundAnon && onSelectPlayer && p) {
-                                e.stopPropagation()
-                                onSelectPlayer(p)
-                              }
-                            }}
-                            className={`truncate uppercase font-black text-xs sm:text-sm tracking-tight leading-snug ${
-                              !isRoundAnon ? "hover:underline cursor-pointer" : ""
-                            } ${
-                              diamondLead ? "text-white" : "text-slate-900"
-                            }`}
-                            title={!isRoundAnon ? `Profil von ${name} anzeigen` : undefined}
-                          >
-                            {name}
-                          </div>
-                        )
-                      })}
+                      <div className="flex flex-col justify-center items-end text-right min-w-0">
+                        {t1Names.map((name: string, i: number) => {
+                          const p = status.team1Players[i]
+                          return (
+                            <div 
+                              key={i} 
+                              onClick={(e) => {
+                                if (!isRoundAnon && onSelectPlayer && p) {
+                                  e.stopPropagation()
+                                  onSelectPlayer(p)
+                                }
+                              }}
+                              className={`truncate uppercase font-black text-xs sm:text-sm tracking-tight leading-snug ${
+                                !isRoundAnon ? "hover:underline cursor-pointer" : ""
+                              } ${
+                                diamondLead ? "text-white" : "text-slate-900"
+                              }`}
+                              title={!isRoundAnon ? `Profil von ${name} anzeigen` : undefined}
+                            >
+                              {name}
+                            </div>
+                          )
+                        })}
+                      </div>
+
+                      {/* Diamond Profile Pictures (centrally to the right of the names) */}
+                      {competition.showProfilePicture && !isRoundAnon && status.team1Players.length > 0 && (
+                        <div className="flex items-center gap-1 shrink-0">
+                          {status.team1Players.map((p: any) => (
+                            <PlayerAvatar 
+                              key={p.id} 
+                              participant={p} 
+                              className={diamondLead ? "border-blue-300 ring-white/20" : ""}
+                            />
+                          ))}
+                        </div>
+                      )}
                     </div>
 
                     {/* Col 3: Center Status Box (Clean TV Style) */}
@@ -723,31 +739,46 @@ export function RyderCupMainStandings({
                     )}
 
                     {/* Col 4: Hearts Players (Clean: Without Handicap Allowances) */}
-                    <div className={`flex-1 px-2 sm:px-4 py-2 flex flex-col justify-center items-start text-left min-w-0 transition-colors ${
+                    <div className={`flex-1 px-2 sm:px-4 py-2 flex items-center justify-start gap-2 sm:gap-2.5 min-w-0 transition-colors ${
                       heartsLead ? "bg-[#cb3838] text-white" : "bg-white text-slate-900"
                     }`}>
-                      {t2Names.map((name: string, i: number) => {
-                        const p = status.team2Players[i]
-                        return (
-                          <div 
-                            key={i} 
-                            onClick={(e) => {
-                              if (!isRoundAnon && onSelectPlayer && p) {
-                                e.stopPropagation()
-                                onSelectPlayer(p)
-                              }
-                            }}
-                            className={`truncate uppercase font-black text-xs sm:text-sm tracking-tight leading-snug ${
-                              !isRoundAnon ? "hover:underline cursor-pointer" : ""
-                            } ${
-                              heartsLead ? "text-white" : "text-slate-900"
-                            }`}
-                            title={!isRoundAnon ? `Profil von ${name} anzeigen` : undefined}
-                          >
-                            {name}
-                          </div>
-                        )
-                      })}
+                      {/* Hearts Profile Pictures (centrally to the left of the names) */}
+                      {competition.showProfilePicture && !isRoundAnon && status.team2Players.length > 0 && (
+                        <div className="flex items-center gap-1 shrink-0">
+                          {status.team2Players.map((p: any) => (
+                            <PlayerAvatar 
+                              key={p.id} 
+                              participant={p} 
+                              className={heartsLead ? "border-red-300 ring-white/20" : ""}
+                            />
+                          ))}
+                        </div>
+                      )}
+
+                      <div className="flex flex-col justify-center items-start text-left min-w-0">
+                        {t2Names.map((name: string, i: number) => {
+                          const p = status.team2Players[i]
+                          return (
+                            <div 
+                              key={i} 
+                              onClick={(e) => {
+                                if (!isRoundAnon && onSelectPlayer && p) {
+                                  e.stopPropagation()
+                                  onSelectPlayer(p)
+                                }
+                              }}
+                              className={`truncate uppercase font-black text-xs sm:text-sm tracking-tight leading-snug ${
+                                !isRoundAnon ? "hover:underline cursor-pointer" : ""
+                              } ${
+                                heartsLead ? "text-white" : "text-slate-900"
+                              }`}
+                              title={!isRoundAnon ? `Profil von ${name} anzeigen` : undefined}
+                            >
+                              {name}
+                            </div>
+                          )
+                        })}
+                      </div>
                     </div>
 
                     {/* Col 5: Right Standing (Hearts) */}
@@ -829,8 +860,15 @@ export function RyderCupMvpStandings({
                     className="py-3 px-4 text-slate-900 font-bold hover:text-emerald-700 cursor-pointer transition-colors"
                     title="Show player profile"
                   >
-                    {name}
-                    <span className="text-[10px] text-slate-400 ml-1.5 font-mono">({item.participant.compHandicap})</span>
+                    <div className="flex items-center gap-2">
+                      {competition.showProfilePicture && (
+                        <PlayerAvatar participant={item.participant} />
+                      )}
+                      <div>
+                        {name}
+                        <span className="text-[10px] text-slate-400 ml-1.5 font-mono">({item.participant.compHandicap})</span>
+                      </div>
+                    </div>
                   </td>
                   <td className="py-3 px-3">
                     <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold uppercase ${
@@ -916,8 +954,15 @@ export function RyderCupDonutStandings({
                     className="py-3 px-4 text-slate-900 font-bold hover:text-pink-700 cursor-pointer transition-colors"
                     title="Show player profile"
                   >
-                    {name}
-                    <span className="text-[10px] text-slate-400 ml-1.5 font-mono">({item.participant.compHandicap})</span>
+                    <div className="flex items-center gap-2">
+                      {competition.showProfilePicture && (
+                        <PlayerAvatar participant={item.participant} />
+                      )}
+                      <div>
+                        {name}
+                        <span className="text-[10px] text-slate-400 ml-1.5 font-mono">({item.participant.compHandicap})</span>
+                      </div>
+                    </div>
                   </td>
                   <td className="py-3 px-3">
                     <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold uppercase ${

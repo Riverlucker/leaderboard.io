@@ -28,19 +28,19 @@ export function PlayerAvatar({ participant, user, name: propName, size = "sm", c
 
   const initials = getInitials(resolvedName)
 
-  // 50% larger sizing as requested (+50% from 24-28px to 36-42px)
-  let sizeClasses = "w-9 h-9 sm:w-10 sm:h-10 text-xs sm:text-sm"
-  let iconSize = 18
+  // Scaled up by another good 1/3 (~35-40% larger) across all sizes
+  let sizeClasses = "w-12 h-12 sm:w-14 sm:h-14 text-sm sm:text-base"
+  let iconSize = 24
 
   if (size === "xs") {
-    sizeClasses = "w-7 h-7 sm:w-8 sm:h-8 text-[10px]"
-    iconSize = 14
+    sizeClasses = "w-9 h-9 sm:w-10 sm:h-10 text-xs sm:text-sm"
+    iconSize = 18
   } else if (size === "md") {
-    sizeClasses = "w-12 h-12 sm:w-14 sm:h-14 text-base sm:text-lg"
-    iconSize = 24
-  } else if (size === "lg") {
-    sizeClasses = "w-16 h-16 sm:w-20 sm:h-20 text-xl"
+    sizeClasses = "w-16 h-16 sm:w-20 sm:h-20 text-lg sm:text-xl"
     iconSize = 32
+  } else if (size === "lg") {
+    sizeClasses = "w-24 h-24 sm:w-28 sm:h-28 text-2xl sm:text-3xl"
+    iconSize = 44
   }
 
   if (imageUrl && !imageError) {

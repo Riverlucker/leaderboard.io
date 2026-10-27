@@ -356,8 +356,8 @@ export function TeamScorecardModal({
 
                           return (
                             <tr key={p.id} className="border-b border-slate-100 hover:bg-slate-50/50">
-                              <td className="px-2 py-1.5 text-left border-r border-slate-200 text-[10px]">
-                                <div className="flex items-center gap-1.5">
+                              <td className="px-2.5 py-1.5 text-left border-r border-slate-200 text-[10px] min-w-[130px]">
+                                <div className="flex items-center gap-2">
                                   {competition?.showProfilePicture && (
                                     <PlayerAvatar participant={p} size="xs" />
                                   )}

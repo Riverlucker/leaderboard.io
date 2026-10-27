@@ -358,8 +358,8 @@ export function MatchplayScorecardModal({
 
       return (
         <tr className="border-b border-slate-200">
-          <td className={`px-2.5 py-1.5 text-left border-r border-slate-200 text-[10px] min-w-[110px] max-w-[140px] ${nameBg}`}>
-            <div className="flex items-center gap-1.5 min-w-0">
+          <td className={`px-2.5 py-1.5 text-left border-r border-slate-200 text-[10px] min-w-[130px] max-w-[180px] ${nameBg}`}>
+            <div className="flex items-center gap-2 min-w-0">
               {competition?.showProfilePicture && (
                 <PlayerAvatar participant={p} size="xs" />
               )}

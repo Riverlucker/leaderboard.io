@@ -7,7 +7,7 @@ interface PlayerAvatarProps {
   participant?: any
   user?: any
   name?: string
-  size?: "sm" | "md"
+  size?: "xs" | "sm" | "md" | "lg"
   className?: string
 }
 
@@ -28,10 +28,20 @@ export function PlayerAvatar({ participant, user, name: propName, size = "sm", c
 
   const initials = getInitials(resolvedName)
 
-  // Size styling
-  const sizeClasses = size === "sm" 
-    ? "w-6 h-6 sm:w-7 sm:h-7 text-[9px] sm:text-[10px]" 
-    : "w-8 h-8 sm:w-9 sm:h-9 text-xs"
+  // 50% larger sizing as requested (+50% from 24-28px to 36-42px)
+  let sizeClasses = "w-9 h-9 sm:w-10 sm:h-10 text-xs sm:text-sm"
+  let iconSize = 18
+
+  if (size === "xs") {
+    sizeClasses = "w-7 h-7 sm:w-8 sm:h-8 text-[10px]"
+    iconSize = 14
+  } else if (size === "md") {
+    sizeClasses = "w-12 h-12 sm:w-14 sm:h-14 text-base sm:text-lg"
+    iconSize = 24
+  } else if (size === "lg") {
+    sizeClasses = "w-16 h-16 sm:w-20 sm:h-20 text-xl"
+    iconSize = 32
+  }
 
   if (imageUrl && !imageError) {
     return (
@@ -50,7 +60,7 @@ export function PlayerAvatar({ participant, user, name: propName, size = "sm", c
       title={resolvedName}
       className={`${sizeClasses} rounded-full bg-slate-200 text-slate-650 font-black flex items-center justify-center shrink-0 border border-slate-300/80 select-none shadow-2xs ${className}`}
     >
-      {initials ? initials : <User size={12} className="opacity-60" />}
+      {initials ? initials : <User size={iconSize} className="opacity-60" />}
     </div>
   )
 }

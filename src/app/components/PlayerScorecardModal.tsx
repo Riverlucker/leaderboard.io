@@ -4,6 +4,7 @@ import React from "react"
 import { X, Share2, CheckCircle, RefreshCw } from "lucide-react"
 import { getHandicapStrokesOnHole, calculateStablefordPoints, getRoundHoleInfo } from "@/lib/scoring"
 import { getPlayingHandicap } from "../CompetitionClientView"
+import { PlayerAvatar } from "./PlayerAvatar"
 
 interface PlayerScorecardModalProps {
   selectedParticipantForScorecard: any
@@ -33,13 +34,18 @@ export function PlayerScorecardModal({
     <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
       <div className="bg-white border border-slate-200 rounded-2xl max-w-4xl w-full p-6 shadow-2xl space-y-4 overflow-hidden max-h-[90vh] flex flex-col text-slate-800">
         <div className="flex justify-between items-center border-b border-slate-200 pb-3">
-          <div>
-            <h3 className="text-xl font-bold text-slate-900">
-              {currentParticipant.userId ? (currentParticipant.user?.name || currentParticipant.user?.email) : currentParticipant.dummyName}
-            </h3>
-            <p className="text-xs text-slate-550">
-              Competition Handicap Index: {currentParticipant.compHandicap !== null ? currentParticipant.compHandicap.toFixed(1) : "-"}
-            </p>
+          <div className="flex items-center gap-3">
+            {competition?.showProfilePicture && (
+              <PlayerAvatar participant={currentParticipant} size="md" />
+            )}
+            <div>
+              <h3 className="text-xl font-bold text-slate-900 leading-tight">
+                {currentParticipant.userId ? (currentParticipant.user?.name || currentParticipant.user?.email) : currentParticipant.dummyName}
+              </h3>
+              <p className="text-xs text-slate-550 mt-0.5">
+                Competition Handicap Index: {currentParticipant.compHandicap !== null ? currentParticipant.compHandicap.toFixed(1) : "-"}
+              </p>
+            </div>
           </div>
           <div className="flex items-center space-x-2">
             {onShare && (

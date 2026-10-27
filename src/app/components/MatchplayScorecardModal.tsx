@@ -12,6 +12,7 @@ import {
   parseAllowancePercentage
 } from "../CompetitionClientView"
 import { getTeamColorConfig } from "@/lib/teamColors"
+import { PlayerAvatar } from "./PlayerAvatar"
 
 interface MatchplayScorecardModalProps {
   selectedMatchForScorecard: any
@@ -357,9 +358,16 @@ export function MatchplayScorecardModal({
 
       return (
         <tr className="border-b border-slate-200">
-          <td className={`px-3 py-2 text-left border-r border-slate-200 text-[10px] truncate max-w-[110px] ${nameBg}`}>
-            {displayName}
-            {allowanceVal > 0 && ` (${allowanceVal})`}
+          <td className={`px-2.5 py-1.5 text-left border-r border-slate-200 text-[10px] min-w-[110px] max-w-[140px] ${nameBg}`}>
+            <div className="flex items-center gap-1.5 min-w-0">
+              {competition?.showProfilePicture && (
+                <PlayerAvatar participant={p} size="xs" />
+              )}
+              <span className="truncate">
+                {displayName}
+                {allowanceVal > 0 && ` (${allowanceVal})`}
+              </span>
+            </div>
           </td>
           {holeNums.map(num => {
             const adjusted = getRoundHoleInfo(round, num)

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react"
 import { X, Share2, CheckCircle, RefreshCw } from "lucide-react"
 import { getHandicapStrokesOnHole, calculateStablefordPoints, getRoundHoleInfo } from "@/lib/scoring"
 import { getPlayingHandicap, getCompactName } from "../CompetitionClientView"
+import { PlayerAvatar } from "./PlayerAvatar"
 
 interface TeamScorecardModalProps {
   selectedTeamForScorecard: any
@@ -356,8 +357,15 @@ export function TeamScorecardModal({
                           return (
                             <tr key={p.id} className="border-b border-slate-100 hover:bg-slate-50/50">
                               <td className="px-2 py-1.5 text-left border-r border-slate-200 text-[10px]">
-                                <div className="font-bold text-slate-800 leading-tight">{compact}</div>
-                                <div className="text-[8px] text-slate-400 font-mono">Vorgabe {ms.courseHandicap}</div>
+                                <div className="flex items-center gap-1.5">
+                                  {competition?.showProfilePicture && (
+                                    <PlayerAvatar participant={p} size="xs" />
+                                  )}
+                                  <div className="min-w-0">
+                                    <div className="font-bold text-slate-800 leading-tight truncate">{compact}</div>
+                                    <div className="text-[8px] text-slate-400 font-mono">Vorgabe {ms.courseHandicap}</div>
+                                  </div>
+                                </div>
                               </td>
                               {holeNums.map((num, i) => {
                                 const { displayVal, isWiped, net, hcpStrokes } = ms.list[i]

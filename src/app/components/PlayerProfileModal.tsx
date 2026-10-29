@@ -374,22 +374,9 @@ export function PlayerProfileModal({ player, onClose, onOpenScorecard }: PlayerP
           <div className="p-5 sm:p-6 bg-gradient-to-br from-slate-50 via-white to-slate-100/60 border-b border-slate-200">
             <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
               
-              {/* Profile Photo in Portrait Format with Stars at Top Edge */}
+              {/* Portrait with stars integrated into the photo */}
               <div className="relative group shrink-0">
                 
-                {/* STARS BADGE AT THE TOP EDGE OF THE PHOTO */}
-                {showStars && (
-                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 z-20 flex items-center gap-0.5 bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 text-slate-950 px-2.5 py-0.5 rounded-full shadow-md border-2 border-white ring-1 ring-amber-400/50">
-                    {starsCount > 0 ? (
-                      Array.from({ length: starsCount }).map((_, i) => (
-                        <Star key={i} size={11} className="fill-slate-950 text-slate-950" />
-                      ))
-                    ) : (
-                      <span className="text-[10px] font-black uppercase tracking-wider px-1">0 ★</span>
-                    )}
-                  </div>
-                )}
-
                 {/* Portrait Image Container (Sensible, uniform size: 112px x 144px -> 3:4 portrait) */}
                 <div className="w-28 h-36 rounded-2xl overflow-hidden border-2 border-slate-200 bg-slate-100 shadow-md relative flex items-center justify-center">
                   {profileData?.image ? (
@@ -402,6 +389,18 @@ export function PlayerProfileModal({ player, onClose, onOpenScorecard }: PlayerP
                     <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 bg-slate-200/50">
                       <Camera size={32} className="opacity-40 mb-1" />
                       <span className="text-[10px] font-bold uppercase tracking-wider opacity-60">Portrait</span>
+                    </div>
+                  )}
+
+                  {showStars && (
+                    <div aria-label={`${starsCount} Sterne`} className="pointer-events-none absolute top-2 inset-x-1 z-20 flex flex-wrap items-center justify-center gap-0.5 text-amber-300 drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">
+                      {starsCount > 0 ? (
+                        Array.from({ length: starsCount }).map((_, i) => (
+                          <Star key={i} size={12} className="fill-amber-300/90 stroke-amber-100/90" />
+                        ))
+                      ) : (
+                        <span className="text-[10px] font-black uppercase tracking-wider">0 ★</span>
+                      )}
                     </div>
                   )}
 

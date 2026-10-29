@@ -6,6 +6,7 @@ import { MatchplayScorecardModal } from "./components/MatchplayScorecardModal"
 import { PlayerScorecardModal } from "./components/PlayerScorecardModal"
 import { ContextMenu, ContextMenuOption } from "./components/ContextMenu"
 import { PlayerProfileModal } from "./components/PlayerProfileModal"
+import { profilePlayer, type ProfileParticipant } from "@/lib/profile-player"
 import { 
   RyderCupHeroBanner, 
   RyderCupMainStandings, 
@@ -309,6 +310,17 @@ function StandardCompetitionView({ competition, session, courses, users }: Compe
     stars?: number | null
     competitionId?: string | null
   } | null>(null)
+
+  const openPlayerProfile = (participant: ProfileParticipant, sourceCompetition = competition) => {
+    setSelectedMatchForScorecard(null)
+    setSelectedMatchRoundForScorecard(null)
+    setSelectedParticipantForScorecard(null)
+    setSelectedTeamForScorecard(null)
+    setSelectedRoundIdForScorecard(null)
+    setSelectedCompetitionForScorecard(null)
+    clearScorecardUrlParams()
+    setHistoryModalPlayer(profilePlayer(participant, sourceCompetition))
+  }
 
   const handleSinglePlayerContextMenu = (e: React.MouseEvent, participant: any) => {
     if (!participant) return
@@ -3757,9 +3769,11 @@ function StandardCompetitionView({ competition, session, courses, users }: Compe
                 {competition.participants.map((p: any) => {
                   const name = p.userId ? (p.user?.name || p.user?.email) : p.dummyName
                   return (
-                    <div
+                    <button
+                      type="button"
                       key={p.id}
-                      className="py-2.5 flex justify-between items-center cursor-pointer hover:bg-slate-50 px-2 rounded-lg transition-colors"
+                      className="w-full text-left py-2.5 flex justify-between items-center cursor-pointer hover:bg-slate-50 px-2 rounded-lg transition-colors focus-visible:outline-2 focus-visible:outline-emerald-600"
+                      onClick={() => openPlayerProfile(p)}
                       onContextMenu={(e) => handleSinglePlayerContextMenu(e, p)}
                     >
                       <div className="flex min-w-0 items-center gap-3">
@@ -3776,7 +3790,7 @@ function StandardCompetitionView({ competition, session, courses, users }: Compe
                       <div className="text-xs font-mono font-black text-cyan-750">
                         {p.compHandicap !== null ? p.compHandicap.toFixed(1) : "-"}
                       </div>
-                    </div>
+                    </button>
                   )
                 })}
               </div>
@@ -5835,6 +5849,7 @@ function StandardCompetitionView({ competition, session, courses, users }: Compe
       {/* Matchplay scorecard popup modal */}
       {selectedMatchForScorecard && selectedMatchRoundForScorecard && (
         <MatchplayScorecardModal
+          onOpenProfile={openPlayerProfile}
           selectedMatchForScorecard={selectedMatchForScorecard}
           selectedMatchRoundForScorecard={selectedMatchRoundForScorecard}
           competition={competition}
@@ -5854,6 +5869,7 @@ function StandardCompetitionView({ competition, session, courses, users }: Compe
       {/* Landscape scorecard popup modal */}
       {selectedParticipantForScorecard && (
         <PlayerScorecardModal
+          onOpenProfile={participant => openPlayerProfile(participant, selectedCompetitionForScorecard || competition)}
           selectedParticipantForScorecard={selectedParticipantForScorecard}
           selectedRoundIdForScorecard={selectedRoundIdForScorecard}
           competition={selectedCompetitionForScorecard || competition}
@@ -5874,6 +5890,7 @@ function StandardCompetitionView({ competition, session, courses, users }: Compe
       {/* Team scorecard popup modal */}
       {selectedTeamForScorecard && (
         <TeamScorecardModal
+          onOpenProfile={openPlayerProfile}
           selectedTeamForScorecard={selectedTeamForScorecard}
           selectedRoundIdForScorecard={selectedRoundIdForScorecard}
           competition={competition}
@@ -5906,6 +5923,7 @@ function StandardCompetitionView({ competition, session, courses, users }: Compe
           player={historyModalPlayer}
           onClose={() => setHistoryModalPlayer(null)}
           onOpenScorecard={(round, participant, comp) => {
+            setHistoryModalPlayer(null)
             setSelectedCompetitionForScorecard(comp)
             setSelectedParticipantForScorecard(participant)
             setSelectedRoundIdForScorecard(round.id)

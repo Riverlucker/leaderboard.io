@@ -13,6 +13,7 @@ import {
 } from "lucide-react"
 import { MatchplayScorecardModal } from "./MatchplayScorecardModal"
 import { PlayerProfileModal } from "./PlayerProfileModal"
+import { profilePlayer } from "@/lib/profile-player"
 import { ContextMenu, ContextMenuOption } from "./ContextMenu"
 import { PlayerAvatar } from "./PlayerAvatar"
 import { 
@@ -998,6 +999,11 @@ export function RyderCupView({ competition, session }: RyderCupViewProps) {
       {/* Matchplay Scorecard Modal */}
       {selectedMatchForScorecard && selectedMatchRoundForScorecard && (
         <MatchplayScorecardModal
+          onOpenProfile={participant => {
+            setSelectedMatchForScorecard(null)
+            setSelectedMatchRoundForScorecard(null)
+            setProfileModalPlayer(profilePlayer(participant, competition))
+          }}
           selectedMatchForScorecard={selectedMatchForScorecard}
           selectedMatchRoundForScorecard={selectedMatchRoundForScorecard}
           competition={competition}

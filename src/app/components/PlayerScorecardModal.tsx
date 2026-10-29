@@ -5,6 +5,7 @@ import { X, Share2, CheckCircle, RefreshCw } from "lucide-react"
 import { getHandicapStrokesOnHole, calculateStablefordPoints, getRoundHoleInfo } from "@/lib/scoring"
 import { getPlayingHandicap } from "@/lib/matchplay"
 import { PlayerAvatar } from "./PlayerAvatar"
+import type { ProfileParticipant } from "@/lib/profile-player"
 
 interface PlayerScorecardModalProps {
   selectedParticipantForScorecard: any
@@ -12,6 +13,7 @@ interface PlayerScorecardModalProps {
   competition: any
   selectedLeaderboardType: string
   onClose: () => void
+  onOpenProfile: (participant: ProfileParticipant) => void
   onShare?: () => void
   shareCopied?: boolean
   onRefresh?: () => void
@@ -24,6 +26,7 @@ export function PlayerScorecardModal({
   competition,
   selectedLeaderboardType,
   onClose,
+  onOpenProfile,
   onShare,
   shareCopied,
   onRefresh,
@@ -34,7 +37,7 @@ export function PlayerScorecardModal({
     <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
       <div className="bg-white border border-slate-200 rounded-2xl max-w-4xl w-full p-6 shadow-2xl space-y-4 overflow-hidden max-h-[90vh] flex flex-col text-slate-800">
         <div className="flex justify-between items-center border-b border-slate-200 pb-3">
-          <div className="flex items-center gap-3">
+          <button type="button" onClick={() => onOpenProfile(currentParticipant)} title="Spielerprofil öffnen" className="flex items-center gap-3 text-left cursor-pointer rounded-lg hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-emerald-600">
             {competition?.showProfilePicture && (
               <PlayerAvatar participant={currentParticipant} size="md" />
             )}
@@ -46,7 +49,7 @@ export function PlayerScorecardModal({
                 Competition Handicap Index: {currentParticipant.compHandicap !== null ? currentParticipant.compHandicap.toFixed(1) : "-"}
               </p>
             </div>
-          </div>
+          </button>
           <div className="flex items-center space-x-2">
             {onShare && (
               <button

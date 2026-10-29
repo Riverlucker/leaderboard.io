@@ -5,6 +5,7 @@ import { X, Share2, CheckCircle, RefreshCw } from "lucide-react"
 import { getHandicapStrokesOnHole, calculateStablefordPoints, getRoundHoleInfo } from "@/lib/scoring"
 import { getPlayingHandicap, getCompactName } from "@/lib/matchplay"
 import { PlayerAvatar } from "./PlayerAvatar"
+import type { ProfileParticipant } from "@/lib/profile-player"
 
 interface TeamScorecardModalProps {
   selectedTeamForScorecard: any
@@ -12,6 +13,7 @@ interface TeamScorecardModalProps {
   competition: any
   selectedLeaderboardType?: string
   onClose: () => void
+  onOpenProfile: (participant: ProfileParticipant) => void
   onShare?: () => void
   shareCopied?: boolean
   onRefresh?: () => void
@@ -24,6 +26,7 @@ export function TeamScorecardModal({
   competition,
   selectedLeaderboardType,
   onClose,
+  onOpenProfile,
   onShare,
   shareCopied,
   onRefresh,
@@ -357,7 +360,7 @@ export function TeamScorecardModal({
                           return (
                             <tr key={p.id} className="border-b border-slate-100 hover:bg-slate-50/50">
                               <td className="px-2.5 py-1.5 text-left border-r border-slate-200 text-[10px] min-w-[130px]">
-                                <div className="flex items-center gap-2">
+                                <button type="button" onClick={() => onOpenProfile(p)} title="Spielerprofil öffnen" className="flex items-center gap-2 text-left cursor-pointer rounded hover:underline focus-visible:outline-2 focus-visible:outline-emerald-600">
                                   {competition?.showProfilePicture && (
                                     <PlayerAvatar participant={p} size="xs" />
                                   )}
@@ -365,7 +368,7 @@ export function TeamScorecardModal({
                                     <div className="font-bold text-slate-800 leading-tight truncate">{compact}</div>
                                     <div className="text-[8px] text-slate-400 font-mono">Vorgabe {ms.courseHandicap}</div>
                                   </div>
-                                </div>
+                                </button>
                               </td>
                               {holeNums.map((num, i) => {
                                 const { displayVal, isWiped, net, hcpStrokes } = ms.list[i]

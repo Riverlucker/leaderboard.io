@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState, useEffect, useMemo, useRef } from "react"
+import Link from "next/link"
 import { 
   X, Filter, Calendar, MapPin, Hash, Award, RefreshCw, ChevronRight, 
   Camera, Mail, Shield, Check, AlertCircle, Trophy, Star, Clock, Edit2
@@ -353,6 +354,7 @@ export function PlayerProfileModal({ player, onClose, onOpenScorecard }: PlayerP
         </div>
 
         {/* Action Alerts */}
+        {canEdit && <Link href="/profile" className="block border-b border-slate-200 px-5 py-3 text-sm font-semibold text-emerald-700">Mein eigenes Profil mit Foto und Passwort verwalten →</Link>}
         {actionSuccess && (
           <div className="bg-emerald-500 text-white text-xs font-semibold px-4 py-2.5 flex items-center space-x-2 shadow-sm animate-in fade-in">
             <Check size={16} />

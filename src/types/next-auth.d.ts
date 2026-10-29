@@ -6,7 +6,7 @@ export type ExtendedUser = DefaultSession["user"] & {
 }
 
 declare module "next-auth" {
-  interface User { role: "USER" | "ADMIN" | "SUPER_ADMIN" }
+  interface User { role: "USER" | "ADMIN" | "SUPER_ADMIN"; sessionVersion: number }
   interface Session {
     user: ExtendedUser
   }
@@ -16,6 +16,7 @@ import "next-auth/jwt"
 
 declare module "next-auth/jwt" {
   interface JWT {
+    sessionVersion?: number
     id: string
     role: "USER" | "ADMIN" | "SUPER_ADMIN"
   }

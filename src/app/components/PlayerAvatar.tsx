@@ -12,7 +12,7 @@ interface PlayerAvatarProps {
 }
 
 export function PlayerAvatar({ participant, user, name: propName, size = "sm", className = "" }: PlayerAvatarProps) {
-  const [imageError, setImageError] = useState(false)
+  const [failedImage, setFailedImage] = useState<string | null>(null)
 
   const resolvedUser = user || participant?.user
   const imageUrl = resolvedUser?.image
@@ -43,13 +43,13 @@ export function PlayerAvatar({ participant, user, name: propName, size = "sm", c
     iconSize = 44
   }
 
-  if (imageUrl && !imageError) {
+  if (imageUrl && failedImage !== imageUrl) {
     return (
       <img
         src={imageUrl}
         alt={resolvedName}
         title={resolvedName}
-        onError={() => setImageError(true)}
+        onError={() => setFailedImage(imageUrl)}
         className={`${sizeClasses} rounded-full object-cover shrink-0 border border-slate-300 shadow-xs ring-1 ring-black/5 ${className}`}
       />
     )

@@ -106,10 +106,40 @@ anschließend Deploymentstatus prüfen. Details der Umsetzung stehen in
 [STABILISIERUNGSPLAN.md](STABILISIERUNGSPLAN.md). HANDOVER.md ist die historische
 Übergabe; bestätigte Korrekturen und der Umsetzungsstand stehen im Plan.
 
-## Verbleibende Arbeit
+## Persönliche Profile und Einladungen
+
+Unter `/profile` verwaltet jeder angemeldete Benutzer sein eigenes Profil unabhängig
+von Wettbewerben. E-Mail ist erforderlich, das Foto optional. Fotos werden vor dem
+Versand im Browser verkleinert, serverseitig validiert und als kleine WebP-Avatare
+im vorhandenen Bildfeld gespeichert; ein externer Storage-Zugang ist nicht nötig.
+
+Unter `/admin/invitations` können Administratoren einen Wettbewerb auswählen und
+persönliche Einladungen samt WhatsApp-Textdatei erzeugen. Alle Teilnehmer müssen
+bereits mit Benutzerkonten verknüpft sein. Nur Superadmins dürfen Einladungen für
+andere privilegierte Konten erzeugen; Admins dürfen ihr eigenes Konto einbeziehen.
+
+Die Links enthalten zufällige 256-Bit-Tokens. Nur deren SHA-256-Hashes werden in
+der Datenbank gespeichert. Gültigkeit: 14 Tage. GET-Aufrufe und Linkvorschauen
+verbrauchen sie nicht; erst die erfolgreiche Profiländerung beansprucht den Link
+atomar. Ein neuer Link ersetzt vorherige unbenutzte Einladungen. Ein benutzter,
+unbekannter oder abgelaufener Link führt zur Anmeldung und danach ins eigene Profil.
+
+Beim Erstzugang kann das Passwort ohne Kenntnis des alten ersetzt werden. Danach
+erfordern E-Mail-/Passwortänderungen im persönlichen Profil das aktuelle Passwort.
+Passwortänderungen erhöhen die Sitzungsversion und machen alte Sitzungen ungültig.
+Profilseiten setzen `no-referrer` und `noindex, nofollow`.
+
+Für einen ausdrücklich angeforderten Betreiberexport:
+`npm run profiles:invite -- TRRC26`. Der Befehl erzeugt neue Links und zwei private
+Textdateien im Git-ignorierten `scratch/`-Ordner. Er versendet keine Nachrichten.
+Die Klartextlinks sind Zugangsdaten und dürfen nicht in Git oder öffentliche Logs
+übernommen werden. Bereits ausgegebene Dateien nicht durch versehentliches erneutes
+Erzeugen ungültig machen.
+
+## Weitere Arbeit
 
 Weitere Zerlegung großer UI-Komponenten und Bereinigung der dokumentierten
-Lintaltlasten; vollständige Offline-PWA und nativer Bildupload.
+Lintaltlasten; vollständige Offline-PWA und Upload von Scorekartenfotos.
 Der Dependency-Audit meldet nach den Sicherheitsupdates noch den
 DeepmergeTS-Pfad im Prisma-CLI-Konfigurationspaket. Die vorgeschlagene
 Behebung erfordert Prisma 7; dafür ist eine eigene geprüfte Migration nötig.

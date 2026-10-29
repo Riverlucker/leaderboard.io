@@ -3762,7 +3762,9 @@ function StandardCompetitionView({ competition, session, courses, users }: Compe
                       className="py-2.5 flex justify-between items-center cursor-pointer hover:bg-slate-50 px-2 rounded-lg transition-colors"
                       onContextMenu={(e) => handleSinglePlayerContextMenu(e, p)}
                     >
-                      <div>
+                      <div className="flex min-w-0 items-center gap-3">
+                        <PlayerAvatar participant={p} size="xs" />
+                        <div className="min-w-0">
                         <div className="font-semibold text-sm text-slate-850 truncate max-w-[150px]">{name}</div>
                         {isTeamComp && p.team && (
                           <div className="text-[10px] font-black text-slate-655 uppercase mt-0.5">
@@ -3770,6 +3772,7 @@ function StandardCompetitionView({ competition, session, courses, users }: Compe
                           </div>
                         )}
                       </div>
+                        </div>
                       <div className="text-xs font-mono font-black text-cyan-750">
                         {p.compHandicap !== null ? p.compHandicap.toFixed(1) : "-"}
                       </div>

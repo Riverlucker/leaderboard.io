@@ -104,6 +104,8 @@ export async function updateUser(id: string, data: {
 
   if (data.password && data.password.trim().length > 0) {
     updateData.password = await bcrypt.hash(data.password, 10)
+    updateData.sessionVersion = {increment: 1}
+    await prisma.profileInvitation.updateMany({where:{userId:id,usedAt:null},data:{usedAt:new Date()}})
   }
 
   await prisma.user.update({

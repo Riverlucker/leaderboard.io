@@ -32,6 +32,7 @@ export default async function AdminLayout({
         </div>
 
         <nav className="flex-1 px-4 space-y-2 mt-4">
+          <Link href="/admin/invitations" className="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-emerald-400"><Users size={20} /><span className="font-medium">Profileinladungen</span></Link>
           <Link href="/admin" className="flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-emerald-400 transition-colors">
             <Home size={20} />
             <span className="font-medium">Dashboard</span>

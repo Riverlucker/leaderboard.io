@@ -5,6 +5,7 @@ import prisma from "@/lib/prisma"
 import { auth } from "@/auth"
 import { assertHandicap } from "@/lib/access-policy"
 import { atomic } from "@/lib/transaction"
+import { prepareProfileImage } from "@/lib/profile-image"
 import { revalidatePath } from "next/cache"
 
 export interface UserProfileData {
@@ -212,8 +213,11 @@ export async function updateUserProfile(data: {
     }
 
     if (data.image !== undefined) {
-      if (data.image && (!data.image.toLowerCase().startsWith("https://") || data.image.length > 2048)) throw new Error("Bitte eine gültige HTTPS-Bildadresse eingeben.")
-      updateFields.image = data.image
+      if (data.image?.startsWith("data:")) updateFields.image = await prepareProfileImage(data.image)
+      else {
+        if (data.image && (!data.image.toLowerCase().startsWith("https://") || data.image.length > 2048)) throw new Error("Bitte eine gültige HTTPS-Bildadresse eingeben.")
+        updateFields.image = data.image
+      }
     }
 
     await prisma.user.update({

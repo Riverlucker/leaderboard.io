@@ -21,6 +21,8 @@ model User {
   emailVerified DateTime?
   image         String?
   password      String?
+  sessionVersion Int @default(0)
+  profileInvitations ProfileInvitation[]
 
   handicap      Float?
   homeCourse    String?
@@ -31,6 +33,17 @@ model User {
   accounts      Account[]
   sessions      Session[]
   handicapRequests HandicapRequest[]
+}
+
+model ProfileInvitation {
+  tokenHash String @id
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+  usedAt DateTime?
+
+  @@index([userId])
 }
 
 model Course {

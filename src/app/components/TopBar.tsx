@@ -1,4 +1,5 @@
 "use client"
+import Link from "next/link"
 
 import { useRouter } from 'next/navigation'
 import { useSession, signOut } from 'next-auth/react'
@@ -42,7 +43,7 @@ export default function TopBar() {
           <Home size={20} />
         </button>
         {session?.user && (
-          <span className="text-sm text-slate-700">Logged in as {session.user.name || session.user.email}</span>
+          <Link href="/profile" className="text-sm text-slate-700">Mein Profil: {session.user.name || session.user.email}</Link>
         )}
       </div>
       <div className="flex items-center space-x-2">

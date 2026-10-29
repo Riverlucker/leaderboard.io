@@ -13,4 +13,6 @@ sind umgesetzt. Maßgeblich ist STABILISIERUNGSPLAN.md.
 - [ ] Prisma-7-Umstellung zur Behebung des DeepmergeTS-CLI-Auditbefunds planen
 - [ ] Externe Backup-Aufbewahrung/PITR und separate gehostete Dev-Datenbank prüfen
 - [ ] Vollständige Offline-PWA und automatische Wiederverbindung ergänzen
-- [ ] Nativen Bildupload ergänzen
+- [x] Persönliche Profile mit einmaligen Einladungslinks und optionalem Foto-Upload
+- [x] Wiederverwendbare Einladungsverwaltung mit WhatsApp-Textexport
+- [ ] Upload von Scorekartenfotos ergänzen

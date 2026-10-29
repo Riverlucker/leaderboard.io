@@ -14,6 +14,9 @@ const getPart = (type: string) => parts.find((p) => p.type === type)?.value || "
 const buildTime = `${getPart("day")}${getPart("month")}_${getPart("hour")}${getPart("minute")}`;
 
 const nextConfig: NextConfig = {
+  async headers() {
+    return [{source:"/profile/:path*",headers:[{key:"Referrer-Policy",value:"no-referrer"},{key:"X-Robots-Tag",value:"noindex, nofollow"}]}];
+  },
   env: {
     NEXT_PUBLIC_BUILD_TIME: buildTime,
   },

@@ -17,7 +17,8 @@
     "db:backup": "tsx scripts/backup-database.ts",
     "db:verify-backup": "tsx scripts/verify-backup.ts",
     "db:verify": "tsx scripts/verify-database.ts",
-    "test:smoke": "tsx scripts/smoke-test.ts"
+    "test:smoke": "tsx scripts/smoke-test.ts",
+    "profiles:invite": "tsx --conditions=react-server scripts/create-profile-invitations.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
@@ -27,7 +28,8 @@
     "next-auth": "5.0.0-beta.32",
     "react": "19.2.4",
     "react-dom": "19.2.4",
-    "server-only": "^0.0.1"
+    "server-only": "^0.0.1",
+    "sharp": "0.35.5"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.12",

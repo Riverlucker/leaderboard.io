@@ -3,6 +3,7 @@
 import { signIn } from "next-auth/react"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import { safeProfileReturn } from "@/lib/profile-navigation"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -28,7 +29,8 @@ export default function LoginPage() {
       setError("Invalid email or password")
       setIsLoading(false)
     } else if (res?.ok) {
-      router.push("/")
+      const target = new URLSearchParams(window.location.search).get("callbackUrl")
+      router.push(safeProfileReturn(target))
       router.refresh()
     }
   }
@@ -51,7 +53,6 @@ export default function LoginPage() {
               name="email" 
               type="email" 
               placeholder="player@example.com" 
-              defaultValue="admin@leaderboard.sc"
               required 
               className="w-full px-4 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-500"
             />
@@ -61,7 +62,6 @@ export default function LoginPage() {
             <input 
               name="password" 
               type="password"
-              defaultValue="admin123"
               required 
               className="w-full px-4 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-500"
             />

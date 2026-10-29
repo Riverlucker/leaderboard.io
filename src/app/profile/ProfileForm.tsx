@@ -24,7 +24,7 @@ async function readPhoto(file: File): Promise<string> {
   } finally {URL.revokeObjectURL(url)}
 }
 
-export function ProfileForm({name,email:initialEmail,image,token,invitation=false}:{name:string;email:string;image:string|null;token?:string;invitation?:boolean}) {
+export function ProfileForm({name,email:initialEmail,image,token,invitation=false,redirectTo="/profile"}:{name:string;email:string;image:string|null;token?:string;invitation?:boolean;redirectTo?:string}) {
   const router = useRouter()
   const [email,setEmail]=useState(initialEmail)
   const [password,setPassword]=useState("")
@@ -51,8 +51,8 @@ export function ProfileForm({name,email:initialEmail,image,token,invitation=fals
       if (!result.success) {setError(result.error || "Speichern fehlgeschlagen.");return}
       if (result.reauthenticate) {
         const login=await signIn("credentials",{email:email.trim().toLowerCase(),password,redirect:false})
-        if (!login?.ok || login.error) {router.replace("/login?callbackUrl=%2Fprofile");return}
-        router.replace("/profile");router.refresh()
+        if (!login?.ok || login.error) {router.replace(`/login?callbackUrl=${encodeURIComponent(redirectTo)}`);return}
+        router.replace(redirectTo);router.refresh()
       } else {setSuccess("Dein Profil wurde gespeichert.");setPhoto(undefined);router.refresh()}
       setPassword("");setConfirmation("");setCurrentPassword("")
     } catch {setError("Die Verbindung wurde unterbrochen. Bitte erneut versuchen; falls dein Profil bereits gespeichert wurde, melde dich mit deinem neuen Passwort an.")}

@@ -20,7 +20,13 @@ it("öffnet gültige Links wiederholt als Einrichtung, ohne Schreiboperation",as
 })
 it("führt bei einem verbrauchten Link zur Anmeldung mit Profil-Rücksprung",async()=>{
   mock.invitation.mockResolvedValue({usedAt:new Date(),expiresAt:invitationExpiry()})
-  await expect(ProfilePage({searchParams:Promise.resolve({player:token})})).rejects.toThrow("REDIRECT:/login?callbackUrl=%2Fprofile")
+  await expect(ProfilePage({searchParams:Promise.resolve({player:token,RDIR:"TRRC26/agenda"})})).rejects.toThrow("REDIRECT:/login?callbackUrl=%2Fprofile")
+})
+it("übergibt das Agenda-Ziel nur für die erfolgreiche Ersteinrichtung",async()=>{
+  const page=await ProfilePage({searchParams:Promise.resolve({player:token,RDIR:"TRRC26/agenda"})})
+  expect(page.props.redirectTo).toBe("/?comp=TRRC26&tab=agenda")
+  const fallback=await ProfilePage({searchParams:Promise.resolve({player:token,RDIR:"https://evil.example"})})
+  expect(fallback.props.redirectTo).toBe("/profile")
 })
 it("öffnet nach Anmeldung ausschließlich das eigene globale Profil",async()=>{
   mock.auth.mockResolvedValue({user:{id:"self"}})

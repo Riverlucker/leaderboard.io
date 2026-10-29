@@ -136,6 +136,13 @@ Die Klartextlinks sind Zugangsdaten und dürfen nicht in Git oder öffentliche L
 übernommen werden. Bereits ausgegebene Dateien nicht durch versehentliches erneutes
 Erzeugen ungültig machen.
 
+Optionales Weiterleitungsziel nach erfolgreicher Einrichtung:
+`/profile/?player=TOKEN&RDIR=TRRC26/agenda` führt zu `/?comp=TRRC26&tab=agenda`.
+Das Format ist `Wettbewerb-Slug/Tab`; externe Ziele sind ausgeschlossen. Ohne
+`RDIR` öffnet sich das Profil. Verbrauchte Links führen weiterhin zur Anmeldung
+und ins eigene Profil. Für einen Export mit Agenda-Ziel:
+`npm run profiles:invite -- TRRC26 TRRC26/agenda`.
+
 ## Weitere Arbeit
 
 Weitere Zerlegung großer UI-Komponenten und Bereinigung der dokumentierten

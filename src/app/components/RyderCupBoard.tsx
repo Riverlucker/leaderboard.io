@@ -13,6 +13,7 @@ import {
   parseAllowancePercentage 
 } from "@/lib/matchplay"
 import { PlayerAvatar } from "./PlayerAvatar"
+import { PlayerStars } from "./PlayerStars"
 
 
 
@@ -690,14 +691,15 @@ export function RyderCupMainStandings({
                                   onSelectPlayer(p)
                                 }
                               }}
-                              className={`truncate uppercase font-black text-xs sm:text-sm tracking-tight leading-snug ${
+                              className={`flex max-w-full items-center gap-1.5 uppercase font-black text-xs sm:text-sm tracking-tight leading-snug ${
                                 !isRoundAnon ? "hover:underline cursor-pointer" : ""
                               } ${
                                 diamondLead ? "text-white" : "text-slate-900"
                               }`}
                               title={!isRoundAnon ? `Profil von ${name} anzeigen` : undefined}
                             >
-                              {name}
+                              <PlayerStars stars={p?.stars} enabled={competition.hasBadges && !isRoundAnon} onColor={diamondLead} />
+                              <span className="min-w-0 truncate">{name}</span>
                             </div>
                           )
                         })}
@@ -761,14 +763,15 @@ export function RyderCupMainStandings({
                                   onSelectPlayer(p)
                                 }
                               }}
-                              className={`truncate uppercase font-black text-xs sm:text-sm tracking-tight leading-snug ${
+                              className={`flex max-w-full items-center gap-1.5 uppercase font-black text-xs sm:text-sm tracking-tight leading-snug ${
                                 !isRoundAnon ? "hover:underline cursor-pointer" : ""
                               } ${
                                 heartsLead ? "text-white" : "text-slate-900"
                               }`}
                               title={!isRoundAnon ? `Profil von ${name} anzeigen` : undefined}
                             >
-                              {name}
+                              <span className="min-w-0 truncate">{name}</span>
+                              <PlayerStars stars={p?.stars} enabled={competition.hasBadges && !isRoundAnon} onColor={heartsLead} />
                             </div>
                           )
                         })}

@@ -1,7 +1,10 @@
 "use server"
 
+import type { Prisma } from "@prisma/client"
 import prisma from "@/lib/prisma"
 import { auth } from "@/auth"
+import { assertHandicap } from "@/lib/access-policy"
+import { atomic } from "@/lib/transaction"
 import { revalidatePath } from "next/cache"
 
 export interface UserProfileData {
@@ -150,13 +153,13 @@ export async function getPlayerProfile(input: {
       data: {
         id: targetUser.id,
         name: targetUser.name,
-        email: targetUser.email,
+        email: canEdit ? targetUser.email : null,
         image: targetUser.image,
         handicap: targetUser.handicap,
         homeCourse: targetUser.homeCourse,
-        role: targetUser.role,
+        role: canEdit ? targetUser.role : "USER",
         activeCompetitions,
-        pendingHandicapRequest: pendingReq
+        pendingHandicapRequest: canEdit ? pendingReq : null
       }
     }
   } catch (err: any) {
@@ -184,7 +187,7 @@ export async function updateUserProfile(data: {
       return { success: false, error: "Keine Berechtigung zum Ändern dieses Profils." }
     }
 
-    const updateFields: any = {}
+    const updateFields: Prisma.UserUpdateInput = {}
 
     // Name is never editable by normal users, only by Superadmin
     if (data.name && isSuperAdmin) {
@@ -209,6 +212,7 @@ export async function updateUserProfile(data: {
     }
 
     if (data.image !== undefined) {
+      if (data.image && (!data.image.toLowerCase().startsWith("https://") || data.image.length > 2048)) throw new Error("Bitte eine gültige HTTPS-Bildadresse eingeben.")
       updateFields.image = data.image
     }
 
@@ -244,6 +248,8 @@ export async function submitHandicapRequest(data: {
       return { success: false, error: "Keine Berechtigung zum Beantragen einer Handicap-Änderung für diesen Nutzer." }
     }
 
+    assertHandicap(data.requestedHandicap)
+    if (data.competitionId && !await prisma.participant.findFirst({ where: { competitionId: data.competitionId, userId: data.userId } })) throw new Error("Keine Teilnahme an diesem Wettbewerb.")
     const user = await prisma.user.findUnique({
       where: { id: data.userId }
     })
@@ -296,15 +302,18 @@ export async function reviewHandicapRequest(data: {
       return { success: false, error: "Nur Administratoren können Handicap-Anträge bearbeiten." }
     }
 
+    await atomic(async prisma => {
     const req = await prisma.handicapRequest.findUnique({
       where: { id: data.requestId },
       include: { user: true }
     })
 
     if (!req) {
-      return { success: false, error: "Antrag nicht gefunden." }
+      throw new Error("Antrag nicht gefunden.")
     }
 
+    if (req.status !== "PENDING") throw new Error("Antrag wurde bereits bearbeitet.")
+    if (!["APPROVE", "REJECT"].includes(data.action)) throw new Error("Ungültige Entscheidung.")
     if (data.action === "APPROVE") {
       // 1. Update User's master handicap
       await prisma.user.update({
@@ -319,12 +328,8 @@ export async function reviewHandicapRequest(data: {
         const futureParticipants = await prisma.participant.findMany({
           where: {
             userId: req.userId,
-            competition: {
-              OR: [
-                { endDate: null },
-                { endDate: { gte: now } }
-              ]
-            }
+            competition: { startDate: { gt: now } },
+            scores: { none: {} }
           }
         })
 
@@ -354,6 +359,8 @@ export async function reviewHandicapRequest(data: {
         }
       })
     }
+
+    })
 
     revalidatePath("/")
     revalidatePath("/admin")

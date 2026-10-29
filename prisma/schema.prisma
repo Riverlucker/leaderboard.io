@@ -21,7 +21,7 @@ model User {
   emailVerified DateTime?
   image         String?
   password      String?
-  
+
   handicap      Float?
   homeCourse    String?
   phoneNumber   String?
@@ -50,7 +50,7 @@ model Tee {
   id           String @id @default(cuid())
   courseId     String
   course       Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  
+
   name         String // e.g. "White", "Yellow", "Red"
   courseRating Float
   slope        Int
@@ -62,11 +62,11 @@ model Hole {
   id          String @id @default(cuid())
   courseId    String
   course      Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  
+
   number      Int
   par         Int
   strokeIndex Int
-  
+
   scores      Score[]
 }
 
@@ -80,13 +80,13 @@ model Competition {
   hasBadges      Boolean   @default(false)
   badgeType      String?   @default("STARS")
   showProfilePicture Boolean @default(false)
-  
+
   startDate      DateTime?
   endDate        DateTime?
-  
+
   cssConfig      String?   @db.Text // JSON string or CSS text
   bgImage        String?
-  
+
   rounds         Round[]
   teams          Team[]
   participants   Participant[]
@@ -100,7 +100,7 @@ model Team {
   id            String @id @default(cuid())
   competitionId String
   competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
-  
+
   name          String
   color         String?   // e.g., 'emerald', 'red', etc.
   participants  Participant[]
@@ -108,20 +108,20 @@ model Team {
 
 model Participant {
   id            String @id @default(cuid())
-  userId        String? 
+  userId        String?
   user          User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
-  
+
   competitionId String
   competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
-  
+
   teamId        String?
   team          Team?   @relation(fields: [teamId], references: [id], onDelete: SetNull)
-  
-  compHandicap  Float?  
-  dummyName     String? 
+
+  compHandicap  Float?
+  dummyName     String?
   isOutOfCompetition Boolean @default(false)
   stars         Int?    @default(0)
-  
+
   scores        Score[]
   matchPlayers  MatchPlayer[]
   manualHandicaps ManualCourseHandicap[]
@@ -132,21 +132,22 @@ model Round {
   id            String @id @default(cuid())
   competitionId String
   competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
-  
+
   courseId      String
   course        Course @relation(fields: [courseId], references: [id], onDelete: Restrict)
-  
+
   teeId         String?
   tee           Tee?   @relation(fields: [teeId], references: [id], onDelete: SetNull)
-  
+
   name          String // e.g. "Round 1", "Morning Day 1"
   startDate     DateTime?
   endDate       DateTime?
-  
+
   holesPlayed   Int[] // Hole numbers to be played, e.g. [1..18] or [1..9]
   ninePreset    String? // 'FRONT_9_TWICE', 'BACK_9_TWICE', or null
-  
+
   matches       Match[]
+  scores        Score[]
   manualRoundHandicaps ManualRoundHandicap[]
 }
 
@@ -154,14 +155,15 @@ model Match {
   id            String @id @default(cuid())
   roundId       String
   round         Round  @relation(fields: [roundId], references: [id], onDelete: Cascade)
-  
+
   type          String // e.g. "SINGLES", "4BALL", "CHAPMAN", "GROUP"
   allowanceType String? // e.g. "75%", "50%", "100%", "0%"
   handicapAllowance Int?
   playUntilEnd  Boolean @default(false)
   holeRange     String? // e.g. "1-18", "1-9", "2-14"
   scheduledDate DateTime?
-  
+  weight        Float?
+
   matchPlayers  MatchPlayer[]
 }
 
@@ -169,7 +171,7 @@ model MatchPlayer {
   id            String @id @default(cuid())
   matchId       String
   match         Match  @relation(fields: [matchId], references: [id], onDelete: Cascade)
-  
+
   participantId String
   participant   Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
 
@@ -180,21 +182,24 @@ model Score {
   id            String @id @default(cuid())
   participantId String
   participant   Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
-  
+
   holeId        String
   hole          Hole   @relation(fields: [holeId], references: [id], onDelete: Restrict)
-  
-  roundId       String 
-  
+
+  roundId       String
+  round         Round @relation(fields: [roundId], references: [id], onDelete: Cascade)
+
   grossStrokes  Int?
   netStrokes    Int?
-  points        Int?   
-  
+  points        Float?
+
   status        String? // "WIPED" (for /), "NOT_PLAYED" (for -)
-  
+
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
-  enteredBy     String? 
+  enteredBy     String?
+
+  @@unique([participantId, roundId, holeId])
 }
 
 // NextAuth Tables

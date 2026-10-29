@@ -1,0 +1,23 @@
+name: Application checks
+on:
+  push:
+  pull_request:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      POSTGRES_PRISMA_URL: postgresql://unused:unused@localhost:5432/unused
+      POSTGRES_URL_NON_POOLING: postgresql://unused:unused@localhost:5432/unused
+      AUTH_SECRET: ci-only-placeholder-not-a-production-secret
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npm test
+      - run: npm run lint
+      - run: npm run build
+      - run: npm run typecheck

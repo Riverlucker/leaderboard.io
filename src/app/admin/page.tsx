@@ -1,6 +1,8 @@
+import { requireAdminPage } from "@/lib/page-access"
 import prisma from "@/lib/prisma"
 
 export default async function AdminDashboard() {
+  await requireAdminPage()
   const compCount = await prisma.competition.count()
   const userCount = await prisma.user.count()
   const courseCount = await prisma.course.count()

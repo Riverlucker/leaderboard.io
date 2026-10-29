@@ -11,6 +11,7 @@ export function EditCourseClient({ course }: { course: any }) {
   const [holes, setHoles] = useState(course.holes)
   const [tees, setTees] = useState(course.tees)
   const [isSaving, setIsSaving] = useState(false)
+  const [error, setError] = useState("")
 
   const handleHoleChange = (id: string, field: string, value: string) => {
     setHoles(holes.map((h: any) => h.id === id ? { ...h, [field]: value } : h))
@@ -30,11 +31,12 @@ export function EditCourseClient({ course }: { course: any }) {
 
   const handleSave = async () => {
     setIsSaving(true)
+    setError("")
     try {
       await updateCourse(course.id, { name, holes, tees })
       router.push("/admin/courses")
     } catch (e) {
-      console.error(e)
+      setError(e instanceof Error ? e.message : "Speichern fehlgeschlagen.")
     } finally {
       setIsSaving(false)
     }
@@ -42,6 +44,7 @@ export function EditCourseClient({ course }: { course: any }) {
 
   return (
     <div className="max-w-4xl space-y-8">
+      {error && <p role="alert" className="text-red-400">{error}</p>}
       <div className="flex justify-between items-center bg-slate-900 p-6 rounded-xl border border-slate-800">
         <div>
           <label className="block text-sm text-slate-400 mb-1">Course Name</label>

@@ -1,6 +1,11 @@
 "use server"
 
 import prisma from "@/lib/prisma"
+import { atomic } from "@/lib/transaction"
+import { requireAdmin } from "@/lib/access"
+import { assertHandicap } from "@/lib/access-policy"
+
+import { canManageUser } from "@/lib/access-policy"
 import bcrypt from "bcryptjs"
 import { revalidatePath } from "next/cache"
 
@@ -13,11 +18,16 @@ export async function createUser(data: {
   phoneNumber?: string
   role: "USER" | "ADMIN" | "SUPER_ADMIN"
 }) {
-  const emailVal = data.email?.trim() || null
+  const actor = await requireAdmin()
+  return atomic(async prisma => {
+  if (!canManageUser(actor.role, "USER", data.role)) throw new Error("Nur Superadmins dürfen Administratoren ernennen.")
+  assertHandicap(data.handicap)
+
+  const emailVal = data.email?.trim().toLowerCase() || null
   const nameVal = data.name?.trim() || null
   const homeCourseVal = data.homeCourse?.trim() || null
   const phoneNumberVal = data.phoneNumber?.trim() || null
-  
+
   let hashedPassword = null
   if (data.password && data.password.trim().length > 0) {
     hashedPassword = await bcrypt.hash(data.password, 10)
@@ -46,6 +56,8 @@ export async function createUser(data: {
 
   revalidatePath("/admin/users")
   return { success: true }
+
+  })
 }
 
 export async function updateUser(id: string, data: {
@@ -57,7 +69,14 @@ export async function updateUser(id: string, data: {
   phoneNumber?: string
   role: "USER" | "ADMIN" | "SUPER_ADMIN"
 }) {
-  const emailVal = data.email?.trim() || null
+  const actor = await requireAdmin()
+  return atomic(async prisma => {
+  const target = await prisma.user.findUniqueOrThrow({where: {id}})
+  if (!canManageUser(actor.role, target.role, data.role)) throw new Error("Keine Berechtigung für dieses Benutzerkonto.")
+  assertHandicap(data.handicap)
+  if (target.role === "SUPER_ADMIN" && data.role !== "SUPER_ADMIN" && await prisma.user.count({where: {role: "SUPER_ADMIN"}}) <= 1) throw new Error("Der letzte Superadmin muss erhalten bleiben.")
+
+  const emailVal = data.email?.trim().toLowerCase() || null
   const nameVal = data.name?.trim() || null
   const homeCourseVal = data.homeCourse?.trim() || null
   const phoneNumberVal = data.phoneNumber?.trim() || null
@@ -95,13 +114,24 @@ export async function updateUser(id: string, data: {
   revalidatePath("/admin/users")
   revalidatePath(`/admin/users/${id}`)
   return { success: true }
+
+  })
 }
 
 export async function deleteUser(id: string) {
+  const actor = await requireAdmin()
+  return atomic(async prisma => {
+  const target = await prisma.user.findUniqueOrThrow({where: {id}})
+  if (!canManageUser(actor.role, target.role, target.role)) throw new Error("Keine Berechtigung für dieses Benutzerkonto.")
+
+  if (target.role === "SUPER_ADMIN" && true && await prisma.user.count({where: {role: "SUPER_ADMIN"}}) <= 1) throw new Error("Der letzte Superadmin muss erhalten bleiben.")
+
   await prisma.user.delete({
     where: { id }
   })
 
   revalidatePath("/admin/users")
   return { success: true }
+
+  })
 }

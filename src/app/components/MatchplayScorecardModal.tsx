@@ -10,7 +10,7 @@ import {
   getCompactName,
   parseHoleRange,
   parseAllowancePercentage
-} from "../CompetitionClientView"
+} from "@/lib/matchplay"
 import { getTeamColorConfig } from "@/lib/teamColors"
 import { PlayerAvatar } from "./PlayerAvatar"
 

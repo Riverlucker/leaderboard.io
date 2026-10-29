@@ -1,3 +1,5 @@
+import { requireAdminPage } from "@/lib/page-access"
+import { adminUserSelect } from "@/lib/user-data"
 import prisma from "@/lib/prisma"
 import { notFound } from "next/navigation"
 import { EditCompetitionClient } from "./EditCompetitionClient"
@@ -7,6 +9,7 @@ interface EditCompetitionPageProps {
 }
 
 export default async function EditCompetitionPage({ params }: EditCompetitionPageProps) {
+  await requireAdminPage()
   const resolvedParams = await params
 
   const competition = await prisma.competition.findUnique({
@@ -38,7 +41,7 @@ export default async function EditCompetitionPage({ params }: EditCompetitionPag
       },
       participants: {
         include: {
-          user: true,
+          user: { select: adminUserSelect },
           team: true
         },
         orderBy: [
@@ -60,6 +63,7 @@ export default async function EditCompetitionPage({ params }: EditCompetitionPag
 
   // Fetch registered users (for linking participants)
   const users = await prisma.user.findMany({
+    select: adminUserSelect,
     orderBy: { name: 'asc' }
   })
 

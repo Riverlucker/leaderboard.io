@@ -1,3 +1,4 @@
+import { requireAdminPage } from "@/lib/page-access"
 import prisma from "@/lib/prisma"
 import Link from "next/link"
 import { Plus, Trophy, Calendar, Users, Layers, Flag } from "lucide-react"
@@ -20,6 +21,7 @@ function formatCompType(type: string) {
 }
 
 export default async function AdminCompetitionsPage() {
+  await requireAdminPage()
   const competitions = await prisma.competition.findMany({
     include: {
       _count: {
@@ -76,7 +78,7 @@ export default async function AdminCompetitionsPage() {
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-12 text-center text-slate-500">
             <Trophy size={48} className="mx-auto mb-4 text-slate-600 animate-pulse" />
             <h3 className="text-lg font-bold text-slate-450 mb-1">No competitions found</h3>
-            <p className="text-slate-550 text-sm mb-4">Click "New Competition" to start setting up your first tournament.</p>
+            <p className="text-slate-550 text-sm mb-4">Click &quot;New Competition&quot; to start setting up your first tournament.</p>
             <Link
               href="/admin/competitions/new"
               className="inline-block bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold px-4 py-2 rounded-lg transition-colors text-sm"

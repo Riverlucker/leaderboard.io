@@ -1,6 +1,10 @@
 "use server"
 
 import prisma from "@/lib/prisma"
+import { atomic } from "@/lib/transaction"
+import { requireAdmin, requireMatchScorer, assertParticipantCompetition, assertMatchCompetition } from "@/lib/access"
+
+
 import { revalidatePath } from "next/cache"
 import { 
   BlockedSlot, ClConfig, DEFAULT_CL_CONFIG, getClConfig, 
@@ -31,7 +35,22 @@ interface SaveWintercupVorrundeScoreInput {
 }
 
 export async function saveWintercupVorrundeScore(input: SaveWintercupVorrundeScoreInput) {
-  const { matchId, roundId, compId, scores, enteredByUserId, enteredByUserName } = input
+  const { actor } = await requireMatchScorer(input.matchId, input.compId)
+  return atomic(async prisma => {
+  const verifiedMatch = await assertMatchCompetition(input.matchId, input.compId, prisma)
+  if (verifiedMatch.roundId !== input.roundId) throw new Error("Falsche Rundenzuordnung.")
+  if (!["WINTERCUP", "CL_FORMAT"].includes((await prisma.competition.findUniqueOrThrow({where: {id: input.compId}})).type)) throw new Error("Falsches Wettbewerbsformat.")
+  const expectedIds = verifiedMatch.matchPlayers.map(p => p.participantId)
+  if (input.scores.length !== expectedIds.length || new Set(input.scores.map(p => p.participantId)).size !== expectedIds.length || input.scores.some(p => !expectedIds.includes(p.participantId))) throw new Error("Ergebnisse müssen genau die Teilnehmer dieser Partie enthalten.")
+  for (const score of input.scores) {
+    for (const value of [score.netPoints, score.grossPoints]) if (!Number.isInteger(value) || value < 0 || value > 200) throw new Error("Ungültige Stablefordpunkte.")
+  }
+
+
+  const enteredByUserId = actor.id
+  const enteredByUserName = actor.name || actor.email || "Spieler"
+
+  const { matchId, roundId, compId, scores } = input
 
   const round = await prisma.round.findUnique({
     where: { id: roundId },
@@ -116,39 +135,12 @@ export async function saveWintercupVorrundeScore(input: SaveWintercupVorrundeSco
 
     const matchPts = pointsMap.get(item.participantId) ?? 0
 
-    const existing = await prisma.score.findFirst({
-      where: {
-        participantId: item.participantId,
-        roundId,
-        holeId: defaultHole.id
-      }
+    const scoreData = { grossStrokes: item.grossPoints, netStrokes: item.netPoints, points: matchPts, status: null, enteredBy: enteredByUserName }
+    await prisma.score.upsert({
+      where: {participantId_roundId_holeId: {participantId: item.participantId, roundId, holeId: defaultHole.id}},
+      update: scoreData,
+      create: {participantId: item.participantId, roundId, holeId: defaultHole.id, ...scoreData},
     })
-
-    if (existing) {
-      await prisma.score.update({
-        where: { id: existing.id },
-        data: {
-          grossStrokes: item.grossPoints,
-          netStrokes: item.netPoints,
-          points: matchPts,
-          status: null,
-          enteredBy: enteredByUserName
-        }
-      })
-    } else {
-      await prisma.score.create({
-        data: {
-          participantId: item.participantId,
-          roundId,
-          holeId: defaultHole.id,
-          grossStrokes: item.grossPoints,
-          netStrokes: item.netPoints,
-          points: matchPts,
-          status: null,
-          enteredBy: enteredByUserName
-        }
-      })
-    }
 
     auditDetails.push(`${playerName}: Netto ${item.netPoints}, Brutto ${item.grossPoints} -> ${matchPts} Pts`)
   }
@@ -170,6 +162,8 @@ export async function saveWintercupVorrundeScore(input: SaveWintercupVorrundeSco
   }
 
   return { success: true }
+
+  })
 }
 
 interface SaveWintercupPlayoffScoreInput {
@@ -184,7 +178,20 @@ interface SaveWintercupPlayoffScoreInput {
 }
 
 export async function saveWintercupPlayoffScore(input: SaveWintercupPlayoffScoreInput) {
-  const { matchId, compId, winnerParticipantId, player1Id, player2Id, resultText, enteredByUserId, enteredByUserName } = input
+  const { actor } = await requireMatchScorer(input.matchId, input.compId)
+  return atomic(async prisma => {
+  const verifiedMatch = await assertMatchCompetition(input.matchId, input.compId, prisma)
+  const playerIds = [input.player1Id, input.player2Id].filter((id): id is string => !!id)
+  for (const id of playerIds) await assertParticipantCompetition(id, input.compId, prisma)
+  if (new Set(playerIds).size !== 2 || (input.winnerParticipantId !== null && !playerIds.includes(input.winnerParticipantId))) throw new Error("Ungültige Finalteilnehmer oder Sieger.")
+  if (actor.role === "USER" && (verifiedMatch.matchPlayers.length !== 2 || playerIds.some(id => !verifiedMatch.matchPlayers.some(p => p.participantId === id)))) throw new Error("Paarung darf nur von Administratoren geändert werden.")
+  if (input.resultText.length > 200) throw new Error("Ergebnistext ist zu lang.")
+
+
+  const enteredByUserId = actor.id
+  const enteredByUserName = actor.name || actor.email || "Spieler"
+
+  const { matchId, compId, winnerParticipantId, player1Id, player2Id, resultText } = input
 
   const match = await prisma.match.findUnique({
     where: { id: matchId },
@@ -200,6 +207,7 @@ export async function saveWintercupPlayoffScore(input: SaveWintercupPlayoffScore
     }
   })
 
+  await prisma.matchPlayer.deleteMany({where: {matchId, participantId: {notIn: playerIds}}})
   const existingParticipantIds = match.matchPlayers.map(mp => mp.participantId)
 
   if (player1Id && !existingParticipantIds.includes(player1Id)) {
@@ -231,6 +239,8 @@ export async function saveWintercupPlayoffScore(input: SaveWintercupPlayoffScore
   }
 
   return { success: true }
+
+  })
 }
 
 interface ScheduleMatchInput {
@@ -242,7 +252,16 @@ interface ScheduleMatchInput {
 }
 
 export async function saveWintercupMatchSchedule(input: ScheduleMatchInput) {
-  const { matchId, compId, scheduledDateISO, enteredByUserId, enteredByUserName } = input
+  const { actor } = await requireMatchScorer(input.matchId, input.compId)
+  return atomic(async prisma => {
+  const verifiedMatch = await assertMatchCompetition(input.matchId, input.compId, prisma)
+  if (!Number.isFinite(new Date(input.scheduledDateISO).getTime())) throw new Error("Ungültiger Termin.")
+
+
+  const enteredByUserId = actor.id
+  const enteredByUserName = actor.name || actor.email || "Spieler"
+
+  const { matchId, compId, scheduledDateISO } = input
 
   const targetMatch = await prisma.match.findUnique({
     where: { id: matchId },
@@ -377,9 +396,15 @@ export async function saveWintercupMatchSchedule(input: ScheduleMatchInput) {
   safeRevalidatePath(`/`)
 
   return { success: true }
+
+  })
 }
 
 export async function saveWintercupBlockedSlots(compId: string, blockedSlots: BlockedSlot[]) {
+  const actor = await requireAdmin()
+  return atomic(async prisma => {
+
+
   const comp = await prisma.competition.findUnique({ where: { id: compId } })
   if (!comp) throw new Error("Competition nicht gefunden.")
 
@@ -402,9 +427,15 @@ export async function saveWintercupBlockedSlots(compId: string, blockedSlots: Bl
   safeRevalidatePath(`/`)
 
   return { success: true }
+
+  })
 }
 
 export async function saveClConfig(compId: string, config: ClConfig) {
+  const actor = await requireAdmin()
+  return atomic(async prisma => {
+
+
   const comp = await prisma.competition.findUnique({ where: { id: compId } })
   if (!comp) throw new Error("Competition nicht gefunden.")
 
@@ -427,6 +458,8 @@ export async function saveClConfig(compId: string, config: ClConfig) {
   safeRevalidatePath(`/`)
 
   return { success: true }
+
+  })
 }
 
 interface DeleteMatchScoreInput {
@@ -438,7 +471,16 @@ interface DeleteMatchScoreInput {
 }
 
 export async function deleteWintercupMatchScore(input: DeleteMatchScoreInput) {
-  const { matchId, roundId, compId, enteredByUserId, enteredByUserName } = input
+  const actor = await requireAdmin()
+  return atomic(async prisma => {
+  const verifiedMatch = await assertMatchCompetition(input.matchId, input.compId, prisma)
+  if (verifiedMatch.roundId !== input.roundId) throw new Error("Falsche Rundenzuordnung.")
+
+
+  const enteredByUserId = actor.id
+  const enteredByUserName = actor.name || actor.email || "Spieler"
+
+  const { matchId, roundId, compId } = input
 
   const match = await prisma.match.findUnique({
     where: { id: matchId },
@@ -485,6 +527,8 @@ export async function deleteWintercupMatchScore(input: DeleteMatchScoreInput) {
   }
 
   return { success: true }
+
+  })
 }
 
 export async function resetWintercupScores(
@@ -493,6 +537,14 @@ export async function resetWintercupScores(
   enteredByUserId: string,
   enteredByUserName: string
 ) {
+  const actor = await requireAdmin()
+  return atomic(async prisma => {
+  if (!["ALL", "R1", "R2", "R3", "ZW", "PLAYOFFS"].includes(target)) throw new Error("Ungültiger Resetbereich.")
+
+
+  const enteredByUserId = actor.id
+  const enteredByUserName = actor.name || actor.email || "Spieler"
+
   const comp = await prisma.competition.findUnique({
     where: { id: compId },
     include: { rounds: true }
@@ -546,13 +598,17 @@ export async function resetWintercupScores(
   safeRevalidatePath(`/`)
 
   return { success: true }
+
+  })
 }
 
 /**
  * Pre-seeds all rounds and matches for a CL-Format competition.
  */
 export async function seedClFormatCompetition(compId: string): Promise<{ success: boolean; error?: string }> {
+  await requireAdmin()
   try {
+    return await atomic(async prisma => {
     const comp = await prisma.competition.findUnique({
       where: { id: compId },
       include: {
@@ -630,6 +686,7 @@ export async function seedClFormatCompetition(compId: string): Promise<{ success
           roundId: round.id,
           type: config.vorrundenModus === "GROUP_3" ? "GROUP_3" : "SINGLES",
           allowanceType: config.vorrundenModus === "GROUP_3" ? null : "0%",
+          weight: 1,
           handicapAllowance: 0,
           playUntilEnd: false,
           holeRange: "1-18"
@@ -673,6 +730,7 @@ export async function seedClFormatCompetition(compId: string): Promise<{ success
           roundId: zwRound.id,
           type: "MATCHPLAY",
           allowanceType: null,
+          weight: 1,
           handicapAllowance: 0,
           playUntilEnd: true,
           holeRange: "1-18"
@@ -712,6 +770,7 @@ export async function seedClFormatCompetition(compId: string): Promise<{ success
           roundId: pRound.id,
           type: "MATCHPLAY",
           allowanceType: null,
+          weight: 1,
           handicapAllowance: 0,
           playUntilEnd: true,
           holeRange: "1-18"
@@ -727,8 +786,9 @@ export async function seedClFormatCompetition(compId: string): Promise<{ success
   safeRevalidatePath(`/`)
 
   return { success: true }
-} catch (err: any) {
+    })
+} catch (err) {
   console.error("Error in seedClFormatCompetition:", err)
-  return { success: false, error: err.message || "Fehler beim Generieren der Spieltage." }
+  return { success: false, error: err instanceof Error ? err.message : "Fehler beim Generieren der Spieltage." }
 }
 }

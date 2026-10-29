@@ -1,4 +1,5 @@
 "use client"
+import { MatchWeightControl } from "@/app/components/MatchWeightControl"
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
@@ -1655,7 +1656,7 @@ export function EditCompetitionClient({
 
               {!selectedRoundId ? (
                 <div className="bg-slate-900 border border-slate-800 rounded-xl p-8 text-center text-slate-500">
-                  Please create a round in the "Rounds" tab before managing pairings.
+                  Please create a round in the &quot;Rounds&quot; tab before managing pairings.
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -1678,6 +1679,7 @@ export function EditCompetitionClient({
                               <span className="inline-block bg-slate-950 text-slate-450 text-[10px] font-bold px-2 py-0.5 rounded border border-slate-850 mt-1 uppercase">
                                 Type: {match.type}
                               </span>
+{(competition.type === "RYDER_CUP" || competition.uniqueSlug?.toLowerCase() === "trrc26") && <MatchWeightControl match={match} round={selectedRound} competitionId={competition.id} />}
                             </div>
                             <button
                               onClick={() => handleDeleteMatch(match.id)}
@@ -2111,7 +2113,7 @@ export function EditCompetitionClient({
 
                     {req.reason && (
                       <div className="text-xs text-slate-300 bg-slate-850/50 p-2.5 rounded-lg border border-slate-800 italic">
-                        "{req.reason}"
+                        &quot;{req.reason}&quot;
                       </div>
                     )}
 

@@ -2,7 +2,7 @@ import { auth } from "@/auth"
 import Link from "next/link"
 import prisma from "@/lib/prisma"
 import { CompetitionClientView } from "./CompetitionClientView"
-import { calculateCourseHandicap } from "@/lib/scoring"
+import { publicUserSelect, adminUserSelect, publicScoreSelect } from "@/lib/user-data"
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 
@@ -38,9 +38,9 @@ export default async function Home({ searchParams }: HomeProps) {
     const competition = await prisma.competition.findUnique({
       where: { uniqueSlug: compSlug },
       include: {
-        auditLogs: {
-          orderBy: { createdAt: 'desc' }
-        },
+        auditLogs: session?.user && ["ADMIN", "SUPER_ADMIN"].includes(session.user.role) ? {
+          orderBy: { createdAt: 'desc' }, take: 200
+        } : false,
         rounds: {
           include: {
             tee: true,
@@ -67,15 +67,13 @@ export default async function Home({ searchParams }: HomeProps) {
         },
         participants: {
           include: {
-            user: true,
+            user: { select: publicUserSelect },
             team: true,
             manualRoundHandicaps: {
               include: { tee: true }
             },
             scores: {
-              include: {
-                hole: true
-              }
+              select: publicScoreSelect
             }
           },
           orderBy: [
@@ -87,89 +85,7 @@ export default async function Home({ searchParams }: HomeProps) {
     })
 
     if (competition) {
-      // Check if any participant is missing manual handicaps for any round
-      let missingFound = false
-      for (const p of competition.participants) {
-        if (p.compHandicap === null || p.compHandicap === undefined) continue
-
-        for (const round of competition.rounds) {
-          const hasRecord = p.manualRoundHandicaps.some((mr: any) => mr.roundId === round.id)
-          if (!hasRecord) {
-            missingFound = true
-            const tee = round.tee ||
-                        round.course.tees.find((t: any) => t.name.toLowerCase().includes('yellow')) ||
-                        round.course.tees.find((t: any) => t.name.toLowerCase().includes('white')) ||
-                        round.course.tees[0]
-            if (tee) {
-              const coursePar = round.course.holes.reduce((sum: number, h: any) => sum + h.par, 0)
-              const handicapValue = calculateCourseHandicap(p.compHandicap, tee, coursePar)
-
-              await prisma.manualRoundHandicap.create({
-                data: {
-                  participantId: p.id,
-                  roundId: round.id,
-                  handicapValue
-                }
-              })
-            }
-          }
-        }
-      }
-
-      // If we created any missing records, refetch the competition to include them
-      let finalCompetition = competition
-      if (missingFound) {
-        finalCompetition = (await prisma.competition.findUnique({
-          where: { uniqueSlug: compSlug },
-          include: {
-            auditLogs: {
-              orderBy: { createdAt: 'desc' }
-            },
-            rounds: {
-              include: {
-                tee: true,
-                course: {
-                  include: {
-                    tees: true,
-                    holes: {
-                      orderBy: { number: 'asc' }
-                    }
-                  }
-                },
-                matches: {
-                  include: {
-                    matchPlayers: {
-                      orderBy: { id: 'asc' }
-                    }
-                  }
-                }
-              },
-              orderBy: { startDate: 'asc' }
-            },
-            teams: {
-              orderBy: { name: 'asc' }
-            },
-            participants: {
-              include: {
-                user: true,
-                team: true,
-                manualRoundHandicaps: {
-                  include: { tee: true }
-                },
-                scores: {
-                  include: {
-                    hole: true
-                  }
-                }
-              },
-              orderBy: [
-                { dummyName: 'asc' },
-                { user: { name: 'asc' } }
-              ]
-            }
-          }
-        })) || competition
-      }
+      const finalCompetition = competition
 
       let courses: any[] = []
       let users: any[] = []
@@ -185,6 +101,7 @@ export default async function Home({ searchParams }: HomeProps) {
           orderBy: { name: 'asc' }
         })
         users = await prisma.user.findMany({
+          select: adminUserSelect,
           orderBy: { name: 'asc' }
         })
       }

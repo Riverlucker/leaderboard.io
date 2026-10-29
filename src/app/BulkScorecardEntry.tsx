@@ -5,7 +5,7 @@ import { saveBatchScores } from "@/app/actions/scores"
 import { Loader2, Play, Settings, Wifi } from "lucide-react"
 import { calculateCourseHandicap, getHandicapStrokesOnHole, getRoundHoleInfo } from "@/lib/scoring"
 import { getTeamColorConfig } from "@/lib/teamColors"
-import { getPlayerCalculatedAllowance } from "./CompetitionClientView"
+import { getPlayerCalculatedAllowance } from "@/lib/matchplay"
 
 interface BulkScorecardEntryProps {
   round: any
@@ -52,9 +52,8 @@ export function BulkScorecardEntry({
     if (initialFocusId) {
       setTimeout(() => {
         const el = document.getElementById(initialFocusId)
-        if (el) {
+        if (el instanceof HTMLInputElement) {
           el.focus()
-          // @ts-ignore
           el.select()
         }
       }, 50)
@@ -251,14 +250,12 @@ export function BulkScorecardEntry({
           const nextHoleNum = activeHoles[currentHoleIndex + 1]
           const nextInput = document.getElementById(`input-${pIndex}-${nextHoleNum}`)
           nextInput?.focus()
-          // @ts-ignore
-          nextInput?.select()
+          if (nextInput instanceof HTMLInputElement) nextInput.select()
         } else if (pIndex < selectedParticipants.length - 1) {
           const nextPlayerFirstHoleNum = activeHoles[0]
           const nextInput = document.getElementById(`input-${pIndex + 1}-${nextPlayerFirstHoleNum}`)
           nextInput?.focus()
-          // @ts-ignore
-          nextInput?.select()
+          if (nextInput instanceof HTMLInputElement) nextInput.select()
         }
       }
     }
@@ -499,8 +496,7 @@ export function BulkScorecardEntry({
                             title={titleTooltip}
                             onChange={e => handleInputChange(pIndex, p.id, hole.id, holeNum, e.target.value)}
                             onClick={e => {
-                              // @ts-ignore
-                              e.target.select()
+                              e.currentTarget.select()
                             }}
                             className={`w-full h-full text-center bg-transparent border-0 focus:outline-none focus:ring-0 focus:border-0 font-black text-base relative z-10 uppercase ${
                               teamConfig ? teamConfig.text : 'text-slate-800'

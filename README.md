@@ -1,36 +1,116 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Leaderboard.io / Leaderboard.sc
 
-## Getting Started
+Golfturniere mit öffentlichen Ranglisten, mobiler Scoreeingabe und Administration.
+Unterstützt Stableford, Zählspiel, Matchplay, Ryder Cup sowie Wintercup/CL.
+Stack: Next.js 16.4.3, React 19, TypeScript, Tailwind 4, Auth.js 5 Beta,
+Prisma 6 und PostgreSQL. Die sichtbare Produktbezeichnung ist aktuell Leaderboard.sc.
 
-First, run the development server:
+## Lokale Entwicklung
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+Node.js 22.12 oder neuer verwenden (CI: Node 22). Abhängigkeiten mit
+`npm ci` installieren. Für eine neue Umgebung `.env.example` als Grundlage
+für `.env` verwenden und eine **separate Entwicklungsdatenbank** eintragen.
+Der bestehende lokale Datenbankzugang ist nicht automatisch eine Testdatenbank.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- `POSTGRES_PRISMA_URL`: PostgreSQL-Verbindung der Anwendung, optional gepoolt.
+- `POSTGRES_URL_NON_POOLING`: direkte Verbindung für Migrationen.
+- `AUTH_SECRET`: zufälliges Geheimnis mit mindestens 32 Zeichen.
+- `AUTH_URL`: URL der jeweiligen Umgebung; für lokal normalerweise http://localhost:3000.
+- `AUTH_TRUST_HOST=true`: gegebenenfalls für einen lokal gestarteten Produktionsserver
+  setzen; nicht ohne Prüfung für beliebige öffentliche Proxys übernehmen.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Eine leere Entwicklungsdatenbank mit `npm run db:deploy` initialisieren.
+Danach `npm run dev` starten. `prisma/seed.ts` enthält optionale Seed-Daten;
+vor Verwendung dessen Inhalt und das Datenbankziel prüfen.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Prüfungen
 
-## Learn More
+| Befehl | Zweck |
+| --- | --- |
+| `npm test` | Golfregeln, Zugriffe, Score-Action und isolierte PostgreSQL-Migration |
+| `npm run typecheck` | Next.js-Routentypen erzeugen und TypeScript prüfen |
+| `npm run build` | Produktionsbuild; lädt Google Fonts |
+| `npm run lint` | Keine zusätzlichen Lintbefunde gegenüber eslint-baseline.json |
+| `npm run lint:all` | Ungefilterte Ausgabe einschließlich vorhandener UI-Altlasten |
+| `npm run test:smoke -- http://localhost:3100` | Laufende lokale Anwendung lesend prüfen |
 
-To learn more about Next.js, take a look at the following resources:
+Die Tests verwenden für Migrationen PGlite in isoliertem Speicher und benötigen
+keinen Zugriff auf die konfigurierte Datenbank. Der Smoke-Test liest dagegen
+deren Turnierauswahl. Er prüft öffentliche Formate, Gastsitzung, Admin-Redirects
+und die Abwesenheit privater Felder in den ausgelieferten Antworten.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Die Lintbaseline schaltet keine Regeln ab: zusätzliche Befunde je Datei, Regel
+und Schweregrad führen zu einem Fehler, ebenso Befunde in neuen Dateien.
+Bestehende Budgets bei einer Bereinigung reduzieren, nicht zum Verdecken neuer
+Fehler erhöhen. GitHub Actions führt Tests, Lint, Build und Typprüfung aus.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Berechtigungen und Daten
 
-## Deploy on Vercel
+- Gäste sehen öffentliche Ranglisten, Profile und Scorekarten; private
+  Kontaktdaten, Passwort-Hashes, Scorebearbeiter und Auditlogs werden nicht
+  öffentlich ausgeliefert.
+- Spieler erfassen Scores im eigenen zugeordneten Match/Flight. Ohne Paarung
+  dürfen sie nur eigene Scores erfassen. Wintercup-Ergebnisse und Termine sind
+  auf die tatsächlichen Partieteilnehmer beschränkt.
+- Admins verwalten Wettbewerbe, Plätze und normale Spieler. Nur Superadmins
+  dürfen privilegierte Konten bearbeiten oder weitere Admins ernennen.
+- Rollen werden serverseitig aktuell gelesen; alte JWT-Rollen reichen nicht aus.
+- Abzeichen bleiben über `hasBadges` in **allen** Wettbewerben verfügbar.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Scoreänderungen sind transaktional und pro Teilnehmer/Runde/Loch eindeutig.
+Rundenscores werden beim Löschen ihrer Runde mitgelöscht. Referenzierte
+Abschläge können nicht versehentlich durch Platzbearbeitung entfernt werden.
+Öffentliche Seitenaufrufe schreiben keine Handicaps mehr.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Matchpunkte
+
+Ryder-Cup-Matches besitzen ein gespeichertes Gewicht von 0,5 oder 1, sichtbar
+und änderbar in beiden Verwaltungsansichten der Paarungen. Neue Matches erhalten
+beim Anlegen die bisherige Regel als Anfangswert. Eine spätere Umbenennung der
+Runde ändert ein gespeichertes Gewicht nicht.
+
+Die Migration hat die bisherigen effektiven Gewichte unverändert übernommen.
+Ein geteiltes Match mit Gewicht 0,5 ergibt 0,25 pro Seite. Team- und MVP-Anzeige
+unterstützen Viertel-, Halb- und Dreiviertelpunkte exakt. Handicapvorgaben sind
+von diesen Matchgewichten unabhängig.
+
+## Migrationen, Sicherung und Veröffentlichung
+
+Schemaänderungen künftig unter `prisma/migrations` versionieren und mit
+`npm run db:deploy` ausführen. `prisma db push` ist kein Produktionsablauf.
+Der Build führt keine Datenbankmigration aus.
+
+Für eine bestehende Datenbank ohne Migrationshistorie zuerst deren Schema mit
+`prisma/baseline.prisma` vergleichen. Nur bei Übereinstimmung einmalig
+`npx prisma migrate resolve --applied 00000000000000_baseline` ausführen.
+Die Baseline nicht auf eine bereits befüllte Datenbank als SQL anwenden.
+
+Vor einer Migration:
+
+1. `npm run db:preflight` prüft Duplikate, fehlende Runden und falsche Zuordnungen.
+2. `npm run db:backup` schreibt eine komprimierte konsistente Sicherung nach scratch/.
+3. `npm run db:verify-backup -- scratch/db-backup-….json.gz` stellt sie isoliert
+   wieder her und prüft die Migration sowie unveränderte Gewichte/Zeilenzahlen.
+4. Nach `npm run db:deploy` prüft `npm run db:verify -- scratch/db-backup-….json.gz`
+   die bestehenden Scores und Matchgewichte gegen die Sicherung.
+
+Sicherungen enthalten sensible Daten und bleiben im Git-ignorierten scratch/.
+Die lokalen Prüfungen ersetzen kein externes regelmäßiges Backup.
+Neon-Aufbewahrung und providerseitiges PITR sind nicht über Anbieterzugriff
+verifiziert. Auch eine dauerhaft getrennte gehostete Entwicklungsdatenbank
+muss im jeweiligen Betreiberkonto konfiguriert werden.
+
+Laut Übergabe veröffentlicht Vercel Pushes auf main. Vor einem Push müssen
+Schemaänderungen bereitstehen und die lokalen Prüfungen erfolgreich sein;
+anschließend Deploymentstatus prüfen. Details der Umsetzung stehen in
+[STABILISIERUNGSPLAN.md](STABILISIERUNGSPLAN.md). HANDOVER.md ist die historische
+Übergabe; bestätigte Korrekturen und der Umsetzungsstand stehen im Plan.
+
+## Verbleibende Arbeit
+
+Weitere Zerlegung großer UI-Komponenten und Bereinigung der dokumentierten
+Lintaltlasten; vollständige Offline-PWA und nativer Bildupload.
+Der Dependency-Audit meldet nach den Sicherheitsupdates noch den
+DeepmergeTS-Pfad im Prisma-CLI-Konfigurationspaket. Die vorgeschlagene
+Behebung erfordert Prisma 7; dafür ist eine eigene geprüfte Migration nötig.
+Die Anwendung verwendet keine vom Benutzer gelieferte Prisma-Konfiguration.

@@ -1,8 +1,10 @@
+import { requireAdminPage } from "@/lib/page-access"
 import prisma from "@/lib/prisma"
 import { notFound } from "next/navigation"
 import { EditCourseClient } from "./EditCourseClient"
 
 export default async function EditCoursePage({ params }: { params: Promise<{ id: string }> }) {
+  await requireAdminPage()
   const resolvedParams = await params
   
   const course = await prisma.course.findUnique({

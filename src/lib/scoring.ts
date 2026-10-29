@@ -42,7 +42,7 @@ export function getHandicapStrokesOnHole(courseHandicap: number, strokeIndex: nu
     const base = Math.floor(absCH / 18)
     const remainder = absCH % 18
     const isOwed = strokeIndex > 18 - remainder
-    return -(base + (isOwed ? 1 : 0))
+    return -(base + (isOwed ? 1 : 0)) || 0
   }
 }
 
@@ -70,17 +70,17 @@ export function calculateStablefordPoints(
 /**
  * Assigns ranks to leaderboard entries, prefixing tied positions with 'T'.
  */
-export function assignLeaderboardRanks(
-  entries: any[],
+export function assignLeaderboardRanks<T extends { holesPlayed: number; totalPoints: number; relToPar?: number }>(
+  entries: T[],
   sortByRelToPar: boolean = false
-): any[] {
+): (T & {rank: string})[] {
   // Sort entries: players who have played (> 0 holes) come before players with 0 holes played
   const sorted = [...entries].sort((a, b) => {
     if (a.holesPlayed === 0 && b.holesPlayed > 0) return 1
     if (b.holesPlayed === 0 && a.holesPlayed > 0) return -1
     if (sortByRelToPar) {
       if (a.relToPar !== b.relToPar) {
-        return a.relToPar - b.relToPar
+        return (a.relToPar ?? 0) - (b.relToPar ?? 0)
       }
     } else {
       if (b.totalPoints !== a.totalPoints) {
@@ -90,7 +90,7 @@ export function assignLeaderboardRanks(
     return b.holesPlayed - a.holesPlayed
   })
 
-  const results: any[] = []
+  const results: (T & {rank: string})[] = []
   
   for (let i = 0; i < sorted.length; i++) {
     const current = sorted[i]
@@ -128,7 +128,7 @@ export function assignLeaderboardRanks(
 /**
  * Resolves hole par and stroke index adjusting for 9-hole loop presets
  */
-export function getRoundHoleInfo(round: any, holeNum: number) {
+export function getRoundHoleInfo<T extends Hole>(round: { course?: {holes?: T[]} | null; ninePreset?: string | null }, holeNum: number) {
   const course = round?.course
   if (!course || !course.holes) return null
 
@@ -153,7 +153,7 @@ export function getRoundHoleInfo(round: any, holeNum: number) {
     }
   }
 
-  const courseHole = course.holes.find((h: any) => h.number === targetHoleNum)
+  const courseHole = course.holes.find((h) => h.number === targetHoleNum)
   if (!courseHole) return null
 
   const I = courseHole.strokeIndex

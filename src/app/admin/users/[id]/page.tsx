@@ -1,3 +1,5 @@
+import { requireAdminPage } from "@/lib/page-access"
+import { adminUserSelect } from "@/lib/user-data"
 import prisma from "@/lib/prisma"
 import { notFound } from "next/navigation"
 import { EditUserClient } from "./EditUserClient"
@@ -7,9 +9,11 @@ interface EditUserPageProps {
 }
 
 export default async function EditUserPage({ params }: EditUserPageProps) {
+  await requireAdminPage()
   const resolvedParams = await params
   
   const user = await prisma.user.findUnique({
+    select: adminUserSelect,
     where: { id: resolvedParams.id }
   })
 

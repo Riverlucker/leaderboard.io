@@ -1,4 +1,5 @@
 "use server"
+import { publicUserSelect, publicScoreSelect } from "@/lib/user-data"
 
 import prisma from "@/lib/prisma"
 import {
@@ -97,15 +98,15 @@ export async function getPlayerRoundHistory(input: {
             },
             participants: {
               include: {
-                user: true,
-                scores: true,
+                user: { select: publicUserSelect },
+                scores: { select: publicScoreSelect },
                 manualRoundHandicaps: true
               }
             }
           }
         },
-        user: true,
-        scores: true,
+        user: { select: publicUserSelect },
+        scores: { select: publicScoreSelect },
         manualRoundHandicaps: true
       }
     })
@@ -118,7 +119,7 @@ export async function getPlayerRoundHistory(input: {
 
     for (const participant of participants) {
       const competition = participant.competition
-      if (!competition || !competition.rounds) continue
+      if (!competition || !competition.rounds || ["WINTERCUP", "CL_FORMAT"].includes(competition.type)) continue
 
       for (const round of competition.rounds) {
         // Filter participant scores for this round that are actually played (or wiped)
@@ -142,7 +143,8 @@ export async function getPlayerRoundHistory(input: {
         const activeHolesList = playedCourseHoles.map(h => h.number)
 
         // Tee selection
-        const tee = round.tee ||
+        const manualTeeId = participant.manualRoundHandicaps.find(m => m.roundId === round.id)?.teeId
+        const tee = round.course.tees.find(t => t.id === manualTeeId) || round.tee ||
                     round.course.tees.find(t => t.name.toLowerCase().includes('yellow')) ||
                     round.course.tees.find(t => t.name.toLowerCase().includes('white')) ||
                     round.course.tees[0]

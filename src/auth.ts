@@ -12,36 +12,29 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         password: { label: "Password", type: "password" }
       },
       async authorize(credentials) {
-        console.log("AUTHORIZE CALLED WITH:", credentials);
-        if (!credentials?.email || !credentials?.password) {
-          console.log("Missing email or password");
+        if (typeof credentials?.email !== "string" || typeof credentials?.password !== "string" || !credentials.email || !credentials.password) {
           return null;
         }
 
         const user = await prisma.user.findUnique({
-          where: { email: credentials.email as string }
+          where: { email: credentials.email.trim().toLowerCase() }
         });
         
-        console.log("DB USER FOUND:", user?.email);
 
         if (!user || !user.password) {
-          console.log("User not found or has no password");
           return null;
         }
 
         const isPasswordValid = await bcrypt.compare(
-          credentials.password as string,
+          credentials.password,
           user.password
         );
         
-        console.log("PASSWORD VALID:", isPasswordValid);
 
         if (!isPasswordValid) {
-          console.log("Password invalid");
           return null;
         }
 
-        console.log("LOGIN SUCCESS:", user.email);
 
         return {
           id: user.id,
@@ -55,18 +48,26 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        // @ts-ignore - we'll add types later, but user.role is valid from our authorize return
         token.role = user.role;
         token.id = user.id as string;
+      } else {
+        if (!token.id) return null;
+        const current = await prisma.user.findUnique({
+          where: { id: token.id }, select: { id: true, role: true, name: true, email: true },
+        });
+        if (!current) return null;
+        token.role = current.role;
+        token.name = current.name;
+        token.email = current.email;
       }
       return token;
     },
     async session({ session, token }) {
       if (token && session.user) {
-        // @ts-ignore
-        session.user.role = token.role as string;
-        // @ts-ignore
-        session.user.id = token.id as string;
+        session.user.name = token.name;
+        session.user.email = token.email || "";
+        session.user.role = token.role;
+        session.user.id = token.id;
       }
       return session;
     }

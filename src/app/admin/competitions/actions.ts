@@ -1,6 +1,10 @@
 "use server"
 
 import prisma from "@/lib/prisma"
+import { atomic } from "@/lib/transaction"
+import { requireAdmin, assertRoundCompetition, assertParticipantCompetition, assertTeamCompetition, assertTeeCourse, assertMatchCompetition } from "@/lib/access"
+import { assertHandicap, assertHoles, assertPlayingHandicap, holeNumbers } from "@/lib/access-policy"
+import { getRyderCupMatchWeight, assertMatchWeight } from "@/lib/cup-scoring"
 import { revalidatePath } from "next/cache"
 import { calculateCourseHandicap } from "@/lib/scoring"
 import { TEAM_COLOR_LIST } from "@/lib/teamColors"
@@ -18,12 +22,16 @@ export async function createCompetition(data: {
   startDate?: string | null
   endDate?: string | null
 }) {
+  await requireAdmin()
+  return atomic(async prisma => {
+
+
   const nameVal = data.name?.trim()
   if (!nameVal) {
     throw new Error("Competition name is required.")
   }
 
-  let slugVal = data.uniqueSlug?.trim() || generateSlug()
+  const slugVal = data.uniqueSlug?.trim() || generateSlug()
   
   // Verify slug uniqueness
   const existing = await prisma.competition.findUnique({
@@ -49,6 +57,8 @@ export async function createCompetition(data: {
 
   revalidatePath("/admin/competitions")
   return comp
+
+  })
 }
 
 export async function updateCompetitionGeneral(id: string, data: {
@@ -66,6 +76,10 @@ export async function updateCompetitionGeneral(id: string, data: {
   badgeType?: string | null
   showProfilePicture?: boolean
 }) {
+  await requireAdmin()
+  return atomic(async prisma => {
+
+
   const nameVal = data.name?.trim()
   const slugVal = data.uniqueSlug?.trim()
   if (!nameVal) throw new Error("Name is required.")
@@ -119,15 +133,23 @@ export async function updateCompetitionGeneral(id: string, data: {
   revalidatePath("/admin/competitions")
   revalidatePath(`/admin/competitions/${id}`)
   return { success: true }
+
+  })
 }
 
 export async function deleteCompetition(id: string) {
+  await requireAdmin()
+  return atomic(async prisma => {
+
+
   await prisma.competition.delete({
     where: { id }
   })
 
   revalidatePath("/admin/competitions")
   return { success: true }
+
+  })
 }
 
 // Rounds management
@@ -140,6 +162,12 @@ export async function addRound(compId: string, data: {
   teeId?: string | null
   ninePreset?: string | null
 }) {
+  await requireAdmin()
+  return atomic(async prisma => {
+  await assertTeeCourse(data.teeId, data.courseId, prisma)
+  assertHoles(data.holesPlayed?.length ? data.holesPlayed : Array.from({length: 18}, (_, i) => i + 1))
+
+
   const nameVal = data.name?.trim()
   if (!nameVal) throw new Error("Round name is required.")
   if (!data.courseId) throw new Error("Golf course is required.")
@@ -203,15 +231,24 @@ export async function addRound(compId: string, data: {
   revalidatePath(`/admin/competitions/${compId}`)
   revalidatePath('/')
   return { success: true }
+
+  })
 }
 
 export async function deleteRound(roundId: string, compId: string) {
+  await requireAdmin()
+  return atomic(async prisma => {
+  await assertRoundCompetition(roundId, compId, prisma)
+
+
   await prisma.round.delete({
     where: { id: roundId }
   })
 
   revalidatePath(`/admin/competitions/${compId}`)
   return { success: true }
+
+  })
 }
 
 export async function updateRoundHoles(
@@ -221,6 +258,13 @@ export async function updateRoundHoles(
   teeId?: string | null,
   ninePreset?: string | null
 ) {
+  await requireAdmin()
+  return atomic(async prisma => {
+  const checkedRound = await assertRoundCompetition(roundId, compId, prisma)
+  assertHoles(holesPlayed)
+  await assertTeeCourse(teeId, checkedRound.courseId, prisma)
+
+
   if (!holesPlayed || holesPlayed.length === 0) {
     throw new Error("Please select at least one hole.")
   }
@@ -236,10 +280,16 @@ export async function updateRoundHoles(
 
   revalidatePath(`/admin/competitions/${compId}`)
   return { success: true }
+
+  })
 }
 
 // Teams management
 export async function addTeam(compId: string, name: string) {
+  await requireAdmin()
+  return atomic(async prisma => {
+
+
   const nameVal = name?.trim()
   if (!nameVal) throw new Error("Team name is required.")
 
@@ -258,9 +308,16 @@ export async function addTeam(compId: string, name: string) {
 
   revalidatePath(`/admin/competitions/${compId}`)
   return { success: true }
+
+  })
 }
 
 export async function updateTeamColor(teamId: string, compId: string, color: string) {
+  await requireAdmin()
+  return atomic(async prisma => {
+  const team = await prisma.team.findUnique({ where: { id: teamId } }); if (!team || team.competitionId !== compId) throw new Error("Falsche Teamzuordnung.")
+
+
   await prisma.team.update({
     where: { id: teamId },
     data: { color }
@@ -268,15 +325,24 @@ export async function updateTeamColor(teamId: string, compId: string, color: str
 
   revalidatePath(`/admin/competitions/${compId}`)
   return { success: true }
+
+  })
 }
 
 export async function deleteTeam(teamId: string, compId: string) {
+  await requireAdmin()
+  return atomic(async prisma => {
+  const team = await prisma.team.findUnique({ where: { id: teamId } }); if (!team || team.competitionId !== compId) throw new Error("Falsche Teamzuordnung.")
+
+
   await prisma.team.delete({
     where: { id: teamId }
   })
 
   revalidatePath(`/admin/competitions/${compId}`)
   return { success: true }
+
+  })
 }
 
 // Participants management
@@ -288,6 +354,12 @@ export async function addParticipant(compId: string, data: {
   isOutOfCompetition?: boolean
   stars?: number | null
 }) {
+  await requireAdmin()
+  return atomic(async prisma => {
+  await assertTeamCompetition(data.teamId, compId)
+  assertHandicap(data.compHandicap)
+
+
   const dummyVal = data.dummyName?.trim()
   
   if (!data.userId && !dummyVal) {
@@ -318,46 +390,19 @@ export async function addParticipant(compId: string, data: {
     }
   })
 
-  // Initialize course handicaps right away
-  if (data.compHandicap !== null && data.compHandicap !== undefined) {
-    const rounds = await prisma.round.findMany({
-      where: { competitionId: compId },
-      include: {
-        course: {
-          include: { tees: true, holes: true }
-        }
-      }
-    })
-
-    const uniqueCoursesMap = new Map<string, any>()
+  if (data.compHandicap != null) {
+    const rounds = await prisma.round.findMany({where: {competitionId: compId}, include: {tee: true, course: {include: {tees: true, holes: true}}}})
     for (const round of rounds) {
-      if (round.course && !uniqueCoursesMap.has(round.course.id)) {
-        uniqueCoursesMap.set(round.course.id, round.course)
-      }
-    }
-
-    for (const course of uniqueCoursesMap.values()) {
-      const tee = course.tees.find((t: any) => t.name.toLowerCase().includes('yellow')) ||
-                  course.tees.find((t: any) => t.name.toLowerCase().includes('white')) ||
-                  course.tees[0]
+      const tee = round.tee || round.course.tees.find(t => /yellow|gelb/i.test(t.name)) || round.course.tees[0]
       if (!tee) continue
-
-      const coursePar = course.holes.reduce((sum: number, h: any) => sum + h.par, 0)
-      const handicapValue = calculateCourseHandicap(data.compHandicap, tee, coursePar)
-
-      await prisma.manualCourseHandicap.create({
-        data: {
-          participantId: createdPart.id,
-          courseId: course.id,
-          handicapValue
-        }
-      })
+      await prisma.manualRoundHandicap.create({data: {participantId: createdPart.id, roundId: round.id, teeId: tee.id, handicapValue: calculateCourseHandicap(data.compHandicap, tee, round.course.holes.reduce((sum, h) => sum + h.par, 0))}})
     }
   }
-
   revalidatePath(`/admin/competitions/${compId}`)
   revalidatePath('/')
   return { success: true }
+
+  })
 }
 
 export async function updateParticipant(partId: string, compId: string, data: {
@@ -366,6 +411,13 @@ export async function updateParticipant(partId: string, compId: string, data: {
   isOutOfCompetition?: boolean
   stars?: number | null
 }) {
+  await requireAdmin()
+  return atomic(async prisma => {
+  await assertParticipantCompetition(partId, compId, prisma)
+  await assertTeamCompetition(data.teamId, compId)
+  assertHandicap(data.compHandicap)
+
+
   const updateData: any = {
     compHandicap: data.compHandicap,
     teamId: data.teamId || null
@@ -395,6 +447,7 @@ export async function updateParticipant(partId: string, compId: string, data: {
     })
 
     for (const round of rounds) {
+      if (await prisma.score.count({ where: {participantId: partId, roundId: round.id} })) continue
       if (!round.course) continue
       const tee = round.tee ||
                   round.course.tees.find((t: any) => t.name.toLowerCase().includes('yellow')) ||
@@ -425,9 +478,16 @@ export async function updateParticipant(partId: string, compId: string, data: {
   revalidatePath(`/admin/competitions/${compId}`)
   revalidatePath('/')
   return { success: true }
+
+  })
 }
 
 export async function updateParticipantStars(partId: string, compId: string, stars: number) {
+  await requireAdmin()
+  return atomic(async prisma => {
+  await assertParticipantCompetition(partId, compId, prisma)
+
+
   await prisma.participant.update({
     where: { id: partId },
     data: { stars: Math.max(0, Math.min(5, stars)) }
@@ -435,15 +495,24 @@ export async function updateParticipantStars(partId: string, compId: string, sta
   revalidatePath(`/admin/competitions/${compId}`)
   revalidatePath('/')
   return { success: true }
+
+  })
 }
 
 export async function deleteParticipant(partId: string, compId: string) {
+  await requireAdmin()
+  return atomic(async prisma => {
+  await assertParticipantCompetition(partId, compId, prisma)
+
+
   await prisma.participant.delete({
     where: { id: partId }
   })
 
   revalidatePath(`/admin/competitions/${compId}`)
   return { success: true }
+
+  })
 }
 
 // Helper to determine round playing handicap for a participant
@@ -498,6 +567,14 @@ export async function addMatch(roundId: string, compId: string, data: {
   playUntilEnd?: boolean | null
   holeRange?: string | null
 }) {
+  await requireAdmin()
+  return atomic(async prisma => {
+  const checkedRound = await assertRoundCompetition(roundId, compId, prisma)
+  if (new Set(data.participantIds).size !== data.participantIds.length) throw new Error("Doppelte Teilnehmer.")
+  for (const id of data.participantIds) await assertParticipantCompetition(id, compId, prisma)
+  holeNumbers(data.holeRange, checkedRound.holesPlayed)
+
+
   if (!data.type) throw new Error("Match type is required.")
   if (!data.participantIds || data.participantIds.length === 0) {
     throw new Error("At least one participant must be assigned to the match.")
@@ -521,6 +598,7 @@ export async function addMatch(roundId: string, compId: string, data: {
     data: {
       roundId,
       type: data.type,
+      weight: getRyderCupMatchWeight({type: data.type, holeRange: data.holeRange || "1-18"}, checkedRound),
       allowanceType: (data.type === "SINGLES" || data.type === "TEAM_MATCHPLAY") ? (data.allowanceType || "75%") : null,
       handicapAllowance: computedAllowance,
       playUntilEnd: (data.type === "SINGLES" || data.type === "TEAM_MATCHPLAY") ? (data.playUntilEnd || false) : false,
@@ -541,9 +619,17 @@ export async function addMatch(roundId: string, compId: string, data: {
   revalidatePath(`/admin/competitions/${compId}`)
   revalidatePath('/')
   return { success: true }
+
+  })
 }
 
 export async function updateMatchAllowance(matchId: string, compId: string, handicapAllowance: number | null) {
+  await requireAdmin()
+  return atomic(async prisma => {
+  const checkedMatch = await assertMatchCompetition(matchId, compId, prisma)
+  assertPlayingHandicap(handicapAllowance)
+
+
   await prisma.match.update({
     where: { id: matchId },
     data: {
@@ -554,9 +640,17 @@ export async function updateMatchAllowance(matchId: string, compId: string, hand
   revalidatePath(`/admin/competitions/${compId}`)
   revalidatePath('/')
   return { success: true }
+
+  })
 }
 
 export async function updateMatchPlayerAllowance(matchPlayerId: string, compId: string, handicapAllowance: number | null) {
+  await requireAdmin()
+  return atomic(async prisma => {
+  const mp = await prisma.matchPlayer.findUnique({where: {id: matchPlayerId}, include: {match: {include: {round: true}}}}); if (!mp || mp.match.round.competitionId !== compId) throw new Error("Falsche Partiezuordnung.")
+  assertPlayingHandicap(handicapAllowance)
+
+
   await prisma.matchPlayer.update({
     where: { id: matchPlayerId },
     data: {
@@ -567,9 +661,16 @@ export async function updateMatchPlayerAllowance(matchPlayerId: string, compId: 
   revalidatePath(`/admin/competitions/${compId}`)
   revalidatePath('/')
   return { success: true }
+
+  })
 }
 
 export async function updateMatchPlayUntilEnd(matchId: string, compId: string, playUntilEnd: boolean) {
+  await requireAdmin()
+  return atomic(async prisma => {
+  const checkedMatch = await assertMatchCompetition(matchId, compId, prisma)
+
+
   await prisma.match.update({
     where: { id: matchId },
     data: {
@@ -580,9 +681,17 @@ export async function updateMatchPlayUntilEnd(matchId: string, compId: string, p
   revalidatePath(`/admin/competitions/${compId}`)
   revalidatePath('/')
   return { success: true }
+
+  })
 }
 
 export async function updateMatchHoleRange(matchId: string, compId: string, holeRange: string | null) {
+  await requireAdmin()
+  return atomic(async prisma => {
+  const checkedMatch = await assertMatchCompetition(matchId, compId, prisma)
+  holeNumbers(holeRange, checkedMatch.round.holesPlayed)
+
+
   await prisma.match.update({
     where: { id: matchId },
     data: {
@@ -593,15 +702,36 @@ export async function updateMatchHoleRange(matchId: string, compId: string, hole
   revalidatePath(`/admin/competitions/${compId}`)
   revalidatePath('/')
   return { success: true }
+
+  })
 }
 
 export async function deleteMatch(matchId: string, compId: string) {
+  await requireAdmin()
+  return atomic(async prisma => {
+  const checkedMatch = await assertMatchCompetition(matchId, compId, prisma)
+
+
   await prisma.match.delete({
     where: { id: matchId }
   })
 
   revalidatePath(`/admin/competitions/${compId}`)
   return { success: true }
+
+  })
+}
+
+export async function updateMatchWeight(matchId: string, compId: string, weight: number) {
+  await requireAdmin()
+  assertMatchWeight(weight)
+  await atomic(async db => {
+    await assertMatchCompetition(matchId, compId, db)
+    await db.match.update({where: {id: matchId}, data: {weight}})
+  })
+  revalidatePath("/")
+  revalidatePath(`/admin/competitions/${compId}`)
+  return {success: true}
 }
 
 export async function createQuickSingleRound(data: {
@@ -612,6 +742,11 @@ export async function createQuickSingleRound(data: {
   selectedUserIds: string[]
   customPlayers: Array<{ name: string; handicap?: number }>
 }) {
+  await requireAdmin()
+  return atomic(async prisma => {
+  await assertTeeCourse(data.teeId, data.courseId, prisma)
+
+
   const course = await prisma.course.findUnique({
     where: { id: data.courseId },
     include: { tees: true }
@@ -625,7 +760,7 @@ export async function createQuickSingleRound(data: {
   const year = String(roundDate.getFullYear()).slice(-2)
   const dateStr = `${day}.${month}.${year}`
 
-  let cleanCourseName = course.name.replace(/^(GC\s+|Golfclub\s+)/i, "").trim()
+  const cleanCourseName = course.name.replace(/^(GC\s+|Golfclub\s+)/i, "").trim()
   const compName = `${cleanCourseName}, ${dateStr}`
 
   const baseSlug = cleanCourseName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") + "-" + dateStr.replace(/\./g, "-")
@@ -695,5 +830,16 @@ export async function createQuickSingleRound(data: {
 
   revalidatePath("/admin/competitions")
   revalidatePath("/")
+  const created = await prisma.competition.findUniqueOrThrow({where: {id: comp.id}, include: {participants: true, rounds: {include: {tee: true, course: {include: {holes: true, tees: true}}}}}})
+  for (const round of created.rounds) {
+    const tee = round.tee || round.course.tees[0]
+    if (!tee) continue
+    for (const participant of created.participants) {
+      if (participant.compHandicap == null) continue
+      await prisma.manualRoundHandicap.create({data: {participantId: participant.id, roundId: round.id, teeId: tee.id, handicapValue: calculateCourseHandicap(participant.compHandicap, tee, round.course.holes.reduce((sum, h) => sum + h.par, 0))}})
+    }
+  }
   return { competitionId: comp.id, uniqueSlug: comp.uniqueSlug }
+
+  })
 }

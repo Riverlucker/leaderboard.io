@@ -1,10 +1,14 @@
+import { requireAdminPage } from "@/lib/page-access"
+import { adminUserSelect } from "@/lib/user-data"
 import prisma from "@/lib/prisma"
 import Link from "next/link"
 import { Plus, User } from "lucide-react"
 import { UserRowActions } from "./UserRowActions"
 
 export default async function AdminUsersPage() {
+  await requireAdminPage()
   const users = await prisma.user.findMany({
+    select: adminUserSelect,
     orderBy: { name: 'asc' }
   })
 
@@ -42,7 +46,7 @@ export default async function AdminUsersPage() {
               {users.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-6 py-10 text-center text-slate-500">
-                    No users found. Click "Add User" to create one.
+                    No users found. Click &quot;Add User&quot; to create one.
                   </td>
                 </tr>
               ) : (

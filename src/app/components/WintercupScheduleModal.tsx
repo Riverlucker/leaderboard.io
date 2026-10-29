@@ -78,7 +78,6 @@ export function WintercupScheduleModal({
       })
 
       // Update match object in client immediately
-      match.scheduledDate = `${dateStr}T${timeStr}:00`
 
       onSuccess()
       onClose()

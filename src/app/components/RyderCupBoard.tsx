@@ -1,4 +1,7 @@
 "use client"
+import { formatCupScore, getRyderCupMatchWeight } from "@/lib/cup-scoring"
+export { formatCupScore } from "@/lib/cup-scoring"
+
 
 import React from "react"
 import { Sparkles, Calendar, Award } from "lucide-react"
@@ -8,16 +11,10 @@ import {
   getMatchHoleStrokesMap, 
   parseHoleRange, 
   parseAllowancePercentage 
-} from "../CompetitionClientView"
+} from "@/lib/matchplay"
 import { PlayerAvatar } from "./PlayerAvatar"
 
-export function formatCupScore(score: number): string {
-  const whole = Math.floor(score)
-  const remainder = score - whole
-  if (remainder >= 0.75) return `${whole + 1}`
-  if (remainder >= 0.25) return whole > 0 ? `${whole} ½` : `½`
-  return `${whole}`
-}
+
 
 export function computeRyderCupStatus(match: any, round: any, competition: any, diamondTeamId: string, heartsTeamId: string) {
   const isTeamMatchplay = match.type === 'TEAM_MATCHPLAY' || match.type === 'CHAPMAN' || (match.matchPlayers && match.matchPlayers.length === 4)
@@ -98,7 +95,7 @@ export function computeRyderCupStatus(match: any, round: any, competition: any, 
 
     for (let i = 0; i < totalHoles; i++) {
       const holeNum = matchHoles[i]
-      const remainingHoles = totalHoles - (i + 1)
+      const remainingHoles = totalHoles - (holesPlayedCount + 1)
       const hole = round.course?.holes?.find((h: any) => h.number === holeNum)
       if (!hole) continue
 
@@ -128,10 +125,15 @@ export function computeRyderCupStatus(match: any, round: any, competition: any, 
       if (best1 < best2) t1Up++
       else if (best2 < best1) t2Up++
 
+      if (competition.shortTrackLimit != null) {
+        if (t1Up - t2Up > competition.shortTrackLimit) t1Up = t2Up + competition.shortTrackLimit
+        if (t2Up - t1Up > competition.shortTrackLimit) t2Up = t1Up + competition.shortTrackLimit
+      }
       const diff = Math.abs(t1Up - t2Up)
-      if (diff > remainingHoles && decidedHole === null) {
+      if (!match.playUntilEnd && diff > remainingHoles && decidedHole === null) {
         decidedHole = holeNum
-        decidedInfo = `${diff}&${remainingHoles}`
+        decidedInfo = remainingHoles ? `${diff}&${remainingHoles}` : `${diff}UP`
+        break
       }
     }
 
@@ -182,8 +184,8 @@ export function computeRyderCupStatus(match: any, round: any, competition: any, 
       }
     }
 
-    let p1 = players.find((p: any) => p.teamId === diamondTeamId) || players[0]
-    let p2 = players.find((p: any) => p.teamId === heartsTeamId) || players[1]
+    const p1 = players.find((p: any) => p.teamId === diamondTeamId) || players[0]
+    const p2 = players.find((p: any) => p.teamId === heartsTeamId) || players[1]
 
     const hcp1 = getPlayingHandicap(p1, round)
     const hcp2 = getPlayingHandicap(p2, round)
@@ -193,8 +195,7 @@ export function computeRyderCupStatus(match: any, round: any, competition: any, 
       : Array.from({ length: 18 }, (_, i) => i + 1)
     const matchHoles = parseHoleRange(match.holeRange, roundHoles)
 
-    const diffHcp = Math.abs(hcp1 - hcp2)
-    const allowance = getMatchAllowance(diffHcp, match.allowanceType, matchHoles.length)
+    const allowance = getMatchAllowance(match, hcp1, hcp2)
 
     let allowD = 0
     let allowH = 0
@@ -221,7 +222,7 @@ export function computeRyderCupStatus(match: any, round: any, competition: any, 
 
     for (let i = 0; i < totalHoles; i++) {
       const holeNum = matchHoles[i]
-      const remainingHoles = totalHoles - (i + 1)
+      const remainingHoles = totalHoles - (holesPlayedCount + 1)
       const hole = round.course?.holes?.find((h: any) => h.number === holeNum)
       if (!hole) continue
 
@@ -241,10 +242,15 @@ export function computeRyderCupStatus(match: any, round: any, competition: any, 
       if (netD < netH) dUp++
       else if (netH < netD) hUp++
 
+      if (competition.shortTrackLimit != null) {
+        if (dUp - hUp > competition.shortTrackLimit) dUp = hUp + competition.shortTrackLimit
+        if (hUp - dUp > competition.shortTrackLimit) hUp = dUp + competition.shortTrackLimit
+      }
       const diff = Math.abs(dUp - hUp)
-      if (diff > remainingHoles && decidedHole === null) {
+      if (!match.playUntilEnd && diff > remainingHoles && decidedHole === null) {
         decidedHole = holeNum
-        decidedInfo = `${diff}&${remainingHoles}`
+        decidedInfo = remainingHoles ? `${diff}&${remainingHoles}` : `${diff}UP`
+        break
       }
     }
 
@@ -277,19 +283,7 @@ export function computeRyderCupStatus(match: any, round: any, competition: any, 
   }
 }
 
-export function getRyderCupMatchWeight(match: any, round: any): number {
-  if (match.weight !== undefined && match.weight !== null) return match.weight
-  if (match.type === "SINGLES" && (
-    round.name.includes("VM") || 
-    round.name.includes("NM") || 
-    round.name.includes("Vormittag") || 
-    round.name.includes("Nachmittag") ||
-    match.holeRange === "1-9"
-  )) {
-    return 0.5
-  }
-  return 1.0
-}
+
 
 export function calculateRyderCupPoints(competition: any) {
   const teams = competition.teams || []

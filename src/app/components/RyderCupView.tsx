@@ -1,5 +1,9 @@
 "use client"
+import { formatCupScore, getRyderCupMatchWeight } from "@/lib/cup-scoring"
+export { formatCupScore } from "@/lib/cup-scoring"
 
+
+import { computeRyderCupStatus } from "./RyderCupBoard"
 import React, { useState, useEffect, useTransition } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -18,7 +22,7 @@ import {
   getCompactName, 
   parseHoleRange, 
   parseAllowancePercentage 
-} from "../CompetitionClientView"
+} from "@/lib/matchplay"
 
 interface RyderCupViewProps {
   competition: any
@@ -26,13 +30,7 @@ interface RyderCupViewProps {
 }
 
 // Helper to format Ryder Cup score: 2.5 -> "2 ½", 0.5 -> "½", 0 -> "0", 3 -> "3"
-export function formatCupScore(score: number): string {
-  const whole = Math.floor(score)
-  const remainder = score - whole
-  if (remainder >= 0.75) return `${whole + 1}`
-  if (remainder >= 0.25) return whole > 0 ? `${whole} ½` : `½`
-  return `${whole}`
-}
+
 
 export function RyderCupView({ competition, session }: RyderCupViewProps) {
   const router = useRouter()
@@ -156,287 +154,10 @@ export function RyderCupView({ competition, session }: RyderCupViewProps) {
   const heartsTeam = teams.find((t: any) => t.name.toLowerCase().includes("heart") || t.color === "red") || teams[1] || { name: "Team Hearts", color: "red" }
 
   // Status calculation for each match
-  const computeMatchplayStatus = (match: any, round: any) => {
-    const isTeamMatchplay = match.type === 'TEAM_MATCHPLAY' || match.type === 'CHAPMAN' || (match.matchPlayers && match.matchPlayers.length === 4)
-
-    const getPlayerMPAllowance = (pId: string, defVal: number) => {
-      const mp = match.matchPlayers?.find((x: any) => x.participantId === pId)
-      if (mp && mp.handicapAllowance !== null && mp.handicapAllowance !== undefined) {
-        return mp.handicapAllowance
-      }
-      return defVal
-    }
-
-    const allNames = (competition.participants || []).map((p: any) =>
-      p.userId ? p.user?.name : p.dummyName
-    ).filter((n: any): n is string => typeof n === 'string' && n.length > 0)
-
-    if (isTeamMatchplay) {
-      const pIds = match.matchPlayers.map((mp: any) => mp.participantId)
-      const players = pIds.map((id: string) => competition.participants.find((p: any) => p.id === id)).filter(Boolean)
-
-      if (players.length < 4) {
-        return {
-          statusText: "Setup Pending",
-          holesPlayed: 0,
-          totalHoles: 18,
-          lead: 0,
-          isFinished: false,
-          isTeamMatchplay: true,
-          team1Players: [],
-          team2Players: [],
-          team1Allowance: [0, 0],
-          team2Allowance: [0, 0]
-        }
-      }
-
-      // Group into Diamond and Hearts
-      let t1Players = players.filter((p: any) => p.teamId === diamondTeam.id)
-      let t2Players = players.filter((p: any) => p.teamId === heartsTeam.id)
-
-      if (t1Players.length !== 2 || t2Players.length !== 2) {
-        t1Players = [players[0], players[1]]
-        t2Players = [players[2], players[3]]
-      }
-
-      const hcp1_1 = getPlayingHandicap(t1Players[0], round)
-      const hcp1_2 = getPlayingHandicap(t1Players[1], round)
-      const hcp2_1 = getPlayingHandicap(t2Players[0], round)
-      const hcp2_2 = getPlayingHandicap(t2Players[1], round)
-
-      const minPH = Math.min(hcp1_1, hcp1_2, hcp2_1, hcp2_2)
-      const percentage = parseAllowancePercentage(match.allowanceType)
-
-      const allow1_1 = getPlayerMPAllowance(t1Players[0].id, Math.round((hcp1_1 - minPH) * percentage))
-      const allow1_2 = getPlayerMPAllowance(t1Players[1].id, Math.round((hcp1_2 - minPH) * percentage))
-      const allow2_1 = getPlayerMPAllowance(t2Players[0].id, Math.round((hcp2_1 - minPH) * percentage))
-      const allow2_2 = getPlayerMPAllowance(t2Players[1].id, Math.round((hcp2_2 - minPH) * percentage))
-
-      const roundHoles = round.holesPlayed && round.holesPlayed.length > 0
-        ? [...round.holesPlayed].sort((a: number, b: number) => a - b)
-        : Array.from({ length: 18 }, (_, i) => i + 1)
-      const matchHoles = parseHoleRange(match.holeRange, roundHoles)
-
-      const strokesMap1_1 = getMatchHoleStrokesMap(matchHoles, round, allow1_1)
-      const strokesMap1_2 = getMatchHoleStrokesMap(matchHoles, round, allow1_2)
-      const strokesMap2_1 = getMatchHoleStrokesMap(matchHoles, round, allow2_1)
-      const strokesMap2_2 = getMatchHoleStrokesMap(matchHoles, round, allow2_2)
-
-      const getMatchHoleStrokes = (score: any) => {
-        if (!score) return null
-        if (score.status === 'WIPED') return 99
-        if (score.status === 'NOT_PLAYED') return null
-        return score.grossStrokes
-      }
-
-      let t1Up = 0
-      let t2Up = 0
-      let holesPlayedCount = 0
-      let decidedHole: number | null = null
-      let decidedInfo: string | null = null
-
-      const totalHoles = matchHoles.length
-
-      for (let i = 0; i < totalHoles; i++) {
-        const holeNum = matchHoles[i]
-        const remainingHoles = totalHoles - (i + 1)
-
-        const s1_1 = t1Players[0].scores?.find((s: any) => s.holeNumber === holeNum && s.roundId === round.id)
-        const s1_2 = t1Players[1].scores?.find((s: any) => s.holeNumber === holeNum && s.roundId === round.id)
-        const s2_1 = t2Players[0].scores?.find((s: any) => s.holeNumber === holeNum && s.roundId === round.id)
-        const s2_2 = t2Players[1].scores?.find((s: any) => s.holeNumber === holeNum && s.roundId === round.id)
-
-        const gross1_1 = getMatchHoleStrokes(s1_1)
-        const gross1_2 = getMatchHoleStrokes(s1_2)
-        const gross2_1 = getMatchHoleStrokes(s2_1)
-        const gross2_2 = getMatchHoleStrokes(s2_2)
-
-        const t1Played = (gross1_1 !== null && gross1_1 !== undefined) || (gross1_2 !== null && gross1_2 !== undefined)
-        const t2Played = (gross2_1 !== null && gross2_1 !== undefined) || (gross2_2 !== null && gross2_2 !== undefined)
-
-        if (!t1Played && !t2Played) continue
-
-        holesPlayedCount++
-
-        const net1_1 = gross1_1 !== null ? (gross1_1 === 99 ? 99 : gross1_1 - (strokesMap1_1[holeNum] || 0)) : 99
-        const net1_2 = gross1_2 !== null ? (gross1_2 === 99 ? 99 : gross1_2 - (strokesMap1_2[holeNum] || 0)) : 99
-        const net2_1 = gross2_1 !== null ? (gross2_1 === 99 ? 99 : gross2_1 - (strokesMap2_1[holeNum] || 0)) : 99
-        const net2_2 = gross2_2 !== null ? (gross2_2 === 99 ? 99 : gross2_2 - (strokesMap2_2[holeNum] || 0)) : 99
-
-        const best1 = Math.min(net1_1, net1_2)
-        const best2 = Math.min(net2_1, net2_2)
-
-        if (best1 < best2) t1Up++
-        else if (best2 < best1) t2Up++
-
-        const diff = Math.abs(t1Up - t2Up)
-        if (diff > remainingHoles && decidedHole === null) {
-          decidedHole = holeNum
-          decidedInfo = `${diff}&${remainingHoles}`
-        }
-      }
-
-      const lead = t1Up - t2Up
-      const isFinished = decidedHole !== null || (holesPlayedCount >= totalHoles && totalHoles > 0)
-
-      let statusText = "A/S"
-      if (lead > 0) {
-        if (decidedInfo) statusText = decidedInfo
-        else if (isFinished) statusText = `${lead} UP`
-        else statusText = `${lead} UP`
-      } else if (lead < 0) {
-        const absLead = Math.abs(lead)
-        if (decidedInfo) statusText = decidedInfo
-        else if (isFinished) statusText = `${absLead} UP`
-        else statusText = `${absLead} UP`
-      } else {
-        statusText = holesPlayedCount > 0 ? "A/S" : "-"
-      }
-
-      return {
-        statusText,
-        holesPlayed: holesPlayedCount,
-        totalHoles,
-        lead,
-        isFinished,
-        isTeamMatchplay: true,
-        team1Players: t1Players,
-        team2Players: t2Players,
-        team1Allowance: [allow1_1, allow1_2],
-        team2Allowance: [allow2_1, allow2_2],
-        decidedInfo
-      }
-    } else {
-      // Singles matchplay
-      const pIds = match.matchPlayers.map((mp: any) => mp.participantId)
-      const players = pIds.map((id: string) => competition.participants.find((p: any) => p.id === id)).filter(Boolean)
-
-      if (players.length < 2) {
-        return {
-          statusText: "Setup Pending",
-          holesPlayed: 0,
-          totalHoles: 18,
-          lead: 0,
-          isFinished: false,
-          isTeamMatchplay: false,
-          team1Players: [],
-          team2Players: [],
-          team1Allowance: [0],
-          team2Allowance: [0]
-        }
-      }
-
-      let p1 = players.find((p: any) => p.teamId === diamondTeam.id) || players[0]
-      let p2 = players.find((p: any) => p.teamId === heartsTeam.id) || players[1]
-
-      const hcp1 = getPlayingHandicap(p1, round)
-      const hcp2 = getPlayingHandicap(p2, round)
-
-      const roundHoles = round.holesPlayed && round.holesPlayed.length > 0
-        ? [...round.holesPlayed].sort((a: number, b: number) => a - b)
-        : Array.from({ length: 18 }, (_, i) => i + 1)
-      const matchHoles = parseHoleRange(match.holeRange, roundHoles)
-
-      const diffHcp = Math.abs(hcp1 - hcp2)
-      const allowance = getMatchAllowance(diffHcp, match.allowanceType, matchHoles.length)
-
-      let allowD = 0
-      let allowH = 0
-      if (hcp1 > hcp2) allowD = getPlayerMPAllowance(p1.id, allowance)
-      else if (hcp2 > hcp1) allowH = getPlayerMPAllowance(p2.id, allowance)
-
-      const strokesMapD = getMatchHoleStrokesMap(matchHoles, round, allowD)
-      const strokesMapH = getMatchHoleStrokesMap(matchHoles, round, allowH)
-
-      const getMatchHoleStrokes = (score: any) => {
-        if (!score) return null
-        if (score.status === 'WIPED') return 99
-        if (score.status === 'NOT_PLAYED') return null
-        return score.grossStrokes
-      }
-
-      let dUp = 0
-      let hUp = 0
-      let holesPlayedCount = 0
-      let decidedHole: number | null = null
-      let decidedInfo: string | null = null
-
-      const totalHoles = matchHoles.length
-
-      for (let i = 0; i < totalHoles; i++) {
-        const holeNum = matchHoles[i]
-        const remainingHoles = totalHoles - (i + 1)
-
-        const sD = p1.scores?.find((s: any) => s.holeNumber === holeNum && s.roundId === round.id)
-        const sH = p2.scores?.find((s: any) => s.holeNumber === holeNum && s.roundId === round.id)
-
-        const grossD = getMatchHoleStrokes(sD)
-        const grossH = getMatchHoleStrokes(sH)
-
-        if ((grossD === null || grossD === undefined) && (grossH === null || grossH === undefined)) continue
-
-        holesPlayedCount++
-
-        const netD = grossD !== null ? (grossD === 99 ? 99 : grossD - (strokesMapD[holeNum] || 0)) : 99
-        const netH = grossH !== null ? (grossH === 99 ? 99 : grossH - (strokesMapH[holeNum] || 0)) : 99
-
-        if (netD < netH) dUp++
-        else if (netH < netD) hUp++
-
-        const diff = Math.abs(dUp - hUp)
-        if (diff > remainingHoles && decidedHole === null) {
-          decidedHole = holeNum
-          decidedInfo = `${diff}&${remainingHoles}`
-        }
-      }
-
-      const lead = dUp - hUp
-      const isFinished = decidedHole !== null || (holesPlayedCount >= totalHoles && totalHoles > 0)
-
-      let statusText = "A/S"
-      if (lead > 0) {
-        if (decidedInfo) statusText = decidedInfo
-        else if (isFinished) statusText = `${lead} UP`
-        else statusText = `${lead} UP`
-      } else if (lead < 0) {
-        const absLead = Math.abs(lead)
-        if (decidedInfo) statusText = decidedInfo
-        else if (isFinished) statusText = `${absLead} UP`
-        else statusText = `${absLead} UP`
-      } else {
-        statusText = holesPlayedCount > 0 ? "A/S" : "-"
-      }
-
-      return {
-        statusText,
-        holesPlayed: holesPlayedCount,
-        totalHoles,
-        lead,
-        isFinished,
-        isTeamMatchplay: false,
-        team1Players: [p1],
-        team2Players: [p2],
-        team1Allowance: [allowD],
-        team2Allowance: [allowH],
-        decidedInfo
-      }
-    }
-  }
+  const computeMatchplayStatus = (match: any, round: any) => computeRyderCupStatus(match, round, competition, diamondTeam.id, heartsTeam.id)
 
   // Weight of match points: 0.5 for singles in VM/NM, 1.0 for all others
-  const getMatchWeight = (match: any, round: any) => {
-    if (match.weight !== undefined && match.weight !== null) return match.weight
-    if (match.type === "SINGLES" && (
-      round.name.includes("VM") || 
-      round.name.includes("NM") || 
-      round.name.includes("Vormittag") || 
-      round.name.includes("Nachmittag") ||
-      match.holeRange === "1-9"
-    )) {
-      return 0.5
-    }
-    return 1.0
-  }
+  const getMatchWeight = getRyderCupMatchWeight
 
   // Calculate Cup Points for Diamonds and Hearts
   let diamondPoints = 0

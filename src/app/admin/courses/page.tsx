@@ -1,7 +1,9 @@
+import { requireAdminPage } from "@/lib/page-access"
 import prisma from "@/lib/prisma"
 import { CoursesListClient } from "./CoursesListClient"
 
 export default async function AdminCourses() {
+  await requireAdminPage()
   const courses = await prisma.course.findMany({
     include: {
       holes: {

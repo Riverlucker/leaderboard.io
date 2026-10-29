@@ -5,7 +5,7 @@ import { saveBatchScores } from "@/app/actions/scores"
 import { ArrowLeft, ArrowRight, Loader2, Wifi, WifiOff, RefreshCw, CheckCircle2, AlertCircle, Save, BookOpen, Settings, Play } from "lucide-react"
 import { calculateCourseHandicap, getRoundHoleInfo, getHandicapStrokesOnHole } from "@/lib/scoring"
 import { getTeamColorConfig } from "@/lib/teamColors"
-import { getPlayerCalculatedAllowance } from "./CompetitionClientView"
+import { getPlayerCalculatedAllowance } from "@/lib/matchplay"
 
 interface PendingScoreItem {
   participantId: string
@@ -90,6 +90,7 @@ export function LiveScoreEntry({
   // Offline & Synchronization State
   const [isOfflineMode, setIsOfflineMode] = useState<boolean>(false)
   const [offlineQueue, setOfflineQueue] = useState<PendingScoreItem[]>([])
+  const offlineQueueRef = useRef<PendingScoreItem[]>([])
   const [isSyncing, setIsSyncing] = useState<boolean>(false)
   const [syncStatusMsg, setSyncStatusMsg] = useState<{ text: string; type: 'success' | 'error' | 'info' } | null>(null)
 
@@ -144,6 +145,7 @@ export function LiveScoreEntry({
       console.error("Failed to parse offline queue", e)
     }
 
+    offlineQueueRef.current = localQueue
     setOfflineQueue(localQueue)
 
     // Merge: Server data is primary ground truth. Local cache only fills in if server has no score.
@@ -204,6 +206,7 @@ export function LiveScoreEntry({
 
   // Save offline queue to localStorage whenever it changes
   const updateOfflineQueue = useCallback((newQueue: PendingScoreItem[]) => {
+    offlineQueueRef.current = newQueue
     setOfflineQueue(newQueue)
     try {
       localStorage.setItem(queueStorageKey, JSON.stringify(newQueue))
@@ -224,7 +227,7 @@ export function LiveScoreEntry({
 
   // 3. Batch synchronization function (flushes pending queue to server)
   const performBatchSave = async (queueToFlush?: PendingScoreItem[]) => {
-    const queue = queueToFlush || offlineQueue
+    const queue = queueToFlush || offlineQueueRef.current
     if (queue.length === 0) return
 
     setIsSyncing(true)
@@ -255,8 +258,10 @@ export function LiveScoreEntry({
       )
 
       // Remove successfully flushed items from queue
-      const flushedKeys = new Set(Object.keys(latestItemsMap))
-      const remainingQueue = offlineQueue.filter(item => !flushedKeys.has(`${item.participantId}-${item.holeId}`))
+      const remainingQueue = offlineQueueRef.current.filter(item => {
+        const flushed = latestItemsMap[`${item.participantId}-${item.holeId}`]
+        return !flushed || item.timestamp > flushed.timestamp
+      })
       updateOfflineQueue(remainingQueue)
 
       setSyncStatusMsg({
@@ -333,7 +338,7 @@ export function LiveScoreEntry({
     }
 
     // Append item to queue (replacing existing queued item for same partId+holeId)
-    const filteredQueue = offlineQueue.filter(q => !(q.participantId === partId && q.holeId === holeId))
+    const filteredQueue = offlineQueueRef.current.filter(q => !(q.participantId === partId && q.holeId === holeId))
     const nextQueue = [...filteredQueue, newItem]
     updateOfflineQueue(nextQueue)
 

@@ -3,7 +3,7 @@
 import React from "react"
 import { X, Share2, CheckCircle, RefreshCw } from "lucide-react"
 import { getHandicapStrokesOnHole, calculateStablefordPoints, getRoundHoleInfo } from "@/lib/scoring"
-import { getPlayingHandicap } from "../CompetitionClientView"
+import { getPlayingHandicap } from "@/lib/matchplay"
 import { PlayerAvatar } from "./PlayerAvatar"
 
 interface PlayerScorecardModalProps {

@@ -676,10 +676,10 @@ export function RyderCupMainStandings({
                     </div>
 
                     {/* Col 2: Diamond Players (Clean: Without Handicap Allowances) */}
-                    <div className={`flex-1 px-2 sm:px-4 py-2 flex items-center justify-end gap-2 sm:gap-2.5 min-w-0 transition-colors ${
+                    <div className={`flex-1 px-1 sm:px-4 py-2 flex flex-col-reverse sm:flex-row items-center justify-center sm:justify-end gap-1 sm:gap-2.5 min-w-0 transition-colors ${
                       diamondLead ? "bg-[#3765e9] text-white" : "bg-white text-slate-900"
                     }`}>
-                      <div className="flex flex-col justify-center items-end text-right min-w-0">
+                      <div className="flex flex-col justify-center items-center sm:items-end text-center sm:text-right min-w-0 max-w-full">
                         {t1Names.map((name: string, i: number) => {
                           const p = status.team1Players[i]
                           return (
@@ -712,7 +712,7 @@ export function RyderCupMainStandings({
                             <PlayerAvatar 
                               key={p.id} 
                               participant={p} 
-                              className={diamondLead ? "border-blue-300 ring-white/20" : ""}
+                              className={`w-8! h-8! sm:w-14! sm:h-14! ${diamondLead ? "border-blue-300 ring-white/20" : ""}`}
                             />
                           ))}
                         </div>
@@ -735,7 +735,7 @@ export function RyderCupMainStandings({
                     )}
 
                     {/* Col 4: Hearts Players (Clean: Without Handicap Allowances) */}
-                    <div className={`flex-1 px-2 sm:px-4 py-2 flex items-center justify-start gap-2 sm:gap-2.5 min-w-0 transition-colors ${
+                    <div className={`flex-1 px-1 sm:px-4 py-2 flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-1 sm:gap-2.5 min-w-0 transition-colors ${
                       heartsLead ? "bg-[#cb3838] text-white" : "bg-white text-slate-900"
                     }`}>
                       {/* Hearts Profile Pictures (centrally to the left of the names) */}
@@ -745,13 +745,13 @@ export function RyderCupMainStandings({
                             <PlayerAvatar 
                               key={p.id} 
                               participant={p} 
-                              className={heartsLead ? "border-red-300 ring-white/20" : ""}
+                              className={`w-8! h-8! sm:w-14! sm:h-14! ${heartsLead ? "border-red-300 ring-white/20" : ""}`}
                             />
                           ))}
                         </div>
                       )}
 
-                      <div className="flex flex-col justify-center items-start text-left min-w-0">
+                      <div className="flex flex-col justify-center items-center sm:items-start text-center sm:text-left min-w-0 max-w-full">
                         {t2Names.map((name: string, i: number) => {
                           const p = status.team2Players[i]
                           return (

@@ -327,7 +327,7 @@ export function PlayerProfileModal({ player, onClose, onOpenScorecard }: PlayerP
     ? (player.stars !== undefined && player.stars !== null ? player.stars : (currentComp?.stars ?? null))
     : null
 
-  const showStars = isBadgeCompetition && starsCount !== null && starsCount !== undefined
+  const showStars = isBadgeCompetition && starsCount !== null && starsCount !== undefined && starsCount > 0
 
   return (
     <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[80] flex items-center justify-center p-3 sm:p-4">
@@ -379,13 +379,9 @@ export function PlayerProfileModal({ player, onClose, onOpenScorecard }: PlayerP
                 
                 {showStars && (
                   <div aria-label={`${starsCount} Sterne`} className="pointer-events-none absolute -top-3 left-1/2 -translate-x-1/2 z-20 flex items-center justify-center gap-0.5 text-amber-300 drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">
-                    {starsCount > 0 ? (
-                      Array.from({ length: starsCount }).map((_, i) => (
-                        <Star key={i} size={24} className="shrink-0 fill-amber-300/90 stroke-amber-100/90" />
-                      ))
-                    ) : (
-                      <span className="text-xl font-black uppercase tracking-wider whitespace-nowrap">0 ★</span>
-                    )}
+                    {Array.from({ length: starsCount }).map((_, i) => (
+                      <Star key={i} size={24} className="shrink-0 fill-amber-300/90 stroke-amber-100/90" />
+                    ))}
                   </div>
                 )}
 
@@ -491,7 +487,7 @@ export function PlayerProfileModal({ player, onClose, onOpenScorecard }: PlayerP
                   ) : (
                     <div className="flex items-center gap-1.5">
                       <span className="text-slate-600 font-medium font-mono text-[11px]">
-                        {profileData?.email || "Keine E-Mail hinterlegt"}
+                        {profileLoading ? "Profil wird geladen …" : canEdit ? (profileData?.email || "Keine E-Mail hinterlegt") : "E-Mail nicht öffentlich"}
                       </span>
                       {canEdit && profileData?.id !== "dummy" && (
                         <button

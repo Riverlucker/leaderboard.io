@@ -27,7 +27,7 @@ export function RyderCupAgendaTab({ competition }: { competition: any }) {
       teeTimes: "18:00 Uhr",
       estEnd: "Open End",
       isPractice: true,
-      evening: "20:00 Uhr · Gemeinsames Abendessen im Lindner: Niko’s Place",
+      evening: "20:00 Uhr · Lindner: Niko’s Place",
       badgeColor: "bg-purple-100 text-purple-900 border-purple-300"
     },
     {
@@ -46,7 +46,7 @@ export function RyderCupAgendaTab({ competition }: { competition: any }) {
       session: "Tag 1 VM",
       date: "Sa, 19.12.",
       course: "T-Golf Palma",
-      format: "18L Best Ball (3.5 Pkt)",
+      format: "18L Best Ball (3 Pkt) + Einzel (0.5 Pkt)",
       shuttle: "07:30 (Abfahrt)",
       teeTimes: "08:50 – 09:20",
       estEnd: "~13:30",
@@ -58,7 +58,7 @@ export function RyderCupAgendaTab({ competition }: { competition: any }) {
       session: "Tag 1 NM",
       date: "Sa, 19.12.",
       course: "T-Golf Palma",
-      format: "9L Chapman 4er (3.5 Pkt)",
+      format: "9L Chapman 4er (3 Pkt) + Einzel (0.5 Pkt)",
       shuttle: "17:30 (Rückfahrt)",
       teeTimes: "14:10 – 14:40",
       estEnd: "~17:00",
@@ -70,7 +70,7 @@ export function RyderCupAgendaTab({ competition }: { competition: any }) {
       session: "Tag 2 VM",
       date: "So, 20.12.",
       course: "Son Gual",
-      format: "18L Best Ball (3.5 Pkt)",
+      format: "18L Best Ball (3 Pkt) + Einzel (0.5 Pkt)",
       shuttle: "07:30 (Abfahrt)",
       teeTimes: "08:50 – 09:20",
       estEnd: "~13:30",
@@ -82,7 +82,7 @@ export function RyderCupAgendaTab({ competition }: { competition: any }) {
       session: "Tag 2 NM",
       date: "So, 20.12.",
       course: "Son Gual",
-      format: "9L Chapman 4er (3.5 Pkt)",
+      format: "9L Chapman 4er (3 Pkt) + Einzel (0.5 Pkt)",
       shuttle: "17:30 (Rückfahrt)",
       teeTimes: "14:10 – 14:40",
       estEnd: "~17:00",
@@ -279,7 +279,6 @@ export function RyderCupAgendaTab({ competition }: { competition: any }) {
 
             <div className="pt-2 border-t border-slate-200 flex justify-between items-center text-xs font-bold text-slate-500">
               <span className="text-amber-850 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 font-semibold">🍽️ 19:30 Uhr · Restaurant Spot, Palma</span>
-              <span className="text-slate-400 font-mono">Ende ~15:30</span>
             </div>
           </div>
         </div>
@@ -305,9 +304,9 @@ export function RyderCupAgendaTab({ competition }: { competition: any }) {
                   <span className="font-mono text-emerald-700">VM 08:50 - 09:20</span>
                   <span className="bg-emerald-100 text-emerald-800 text-[10px] px-1.5 py-0.5 rounded font-black font-mono">18 Loch</span>
                 </div>
-                <div className="font-black text-slate-900 text-xs">Best Ball Matchplay (3.5 Pkt)</div>
+                <div className="font-black text-slate-900 text-xs">Best Ball Matchplays (3 Punkte) + Einzel (0.5 Punkte)</div>
                 <div className="text-[11px] text-slate-600 mt-0.5">
-                  3 Best-Ball-Matches mit 85% Vorgabe (je 1.0 Pkt) + 1 Einzel mit 75% Vorgabe (0.5 Pkt).
+                  3 Best-Ball-Matches mit 85% Vorgabe (3 Punkte) + 1 Einzel mit 75% Vorgabe (0.5 Punkte).
                 </div>
               </div>
 
@@ -316,9 +315,9 @@ export function RyderCupAgendaTab({ competition }: { competition: any }) {
                   <span className="font-mono text-cyan-700">NM 14:10 - 14:40</span>
                   <span className="bg-cyan-100 text-cyan-800 text-[10px] px-1.5 py-0.5 rounded font-black font-mono">9 Loch</span>
                 </div>
-                <div className="font-black text-slate-900 text-xs">Chapman-Vierer (3.5 Pkt)</div>
+                <div className="font-black text-slate-900 text-xs">Chapman-Vierer (3 Punkte) + Einzel (0.5 Punkte)</div>
                 <div className="text-[11px] text-slate-600 mt-0.5">
-                  60/40-Vorgabe* · 3 Matches + 1 Einzel mit 75% Vorgabe; für 9 Loch: 50% von 75%, kaufmännisch gerundet.
+                  3 Chapman-Matches mit 60/40-Vorgabe* (3 Punkte) + 1 Einzel mit 37.5% Vorgabe (0.5 Punkte).
                 </div>
               </div>
             </div>
@@ -351,9 +350,9 @@ export function RyderCupAgendaTab({ competition }: { competition: any }) {
                   <span className="font-mono text-emerald-700">VM 08:50 - 09:20</span>
                   <span className="bg-emerald-100 text-emerald-800 text-[10px] px-1.5 py-0.5 rounded font-black font-mono">18 Loch</span>
                 </div>
-                <div className="font-black text-slate-900 text-xs">Best Ball Matchplay (3.5 Pkt)</div>
+                <div className="font-black text-slate-900 text-xs">Best Ball Matchplays (3 Punkte) + Einzel (0.5 Punkte)</div>
                 <div className="text-[11px] text-slate-600 mt-0.5">
-                  3 Best-Ball-Matches mit 85% Vorgabe (je 1.0 Pkt) + 1 Einzel mit 75% Vorgabe (0.5 Pkt).
+                  3 Best-Ball-Matches mit 85% Vorgabe (3 Punkte) + 1 Einzel mit 75% Vorgabe (0.5 Punkte).
                 </div>
               </div>
 
@@ -362,9 +361,9 @@ export function RyderCupAgendaTab({ competition }: { competition: any }) {
                   <span className="font-mono text-cyan-700">NM 14:10 - 14:40</span>
                   <span className="bg-cyan-100 text-cyan-800 text-[10px] px-1.5 py-0.5 rounded font-black font-mono">9 Loch</span>
                 </div>
-                <div className="font-black text-slate-900 text-xs">Chapman-Vierer (3.5 Pkt)</div>
+                <div className="font-black text-slate-900 text-xs">Chapman-Vierer (3 Punkte) + Einzel (0.5 Punkte)</div>
                 <div className="text-[11px] text-slate-600 mt-0.5">
-                  60/40-Vorgabe* · 3 Matches + 1 Einzel mit 75% Vorgabe; für 9 Loch: 50% von 75%, kaufmännisch gerundet.
+                  3 Chapman-Matches mit 60/40-Vorgabe* (3 Punkte) + 1 Einzel mit 37.5% Vorgabe (0.5 Punkte).
                 </div>
               </div>
             </div>

@@ -21,13 +21,13 @@ export function RyderCupAgendaTab({ competition }: { competition: any }) {
     {
       session: "Pre-Event",
       date: "Do, 17.12.",
-      course: "Lindner Hotel",
-      format: "Teams auslosen & Welcome",
+      course: "Lindner Hotel · Meeting Room",
+      format: "Handicap-Voting und Team-Auslosung",
       shuttle: "–",
-      teeTimes: "Abend",
+      teeTimes: "18:00 Uhr",
       estEnd: "Open End",
       isPractice: true,
-      evening: "Lindner",
+      evening: "20:00 Uhr · Gemeinsames Abendessen im Lindner: Niko’s Place",
       badgeColor: "bg-purple-100 text-purple-900 border-purple-300"
     },
     {
@@ -39,7 +39,7 @@ export function RyderCupAgendaTab({ competition }: { competition: any }) {
       teeTimes: "11:00 – 11:30",
       estEnd: "~15:30",
       isPractice: true,
-      evening: "TBD gemeinsam",
+      evening: "19:30 Uhr · Restaurant Spot, Palma",
       badgeColor: "bg-slate-100 text-slate-800 border-slate-300"
     },
     {
@@ -47,7 +47,7 @@ export function RyderCupAgendaTab({ competition }: { competition: any }) {
       date: "Sa, 19.12.",
       course: "T-Golf Palma",
       format: "18L Best Ball (3.5 Pkt)",
-      shuttle: "07:40 (Abfahrt)",
+      shuttle: "07:30 (Abfahrt)",
       teeTimes: "08:50 – 09:20",
       estEnd: "~13:30",
       isPractice: false,
@@ -71,7 +71,7 @@ export function RyderCupAgendaTab({ competition }: { competition: any }) {
       date: "So, 20.12.",
       course: "Son Gual",
       format: "18L Best Ball (3.5 Pkt)",
-      shuttle: "07:40 (Abfahrt)",
+      shuttle: "07:30 (Abfahrt)",
       teeTimes: "08:50 – 09:20",
       estEnd: "~13:30",
       isPractice: false,
@@ -99,7 +99,7 @@ export function RyderCupAgendaTab({ competition }: { competition: any }) {
       teeTimes: "11:00 – 11:30",
       estEnd: "~15:30",
       isPractice: false,
-      evening: "Calvia",
+      evening: "17:00 Uhr · Calvia Clubhouse",
       badgeColor: "bg-amber-100 text-amber-950 border-amber-300"
     },
   ]
@@ -267,7 +267,7 @@ export function RyderCupAgendaTab({ competition }: { competition: any }) {
                 </div>
                 <div className="font-black text-slate-900 text-sm">Offizielle Proberunde</div>
                 <div className="text-xs text-slate-600 mt-1 leading-snug">
-                  Einspielen, Platzbesichtigung & Vorbereitung auf die Wettkampftage. 4 Flights à 4 Spieler.
+                  Einspielen & Vorbereitung auf die Wettkampftage. 14 Spieler: 2 Flights à 4 und 2 Flights à 3 Spieler.
                 </div>
               </div>
 
@@ -278,7 +278,7 @@ export function RyderCupAgendaTab({ competition }: { competition: any }) {
             </div>
 
             <div className="pt-2 border-t border-slate-200 flex justify-between items-center text-xs font-bold text-slate-500">
-              <span className="text-amber-850 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 font-semibold">🍽️ TBD gemeinsam</span>
+              <span className="text-amber-850 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 font-semibold">🍽️ 19:30 Uhr · Restaurant Spot, Palma</span>
               <span className="text-slate-400 font-mono">Ende ~15:30</span>
             </div>
           </div>
@@ -307,7 +307,7 @@ export function RyderCupAgendaTab({ competition }: { competition: any }) {
                 </div>
                 <div className="font-black text-slate-900 text-xs">Best Ball Matchplay (3.5 Pkt)</div>
                 <div className="text-[11px] text-slate-600 mt-0.5">
-                  85% Vorgabe · 3 Matches (1.0 Pkt) + 1 Einzel (0.5 Pkt)
+                  3 Best-Ball-Matches mit 85% Vorgabe (je 1.0 Pkt) + 1 Einzel mit 75% Vorgabe (0.5 Pkt).
                 </div>
               </div>
 
@@ -318,7 +318,7 @@ export function RyderCupAgendaTab({ competition }: { competition: any }) {
                 </div>
                 <div className="font-black text-slate-900 text-xs">Chapman-Vierer (3.5 Pkt)</div>
                 <div className="text-[11px] text-slate-600 mt-0.5">
-                  Pinehurst 60/40 · 3 Matches + 1 Einzel
+                  60/40-Vorgabe* · 3 Matches + 1 Einzel mit 75% Vorgabe; für 9 Loch: 50% von 75%, kaufmännisch gerundet.
                 </div>
               </div>
             </div>
@@ -353,7 +353,7 @@ export function RyderCupAgendaTab({ competition }: { competition: any }) {
                 </div>
                 <div className="font-black text-slate-900 text-xs">Best Ball Matchplay (3.5 Pkt)</div>
                 <div className="text-[11px] text-slate-600 mt-0.5">
-                  85% Vorgabe · 3 Matches (1.0 Pkt) + 1 Einzel (0.5 Pkt)
+                  3 Best-Ball-Matches mit 85% Vorgabe (je 1.0 Pkt) + 1 Einzel mit 75% Vorgabe (0.5 Pkt).
                 </div>
               </div>
 
@@ -364,7 +364,7 @@ export function RyderCupAgendaTab({ competition }: { competition: any }) {
                 </div>
                 <div className="font-black text-slate-900 text-xs">Chapman-Vierer (3.5 Pkt)</div>
                 <div className="text-[11px] text-slate-600 mt-0.5">
-                  Pinehurst 60/40 · 3 Matches + 1 Einzel
+                  60/40-Vorgabe* · 3 Matches + 1 Einzel mit 75% Vorgabe; für 9 Loch: 50% von 75%, kaufmännisch gerundet.
                 </div>
               </div>
             </div>
@@ -399,7 +399,7 @@ export function RyderCupAgendaTab({ competition }: { competition: any }) {
                 </div>
                 <div className="font-black text-slate-900 text-xs">Final Day Singles (7.0 Pkt)</div>
                 <div className="text-[11px] text-slate-600 mt-0.5">
-                  7 Einzel-Matchplays strictly nach Handicap-Reihenfolge.
+                  7 Einzel-Matchplays mit 75% Vorgabe nach Handicap-Reihenfolge.
                 </div>
               </div>
 
@@ -415,12 +415,19 @@ export function RyderCupAgendaTab({ competition }: { competition: any }) {
             </div>
 
             <div className="pt-2 border-t border-slate-200 flex justify-between items-center text-xs font-bold">
-              <span className="text-amber-850 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">🍽️ Calvia</span>
+              <span className="text-amber-850 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">🍽️ 17:00 Uhr · Calvia Clubhouse</span>
               <span className="bg-red-600 text-white px-2 py-0.5 rounded font-mono font-black">7.0 Pkt</span>
             </div>
           </div>
         </div>
 
+      </div>
+
+      <div className="bg-white rounded-2xl border border-slate-200 p-4 text-xs text-slate-700 space-y-2">
+        <h3 className="font-black text-slate-900">* Vorgaben für Chapman-Vierer und Einzel</h3>
+        <p>Team-Vorgabe = (60% des niedrigeren Course Handicaps) + (40% des höheren Course Handicaps).</p>
+        <p>Im Chapman-Vierer über 9 Loch wird die Differenz der Team-Vorgaben halbiert.</p>
+        <p>Einzel: 75% der Course-Handicap-Differenz. Bei den 9-Loch-Einzeln an Tag 2 und 3 sind es 50% von 75% der Differenz, also 37,5%. Erst das Endergebnis wird kaufmännisch auf ganze Schläge gerundet (z. B. 4,5 → 5).</p>
       </div>
     </div>
   )
@@ -496,12 +503,17 @@ export function RyderCupRulesTab() {
               <p className="mt-0.5">
                 Front 9 (9 Loch). Beide Partner schlagen ab. Schlag 2 wird jeweils über Kreuz mit dem Ball des Partners gespielt. Ab Schlag 3 wird der beste Ball gewählt und abwechselnd eingelocht.
                 <br />
-                <span className="text-slate-900 font-bold">Pinehurst-Formel:</span> Team-HCP = 60% des niedrigeren + 40% des höheren Spielers. Die Differenz beider Teams wird halbiert (da 9 Loch) und dem Team mit höherem Wert gutgeschrieben.
+                <span className="text-slate-900 font-bold">60/40-Formel:</span> Team-Vorgabe = (60% des niedrigeren Course Handicaps) + (40% des höheren Course Handicaps). Die Differenz beider Teams wird halbiert (da 9 Loch) und dem Team mit höherem Wert gutgeschrieben.
               </p>
             </div>
 
             <div className="pt-2 border-t border-slate-150">
-              <div className="font-black text-slate-900 text-sm">C) Final Day Singles (Tag 4):</div>
+              <div className="font-black text-slate-900 text-sm">C) Einzel an Tag 2 & 3:</div>
+              <p className="mt-0.5">Vormittags über 18 Loch: 75% der Course-Handicap-Differenz. Nachmittags über 9 Loch: 50% von 75% der Differenz (= 37,5%). Erst das Endergebnis wird kaufmännisch auf ganze Schläge gerundet (z. B. 4,5 → 5).</p>
+            </div>
+
+            <div className="pt-2 border-t border-slate-150">
+              <div className="font-black text-slate-900 text-sm">D) Final Day Singles (Tag 4):</div>
               <p className="mt-0.5">
                 18 Loch Einzel-Matchplay. <span className="text-slate-900 font-bold">75% (3/4) Vorgabe</span> der Handicap-Differenz zwischen den beiden Kontrahenten. Gespielt wird strikt nach Handicap (höchstes HCP zuerst, niedrigstes HCP im Top-Match).
               </p>
